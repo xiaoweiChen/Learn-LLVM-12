@@ -1,5 +1,7 @@
 # Learn LLVM 12
-A beginner's guide to learning LLVM compiler tools and core libraries with C++ (*使用C++学习LLVM编译器和核心库的初学者教程*)
+A beginner's guide to learning LLVM compiler tools and core libraries with C++ 
+
+(*使用C++学习LLVM编译器和核心库的初学者教程*)
 
 * 作者：Kai Nacke
 
@@ -13,50 +15,50 @@ A beginner's guide to learning LLVM compiler tools and core libraries with C++ (
 
 ## 本书概述
 
-**Learn how to build and use all parts of real-world compilers, including the frontend, optimization pipeline, and a new backend by leveraging the power of LLVM core libraries**
+学习如何构建和使用编译器，包括前端、流水线优化和利用LLVM核心库的强大功能构建新的后端编译器。
 
-#### Key Features
+LLVM是为了弥合编译器理论和实际开发之间的差异而出现的。它提供了模块化的代码库和先进的工具，帮助开发人员轻松地构建编译器。本书提供了对LLVM的介绍，帮助读者在各种情况下构建和使用编译器。
 
-- Get to grips with effectively using LLVM libraries step-by-step
-- Understand LLVM compiler high-level design and apply the same principles to your own compiler
-- Use compiler-based tools to improve the quality of code in C++ projects
+本书将从配置、构建和安装LLVM库、工具和外部项目开始。接着，向您介绍LLVM的设计，以及在每个编译器阶段(前端、优化器和后端)的实际工作方式。以实际编程语言为例，学习如何使用LLVM开发前端编译器，并生成LLVM IR，将其交给优化流水线，并从中生成机器码。后面的章节将展示如何扩展LLVM，以及LLVM中的指令选择是如何工作的。在了解如何为LLVM开发新的后端编译器之前，将重点讨论即时编译问题和LLVM提供的JIT编译的支持情况。
 
-#### Book Description
+阅读本书后，您将获得使用LLVM编译器开发框架的实际经验，并得到一些具有帮助性的实际示例和源代码片段。
 
-LLVM was built to bridge the gap between compiler textbooks and actual compiler development. It provides a modular codebase and advanced tools which help developers to build compilers easily. This book provides a practical introduction to LLVM, gradually helping you navigate through complex scenarios with ease when it comes to building and working with compilers.
+#### 关键特性
 
-You'll start by configuring, building, and installing LLVM libraries, tools, and external projects. Next, the book will introduce you to LLVM design and how it works in practice during each LLVM compiler stage: frontend, optimizer, and backend. Using a subset of a real programming language as an example, you will then learn how to develop a frontend and generate LLVM IR, hand it over to the optimization pipeline, and generate machine code from it. Later chapters will show you how to extend LLVM with a new pass and how instruction selection in LLVM works. You'll also focus on Just-in-Time compilation issues and the current state of JIT-compilation support that LLVM provides, before finally going on to understand how to develop a new backend for LLVM.
+- 学习如何有效地使用LLVM
+- 理解LLVM编译器的高级设计，并将原则应用到自己的编译器中
+- 使用基于编译器的工具来提高C++项目的代码质量
 
-By the end of this LLVM book, you will have gained real-world experience in working with the LLVM compiler development framework with the help of hands-on examples and source code snippets.
+#### 内容纲要
 
-#### What you will learn
+- 配置、编译和安装LLVM框架
+- 理解LLVM源码的结构
+- 了解在项目中可以使用LLVM做什么
+- 探索编译器是如何构造的，并实现一个小型编译器
+- 为通用源语言构造生成LLVM IR
+- 建立一个优化流水线，并根据自己的需要进行调整
+- 使用转换通道和clang工具对LLVM进行扩展
+- 添加新的机器指令和一个完整的后端编译器
 
-- Configure, compile, and install the LLVM framework
-- Understand how the LLVM source is organized
-- Discover what you need to do to use LLVM in your own projects
-- Explore how a compiler is structured, and implement a tiny compiler
-- Generate LLVM IR for common source language constructs
-- Set up an optimization pipeline and tailor it for your own needs
-- Extend LLVM with transformation passes and clang tooling
-- Add new machine instructions and a complete backend
+
 
 ## 作者简介
 
-Kai Nacke is a professional IT architect currently living in Toronto, Canada. He holds a diploma in computer science from the Technical University of Dortmund, Germany. His diploma thesis about universal hash functions was recognized as the best of the semester.
+**Kai Nacke**是一名专业IT架构师，目前居住在加拿大多伦多。毕业于德国多特蒙德技术大学的计算机科学专业。他关于通用哈希函数的毕业论文，被评为最佳论文。
 
-He has been working in the IT industry for more than 20 years and has great experience in the development and architecture of business and enterprise applications. In his current role, he evolves an LLVM/Clang-based compiler.
+他在IT行业工作超过20年，在业务和企业应用程序的开发和架构方面有丰富的经验。他在研发一个基于LLVM/ clang的编译器。
 
-For some years, he was the maintainer of LDC, the LLVM-based D compiler. He is the author of D Web Development, published by Packt. In the past, he was also a speaker in the LLVM developer room at the Free and Open Source Software Developers' European Meeting (FOSDEM).
+几年来，他一直是LDC(基于LLVM的D语言编译器)的维护者。在Packt出版过《D Web Development》一书，他也曾在自由和开源软件开发者欧洲会议(FOSDEM)的LLVM开发者室做过演讲。
 
 
 
 ## 审评者介绍
 
-Suyog Sarda is a professional software engineer and an open source enthusiast. He focuses on compiler development and compiler tools. He is an active contributor to the LLVM open source community. Suyog was also involved in code performance improvements for the ARM and x86 architectures. He has been a part of the compiler team for the Tizen project. His interest in compiler development lies more in code optimization and vectorization. Previously, he has authored a book on LLVM, titled LLVM Cookbook, published by Packt. Apart from compilers, Suyog is also interested in Linux kernel development. He published a technical paper titled Secure Co-resident Virtualization in Multicore Systems by VM Pinning and Page Coloring at the IEEE Proceedings of the 2012 International Conference on Cloud Computing, Technologies, Applications, and Management at the Birla Institute of Technology, Dubai. He earned a bachelor's degree in computer technology from the College of Engineering, Pune, India.
+**Suyog Sarda**是一名专业的软件工程师和开源爱好者，专注于编译器开发和编译器工具，是LLVM开源社区的积极贡献者。他毕业于了印度浦那工程学院，具有计算机技术学士学位。Suyog还参与了ARM和x86架构的代码性能改进，一直是Tizen项目编译团队的一员，对编译器开发的兴趣在于代码优化和向量化。之前，他写过一本关于LLVM的书，名为LLVM Cookbook，由Packt出版。除了编译器，Suyog还对Linux内核开发感兴趣。他在迪拜Birla Institute of Technology的2012年IEEE Proceedings of the International Conference on Cloud Computing, Technologies, Applications, and Management上发表了一篇题为《VM pin and Page Coloring Secure Co-resident Virtualization in Multicore Systems》的技术论文。
 
 
 
 ## 本书相关
 
-* github翻译地址：
+* github翻译地址：https://github.com/xiaoweiChen/Learn-LLVM-12
 * 本书代码：https://github.com/PacktPublishing/Learn-LLVM-12
