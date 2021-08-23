@@ -36,9 +36,9 @@ LLVM是为了弥合编译器理论和实际开发之间的差异而出现的。�
 - 了解在项目中可以使用LLVM做什么
 - 探索编译器是如何构造的，并实现一个小型编译器
 - 为通用源语言构造生成LLVM IR
-- 建立一个优化流水线，并根据自己的需要进行调整
+- 建立优化流水线，并根据自己的需要进行调整
 - 使用转换通道和clang工具对LLVM进行扩展
-- 添加新的机器指令和一个完整的后端编译器
+- 添加新的机器指令和完整的后端编译器
 
 
 
@@ -54,7 +54,7 @@ LLVM是为了弥合编译器理论和实际开发之间的差异而出现的。�
 
 ## 审评者介绍
 
-**Suyog Sarda**是一名专业的软件工程师和开源爱好者，专注于编译器开发和编译器工具，是LLVM开源社区的积极贡献者。他毕业于了印度浦那工程学院，具有计算机技术学士学位。Suyog还参与了ARM和x86架构的代码性能改进，一直是Tizen项目编译团队的一员，对编译器开发的兴趣在于代码优化和向量化。之前，他写过一本关于LLVM的书，名为LLVM Cookbook，由Packt出版。除了编译器，Suyog还对Linux内核开发感兴趣。他在迪拜Birla Institute of Technology的2012年IEEE Proceedings of the International Conference on Cloud Computing, Technologies, Applications, and Management上发表了一篇题为《VM pin and Page Coloring Secure Co-resident Virtualization in Multicore Systems》的技术论文。
+**Suyog Sarda**是一名专业的软件工程师和开源爱好者，专注于编译器开发和编译器工具，是LLVM开源社区的积极贡献者。他毕业于了印度浦那工程学院，具有计算机技术学士学位。Suyog还参与了ARM和x86架构的代码性能改进，一直是Tizen项目编译团队的一员，对编译器开发的兴趣在于代码优化和向量化。之前，他写过一本关于LLVM的书，名为《LLVM Cookbook》，由Packt出版。除了编译器，Suyog还对Linux内核开发感兴趣。他在迪拜Birla Institute of Technology的2012年IEEE Proceedings of the International Conference on Cloud Computing, Technologies, Applications, and Management上发表了一篇题为《VM pin and Page Coloring Secure Co-resident Virtualization in Multicore Systems》的技术论文。
 
 
 

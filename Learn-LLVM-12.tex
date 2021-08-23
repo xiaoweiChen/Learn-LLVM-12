@@ -1,0 +1,356 @@
+
+\documentclass[11pt,a4paper,UTF8]{ctexart}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{authblk}
+
+\usepackage{ctex} %导入中文包
+\usepackage{tocvsec2}
+
+\usepackage{tabularx}
+\usepackage{booktabs} 
+\usepackage{multirow}
+\usepackage{bbding}
+\usepackage{float}
+\usepackage{xspace}
+
+\usepackage{graphicx}
+\usepackage{subfigure}
+
+\usepackage{subfiles} %使用多文件方式进行
+
+\usepackage{geometry} %设置页边距的包
+\geometry{left=2.5cm,right=2cm,top=2.54cm,bottom=2.54cm} %设置书籍的页边距
+
+\usepackage{hyperref}  %制作pdf的目录
+\hypersetup{hidelinks, %去红框
+	colorlinks=true,
+	allcolors=black,
+	pdfstartview=Fit,
+	breaklinks=true
+}
+
+% 调整itemlist中的行间距
+\usepackage{enumitem}
+\setenumerate[1]{itemsep=0pt,partopsep=0pt,parsep=\parskip,topsep=5pt}
+\setitemize[1]{itemsep=0pt,partopsep=0pt,parsep=\parskip,topsep=5pt}
+\setdescription{itemsep=0pt,partopsep=0pt,parsep=\parskip,topsep=5pt}
+
+% 超链接样式设置
+\usepackage{hyperref}
+\hypersetup{
+	colorlinks=true,
+	linkcolor=blue,
+	filecolor=blue,
+	urlcolor=blue,
+	citecolor=cyan,
+}
+
+\usepackage{indentfirst}
+
+\usepackage{listings}
+\usepackage[usenames,dvipsnames,svgnames, x11names]{xcolor}
+
+\usepackage{tcolorbox}
+
+%展示代码
+\definecolor{mygreen}{rgb}{0,0.6,0}
+\definecolor{mygray}{rgb}{0.5,0.5,0.5}
+\definecolor{mymauve}{rgb}{0.58,0,0.82}
+\lstset{
+	backgroundcolor=\color{blue!3!white}, 
+	basicstyle = \footnotesize,       
+	breakatwhitespace = false,        
+	breaklines = true,                 
+	captionpos = b,                    
+	commentstyle = \color{mygreen}\bfseries,
+	extendedchars = false,             
+	frame =shadowbox, 
+	framerule=0.5pt,
+	keepspaces=true,
+	keywordstyle=\color{blue}\bfseries, % keyword style
+	language = C++,                     % the language of code
+	otherkeywords={string}, 
+	numbers=left, 
+	numbersep=5pt,
+	numberstyle=\tiny\color{mygray},
+	rulecolor=\color{black},         
+	showspaces=false,  
+	showstringspaces=false, 
+	showtabs=false,    
+	stepnumber=1,         
+	stringstyle=\color{mymauve},        % string literal style
+	tabsize=2,          
+	title=\lstname                      
+}
+
+\begin{document}
+	%\maketitle
+	
+	\begin{center}
+		\includegraphics[width=1.\textwidth]{cover}
+		\newpage
+		\huge
+		\textbf{Learn LLVM 12} 
+		\\[9pt]
+		\normalsize
+		A beginner's guide to learning LLVM compiler tools and core libraries with C++ 
+		\\[10pt]
+		\normalsize 
+		作者: Kai Nacke
+		\\[8pt]
+		\normalsize
+		译者；陈晓伟
+	\end{center}
+	
+	\hspace*{\fill} \\ %插入空行
+	\noindent\textbf{本书概述}\ \par
+
+	学习如何构建和使用编译器，包括前端、流水线优化和利用LLVM核心库的强大功能构建新的后端编译器。\par
+	
+	LLVM是为了弥合编译器理论和实际开发之间的差异而出现的。它提供了模块化的代码库和先进的工具，帮助开发人员轻松地构建编译器。本书提供了对LLVM的介绍，帮助读者在各种情况下构建和使用编译器。\par
+	
+	本书将从配置、构建和安装LLVM库、工具和外部项目开始。接着，向您介绍LLVM的设计，以及在每个编译器阶段(前端、优化器和后端)的实际工作方式。以实际编程语言为例，学习如何使用LLVM开发前端编译器，并生成LLVM IR，将其交给优化流水线，并从中生成机器码。后面的章节将展示如何扩展LLVM，以及LLVM中的指令选择是如何工作的。在了解如何为LLVM开发新的后端编译器之前，将重点讨论即时编译问题和LLVM提供的JIT编译的支持情况。\par
+	
+	阅读本书后，您将获得使用LLVM编译器开发框架的实际经验，并得到一些具有帮助性的实际示例和源代码片段。\par
+	
+	\textbf{关键特性}：\par
+	
+	\begin{itemize}
+		\item 学习如何有效地使用LLVM
+		\item 理解LLVM编译器的高级设计，并将原则应用到自己的编译器中
+		\item 使用基于编译器的工具来提高C++项目的代码质量
+	\end{itemize}
+	
+	\textbf{内容纲要}：\par
+	
+	\begin{itemize}
+		\item 配置、编译和安装LLVM框架
+		\item 理解LLVM源码的结构
+		\item 了解在项目中可以使用LLVM做什么
+		\item 探索编译器是如何构造的，并实现一个小型编译器
+		\item 为通用源语言构造生成LLVM IR
+		\item 建立优化流水线，并根据自己的需要进行调整
+		\item 使用转换通道和clang工具对LLVM进行扩展
+		\item 添加新的机器指令和完整的后端编译器
+	\end{itemize}
+	
+	
+	\hspace*{\fill} \\ %插入空行
+	\noindent\textbf{作者简介}\ \par
+	
+	\textbf{Kai Nacke}是一名专业IT架构师，目前居住在加拿大多伦多。毕业于德国多特蒙德技术大学的计算机科学专业。他关于通用哈希函数的毕业论文，被评为最佳论文。\par
+	
+	他在IT行业工作超过20年，在业务和企业应用程序的开发和架构方面有丰富的经验。他在研发一个基于LLVM/ clang的编译器。\par
+	
+	几年来，他一直是LDC(基于LLVM的D语言编译器)的维护者。在Packt出版过《D Web Development》一书，他也曾在自由和开源软件开发者欧洲会议(FOSDEM)的LLVM开发者室做过演讲。\par
+	
+	\hspace*{\fill} \\ %插入空行
+	\noindent\textbf{审评者介绍}\ \par
+	
+	\textbf{Suyog Sarda}是一名专业的软件工程师和开源爱好者，专注于编译器开发和编译器工具，是LLVM开源社区的积极贡献者。他毕业于了印度浦那工程学院，具有计算机技术学士学位。Suyog还参与了ARM和x86架构的代码性能改进，一直是Tizen项目编译团队的一员，对编译器开发的兴趣在于代码优化和向量化。之前，他写过一本关于LLVM的书，名为《LLVM Cookbook》，由Packt出版。除了编译器，Suyog还对Linux内核开发感兴趣。他在迪拜Birla Institute of Technology的2012年IEEE Proceedings of the International Conference on Cloud Computing, Technologies, Applications, and Management上发表了一篇题为《VM pin and Page Coloring Secure Co-resident Virtualization in Multicore Systems》的技术论文。
+
+	
+	\hspace*{\fill} \\ %插入空行
+	\noindent\textbf{本书相关}\ \par
+	\begin{itemize}
+		\item github翻译地址：\href{https://github.com/xiaoweiChen/Learn-LLVM-12}{https://github.com/xiaoweiChen/Learn-LLVM-12}
+		\item 本书代码：\href{https://github.com/PacktPublishing/Learn-LLVM-12}{https://github.com/PacktPublishing/Learn-LLVM-12}
+	\end{itemize}
+	\newpage
+	
+	\tableofcontents
+	\newpage
+	
+	%前言和关于本书
+	\pagestyle{empty}
+	%\subfile{content/Preface.tex}
+	%\subfile{content/About_This_Book.tex}
+
+	\setsecnumdepth{section}
+	\section{Section 1 – The Basics of Compiler	Construction with LLVM}
+	%\subfile{content/1/Part-1.tex}
+	\subsection{1 Installing LLVM}
+	%\subfile{content/1/chapter1/0.tex}
+		\subsubsection{Getting the prerequisites ready}
+		%\subfile{content/1/chapter1/1.tex}
+		\subsubsection{Building with CMake}
+		%\subfile{content/1/chapter1/2.tex}
+		\subsubsection{Customizing the build process}
+		%\subfile{content/1/chapter1/3.tex}
+		\subsubsection{总结}
+		%\subfile{content/1/chapter1/5.tex}
+	\subsection{2 Touring the LLVM Source}
+	%\subfile{content/1/chapter2/0.tex}
+		\subsubsection{Technical requirements}
+		%\subfile{content/1/chapter2/1.tex}
+		\subsubsection{Contents of the LLVM mono repository}
+		%\subfile{content/1/chapter2/2.tex}
+		\subsubsection{Layout of an LLVM project}
+		%\subfile{content/1/chapter2/3.tex}
+		\subsubsection{Creating your own project using LLVM libraries}
+		%\subfile{content/1/chapter2/4.tex}
+		\subsubsection{Targeting a different CPU architecture}
+		%\subfile{content/1/chapter2/5.tex}
+		\subsubsection{总结}
+		%\subfile{content/1/chapter2/6.tex}
+	\subsection{3 The Structure of a Compiler}
+	%\subfile{content/1/chapter3/0.tex}
+		\subsubsection{Technical requirements}
+		%\subfile{content/1/chapter3/1.tex}
+		\subsubsection{Building blocks of a compiler}
+		%\subfile{content/1/chapter3/2.tex}
+		\subsubsection{An arithmetic expression	language}
+		%\subfile{content/1/chapter3/3.tex}
+		\subsubsection{Syntactical analysis}
+		%\subfile{content/1/chapter3/4.tex}
+		\subsubsection{Semantic analysis}
+		%\subfile{content/1/chapter3/4.tex}
+		\subsubsection{Generating code with the LLVM backend}
+		%\subfile{content/1/chapter3/4.tex}
+		\subsubsection{总结}
+		%\subfile{content/1/chapter3/5.tex}
+	\section{Section 2 – From Source to	Machine Code Generation}
+	%\subfile{content/2/Part-2.tex}
+	\subsection{4 Turning the Source File into an Abstract Syntax Tree}
+	%\subfile{content/1/chapter4/0.tex}
+		\subsubsection{Technical requirements}
+		%\subfile{content/1/chapter4/1.tex}
+		\subsubsection{Defining a real programming language}
+		%\subfile{content/1/chapter4/2.tex}
+		\subsubsection{Creating the project layout}
+		%\subfile{content/1/chapter4/3.tex}
+		\subsubsection{Managing source files and user messages}
+		%\subfile{content/1/chapter4/4.tex}
+		\subsubsection{Structuring the lexer}
+		%\subfile{content/1/chapter4/4.tex}
+		\subsubsection{Constructing a recursive	descent parser}
+		%\subfile{content/1/chapter4/4.tex}
+		\subsubsection{Generating a parser and lexer with bison and flex}
+		%\subfile{content/1/chapter4/4.tex}
+		\subsubsection{Performing semantic analysis}
+		%\subfile{content/1/chapter4/4.tex}
+		\subsubsection{总结}
+		%\subfile{content/1/chapter4/5.tex}
+	\subsection{5 Basics of IR Code Generation}
+	%\subfile{content/1/chapter5/0.tex}
+		\subsubsection{Technical requirements}
+		%\subfile{content/1/chapter5/1.tex}
+		\subsubsection{Generating IR from the AST}
+		%\subfile{content/1/chapter5/1.tex}
+		\subsubsection{Using AST numbering to generate IR code in SSA form}
+		%\subfile{content/1/chapter5/2.tex}
+		\subsubsection{Setting up the module and the driver}
+		%\subfile{content/1/chapter5/3.tex}
+		\subsubsection{总结}
+		%\subfile{content/1/chapter5/4.tex}
+	\subsection{6 IR Generation for High-Level Language Constructs}
+	%\subfile{content/1/chapter6/0.tex}
+		\subsubsection{Technical requirements}
+		%\subfile{content/1/chapter6/1.tex}
+		\subsubsection{Working with arrays, structs,and pointers}
+		%\subfile{content/1/chapter6/2.tex}
+		\subsubsection{Getting the application binary interface right}
+		%\subfile{content/1/chapter6/3.tex}
+		\subsubsection{Creating IR code for classes and virtual functions}
+		%\subfile{content/1/chapter6/3.tex}
+		\subsubsection{总结}
+		%\subfile{content/1/chapter6/4.tex}
+	\subsection{7 Advanced IR Generation}
+	%\subfile{content/1/chapter7/0.tex}
+		\subsubsection{Technical requirements}
+		%\subfile{content/1/chapter7/1.tex}
+		\subsubsection{Generating metadata for type-based alias analysis}
+		%\subfile{content/1/chapter7/2.tex}
+		\subsubsection{Throwing and catching exceptions}
+		%\subfile{content/1/chapter7/3.tex}
+		\subsubsection{Adding debug metadata}
+		%\subfile{content/1/chapter7/4.tex}
+		\subsubsection{总结}
+		%\subfile{content/1/chapter7/5.tex}
+	\subsection{8 Optimizing IR}
+	%\subfile{content/1/chapter8/0.tex}
+		\subsubsection{Technical requirements}
+		%\subfile{content/1/chapter8/1.tex}
+		\subsubsection{Introducing the LLVM Pass manager}
+		%\subfile{content/1/chapter8/2.tex}
+		\subsubsection{Implementing a Pass using the new Pass manager}
+		%\subfile{content/1/chapter8/3.tex}
+		\subsubsection{Adapting a Pass for use with the old Pass manager}
+		%\subfile{content/1/chapter8/4.tex}
+		\subsubsection{Adding an optimization pipeline to your compiler}
+		%\subfile{content/1/chapter8/5.tex}
+		\subsubsection{总结}
+		%\subfile{content/1/chapter8/7.tex}
+	
+	\section{Section 3 – Taking LLVM to the Next Level}
+	%\subfile{content/3/Part-3.tex}
+	\subsection{9 Instruction Selection}
+	%\subfile{content/2/chapter9/0.tex}
+		\subsubsection{Technical requirements}
+		%\subfile{content/2/chapter9/1.tex}
+		\subsubsection{Understanding the LLVM target backend structure}
+		%\subfile{content/2/chapter9/2.tex}
+		\subsubsection{Using MIR to test and debug the backend}
+		%\subfile{content/2/chapter9/3.tex}
+		\subsubsection{How instruction selection works}		
+		%\subfile{content/2/chapter9/4.tex}
+		\subsubsection{Supporting new machine instructions}
+		%\subfile{content/2/chapter9/5.tex}
+		\subsubsection{总结}
+		%\subfile{content/2/chapter9/6.tex}
+	\subsection{10 JIT Compilation}
+	%\subfile{content/2/chapter10/0.tex}
+		\subsubsection{Technical requirements}
+		%\subfile{content/2/chapter10/1.tex}
+		\subsubsection{Getting an overview of LLVM's JIT implementation and use cases}
+		%\subfile{content/2/chapter10/2.tex}
+		\subsubsection{Using JIT compilation for direct execution}
+		%\subfile{content/2/chapter10/3.tex}
+		\subsubsection{Utilizing a JIT compiler for code evaluation}
+		%\subfile{content/2/chapter10/4.tex}
+		\subsubsection{总结}
+		%\subfile{content/2/chapter10/5.tex}
+	\subsection{11 Debugging Using LLVM Tools}
+	%\subfile{content/2/chapter11/0.tex}
+		\subsubsection{Technical requirements}
+		%\subfile{content/2/chapter11/1.tex}
+		\subsubsection{Instrumenting an application with sanitizers}
+		%\subfile{content/2/chapter11/2.tex}
+		\subsubsection{Finding bugs with libFuzzer}
+		%\subfile{content/2/chapter11/3.tex}
+		\subsubsection{Performance profiling with XRay}
+		%\subfile{content/2/chapter11/4.tex}
+		\subsubsection{Checking the source with the Clang Static Analyzer}
+		%\subfile{content/2/chapter11/5.tex}
+		\subsubsection{Creating your own Clang-based tool}
+		%\subfile{content/2/chapter11/5.tex}
+		\subsubsection{总结}
+		%\subfile{content/2/chapter11/6.tex}
+	\subsection{12 Create Your Own Backend}
+	%\subfile{content/2/chapter12/0.tex}
+		\subsubsection{Technical requirements}
+		%\subfile{content/2/chapter12/1.tex}
+		\subsubsection{Setting the stage for a new backend}
+		%\subfile{content/2/chapter12/2.tex}
+		\subsubsection{Adding the new architecture to the Triple class}
+		%\subfile{content/2/chapter12/3.tex}
+		\subsubsection{Extending the ELF file format definition in LLVM}
+		%\subfile{content/3/chapter13/1.tex}
+		\subsubsection{Creating the target description}
+		%\subfile{content/3/chapter13/2.tex}
+		\subsubsection{Implementing the DAG instruction selection classes}
+		%\subfile{content/3/chapter14/1.tex}
+		\subsubsection{Generating assembler instructions}
+		%\subfile{content/3/chapter14/2.tex}
+		\subsubsection{Emitting machine code}
+		%\subfile{content/3/chapter14/3.tex}
+		\subsubsection{Adding support for disassembling}
+		%\subfile{content/3/chapter14/4.tex}
+		\subsubsection{Piecing it all together}
+		%\subfile{content/3/chapter15/1.tex}
+		\subsubsection{总结}
+		%\subfile{content/3/chapter15/7.tex}
+\end{document}
+
