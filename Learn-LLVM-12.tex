@@ -142,14 +142,14 @@
 	
 	\textbf{Kai Nacke}是一名专业IT架构师，目前居住在加拿大多伦多。毕业于德国多特蒙德技术大学的计算机科学专业。他关于通用哈希函数的毕业论文，被评为最佳论文。\par
 	
-	他在IT行业工作超过20年，在业务和企业应用程序的开发和架构方面有丰富的经验。他在研发一个基于LLVM/ clang的编译器。\par
+	他在IT行业工作超过20年，在业务和企业应用程序的开发和架构方面有丰富的经验。他在研发一个基于LLVM/Clang的编译器。\par
 	
 	几年来，他一直是LDC(基于LLVM的D语言编译器)的维护者。在Packt出版过《D Web Development》一书，他也曾在自由和开源软件开发者欧洲会议(FOSDEM)的LLVM开发者室做过演讲。\par
 	
 	\hspace*{\fill} \\ %插入空行
 	\noindent\textbf{审评者介绍}\ \par
 	
-	\textbf{Suyog Sarda}是一名专业的软件工程师和开源爱好者，专注于编译器开发和编译器工具，是LLVM开源社区的积极贡献者。他毕业于了印度浦那工程学院，具有计算机技术学士学位。Suyog还参与了ARM和x86架构的代码性能改进，一直是Tizen项目编译团队的一员，对编译器开发的兴趣在于代码优化和向量化。之前，他写过一本关于LLVM的书，名为《LLVM Cookbook》，由Packt出版。除了编译器，Suyog还对Linux内核开发感兴趣。他在迪拜Birla Institute of Technology的2012年IEEE Proceedings of the International Conference on Cloud Computing, Technologies, Applications, and Management上发表了一篇题为《VM pin and Page Coloring Secure Co-resident Virtualization in Multicore Systems》的技术论文。
+	\textbf{Suyog Sarda}是一名专业的软件工程师和开源爱好者，专注于编译器开发和编译器工具，是LLVM开源社区的积极贡献者。他毕业于了印度浦那工程学院，具有计算机技术学士学位。Suyog还参与了ARM和X86架构的代码性能改进，一直是Tizen项目编译团队的一员，对编译器开发的兴趣在于代码优化和向量化。之前，他写过一本关于LLVM的书，名为《LLVM Cookbook》，由Packt出版。除了编译器，Suyog还对Linux内核开发感兴趣。他在迪拜Birla Institute of Technology的2012年IEEE Proceedings of the International Conference on Cloud Computing, Technologies, Applications, and Management上发表了一篇题为《VM pin and Page Coloring Secure Co-resident Virtualization in Multicore Systems》的技术论文。
 
 	
 	\hspace*{\fill} \\ %插入空行
@@ -165,71 +165,70 @@
 	
 	%前言和关于本书
 	\pagestyle{empty}
-	%\subfile{content/Preface.tex}
-	%\subfile{content/About_This_Book.tex}
+	\subfile{content/Preface.tex}
 
 	\setsecnumdepth{section}
-	\section{Section 1 – The Basics of Compiler	Construction with LLVM}
-	%\subfile{content/1/Part-1.tex}
-	\subsection{1 Installing LLVM}
+	\section{构建LLVM}
+	\subfile{content/1/Part-1.tex}
+	\subsection{1 安装LLVM}
 	%\subfile{content/1/chapter1/0.tex}
-		\subsubsection{Getting the prerequisites ready}
+		\subsubsection{相关准备}
 		%\subfile{content/1/chapter1/1.tex}
-		\subsubsection{Building with CMake}
+		\subsubsection{使用CMake构建}
 		%\subfile{content/1/chapter1/2.tex}
-		\subsubsection{Customizing the build process}
+		\subsubsection{定制化构建}
 		%\subfile{content/1/chapter1/3.tex}
 		\subsubsection{总结}
 		%\subfile{content/1/chapter1/5.tex}
-	\subsection{2 Touring the LLVM Source}
+	\subsection{2 了解LLVM源码}
 	%\subfile{content/1/chapter2/0.tex}
-		\subsubsection{Technical requirements}
+		\subsubsection{相关代码}
 		%\subfile{content/1/chapter2/1.tex}
-		\subsubsection{Contents of the LLVM mono repository}
+		\subsubsection{LLVM代码的内容}
 		%\subfile{content/1/chapter2/2.tex}
-		\subsubsection{Layout of an LLVM project}
+		\subsubsection{LLVM的项目结构}
 		%\subfile{content/1/chapter2/3.tex}
-		\subsubsection{Creating your own project using LLVM libraries}
+		\subsubsection{使用LLVM创建自己的项目}
 		%\subfile{content/1/chapter2/4.tex}
-		\subsubsection{Targeting a different CPU architecture}
+		\subsubsection{针对不同的CPU架构}
 		%\subfile{content/1/chapter2/5.tex}
 		\subsubsection{总结}
 		%\subfile{content/1/chapter2/6.tex}
-	\subsection{3 The Structure of a Compiler}
+	\subsection{3 编译器的结构}
 	%\subfile{content/1/chapter3/0.tex}
-		\subsubsection{Technical requirements}
+		\subsubsection{相关代码}
 		%\subfile{content/1/chapter3/1.tex}
-		\subsubsection{Building blocks of a compiler}
+		\subsubsection{编译器的构建块}
 		%\subfile{content/1/chapter3/2.tex}
-		\subsubsection{An arithmetic expression	language}
+		\subsubsection{算术表达式语言}
 		%\subfile{content/1/chapter3/3.tex}
-		\subsubsection{Syntactical analysis}
+		\subsubsection{语法分析}
 		%\subfile{content/1/chapter3/4.tex}
-		\subsubsection{Semantic analysis}
+		\subsubsection{语义分析}
 		%\subfile{content/1/chapter3/4.tex}
-		\subsubsection{Generating code with the LLVM backend}
+		\subsubsection{使用LLVM后端编译器生成代码}
 		%\subfile{content/1/chapter3/4.tex}
 		\subsubsection{总结}
 		%\subfile{content/1/chapter3/5.tex}
-	\section{Section 2 – From Source to	Machine Code Generation}
+	\section{从源码到机器码}
 	%\subfile{content/2/Part-2.tex}
-	\subsection{4 Turning the Source File into an Abstract Syntax Tree}
+	\subsection{4 将源文件转换为抽象语法树}
 	%\subfile{content/1/chapter4/0.tex}
-		\subsubsection{Technical requirements}
+		\subsubsection{相关代码}
 		%\subfile{content/1/chapter4/1.tex}
-		\subsubsection{Defining a real programming language}
+		\subsubsection{定义一种编程语言}
 		%\subfile{content/1/chapter4/2.tex}
-		\subsubsection{Creating the project layout}
+		\subsubsection{创建项目结构}
 		%\subfile{content/1/chapter4/3.tex}
-		\subsubsection{Managing source files and user messages}
+		\subsubsection{管理源文件和用户消息}
 		%\subfile{content/1/chapter4/4.tex}
-		\subsubsection{Structuring the lexer}
+		\subsubsection{构建词法分析器}
 		%\subfile{content/1/chapter4/4.tex}
-		\subsubsection{Constructing a recursive	descent parser}
+		\subsubsection{构建递归下降解析器}
 		%\subfile{content/1/chapter4/4.tex}
-		\subsubsection{Generating a parser and lexer with bison and flex}
+		\subsubsection{用bison和flex生成解析器和词法分析器}
 		%\subfile{content/1/chapter4/4.tex}
-		\subsubsection{Performing semantic analysis}
+		\subsubsection{执行语义分析}
 		%\subfile{content/1/chapter4/4.tex}
 		\subsubsection{总结}
 		%\subfile{content/1/chapter4/5.tex}
@@ -284,7 +283,7 @@
 		\subsubsection{总结}
 		%\subfile{content/1/chapter8/7.tex}
 	
-	\section{Section 3 – Taking LLVM to the Next Level}
+	\section{Taking LLVM to the Next Level}
 	%\subfile{content/3/Part-3.tex}
 	\subsection{9 Instruction Selection}
 	%\subfile{content/2/chapter9/0.tex}

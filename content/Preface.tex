@@ -1,0 +1,122 @@
+\begin{flushright}
+	\zihao{0} 前言
+\end{flushright}
+
+Constructing a compiler is a complex and fascinating task. The LLVM project provides reusable components for your compiler. The LLVM core libraries implement a world-class optimizing code generator, which translates a source language-independent intermediate representation of machine code for all popular CPU architectures. The compilers for many programming languages already take advantage of LLVM technology.\par
+
+This book teaches you how to implement your own compiler and how to use LLVM
+to achieve it. You will learn how the frontend of a compiler turns source code into an abstract syntax tree, and how to generate intermediate representation (IR) from it. Adding an optimization pipeline to your compiler, you can compile the IR to performant machine code.\par
+
+The LLVM framework can be extended in several ways, and you will learn how to add new passes, new machine instructions, and even a completely new backend to LLVM. Advanced topics such as compiling for a different CPU architecture and extending clang and the clang static analyzer with your own plugins and checkers are also covered. This book follows a practical approach and is packed with example source code, which makes it easy to apply the knowledge gained in your own projects.\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{Who this book is for}
+
+This book is for compiler developers, enthusiasts, and engineers who are new to LLVM and are interested in learning about the LLVM framework. It is also useful for C++ software engineers looking to use compiler-based tools for code analysis and improvement, as well as casual users of LLVM libraries who want to gain more knowledge of LLVM essentials. Intermediate-level experience with C++ programming is mandatory to understand the concepts covered in this book more effectively.\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{What this book covers}
+
+\textit{Chapter 1, Installing LLVM}, explains how to set up and use your development environment. At the end of the chapter, you will have compiled the LLVM libraries and learned how to customize the build process.\par
+
+\textit{Chapter 2, Touring the LLVM Source}, introduces you to the various LLVM projects and discusses the common directory layout shared by all projects. You will create your first project using the LLVM core libraries, and you will also compile it for a different CPU architecture.\par
+
+\textit{Chapter 3, The Structure of a Compiler}, gives you an overview of the components of a compiler. At the end of the chapter, you will have implemented your first compiler producing LLVM IR.\par
+
+\textit{Chapter 4, Turning the Source File into an Abstract Syntax Tree}, teaches you in detail how to implement the frontend of a compiler. You will create your own frontend for a small programming language, ending with the construction of an abstract syntax tree.\par
+
+\textit{Chapter 5, Basics of IR Generation}, shows you how to generate LLVM IR from an abstract syntax tree. At the end of the chapter, you will have implemented a compiler for the example language, emitting assembly text or object code files as a result.\par
+
+\textit{Chapter 6, IR Generation for High-Level Language Constructs}, illustrates how you translate source language features commonly found in high-level programming languages to LLVM IR. You will learn about the translation of aggregate data types, the various options to implement class inheritance and virtual functions, and how to comply with the application binary interface of your system.\par
+
+\textit{Chapter 7, Advanced IR Generation}, shows you how to generate LLVM IR for exceptionhandling statements in the source language. You will also learn how to add metadata for type-based alias analysis, and how to add debug information to the generated LLVM IR, and you will extend your compiler-generated metadata.\par
+
+\textit{Chapter 8, Optimizing IR}, explains the LLVM pass manager. You will implement your own pass, both as part of LLVM and as a plugin, and you will learn how to add your new pass to the optimizing pass pipeline.\par
+
+\textit{Chapter 9, Instruction Selection}, shows how LLVM lowers IR to machine instructions. You will learn how instructions are defined in LLVM, and you will add a new machine instruction to LLVM so that instruction selection takes the new instruction into account.\par
+
+\textit{Chapter 10, JIT Compilation}, discusses how you can use LLVM to implement a just-intime (JIT) compiler. By the end of the chapter, you will have implemented your own JIT compiler for LLVM IR in two different ways.\par
+
+\textit{Chapter 11, Debugging Using LLVM Tools}, explores the details of various libraries and components of LLVM, which helps you to identify bugs in your application. You will use the sanitizers to identify buffer overflows and other bugs. With the libFuzzer library, you will test functions with random data as input, and XRay will help you to find performance bottlenecks. You will use the clang static analyzer to identify bugs at the source level, and you will learn that you can add your own checker to the analyzer. You will also learn how to extend clang with your own plugin.\par
+
+\textit{Chapter 12, Creating Your Own Backend}, explains how you can add a new backend to LLVM. You will implement all the necessary classes, and at the end of the chapter you will compile LLVM IR to yet another CPU architecture.\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{To get the most out of this book}
+
+\textit{You need a computer running Linux, Windows, macOS, or FreeBSD, with the development toolchain installed for the operating system. Please see the table for the required tools. All tools should be in the search path of your shell.}\par
+
+\begin{table}[]
+	\begin{tabular}{ll}
+		Software/hardware covered in the book                                                                                                                  & Os requirements                                                                  \\
+		\begin{tabular}[c]{@{}l@{}}A C/C++ compiler:gcc 5.1.0 or later, clang3.5 or later\\ Apple clang 6.0 or later, Visual Studio 2017 or later\end{tabular} & \begin{tabular}[c]{@{}l@{}}Linux(any), Windows,\\ macOS, or FreeBSD\end{tabular} \\
+		CMake 3.13.4 or later                                                                                                                                  &                                                                                  \\
+		Ninja 1.9.0                                                                                                                                            &                                                                                  \\
+		Python 3.6 or later                                                                                                                                    &                                                                                  \\
+		Git 1.7.10 or later                                                                                                                                    &                                                                                 
+	\end{tabular}
+\end{table}
+
+To view the DAG visualization in Chapter 9, Instruction Selection, you must have the Graphviz software from https://graphviz.org/ installed. By default, the generated image is in PDF format, and you need a PDF viewer to show it.\par
+
+To create the flame graph in Chapter 11, Debugging Using LLVM Tools, you need to install the scripts from https://github.com/brendangregg/FlameGraph. To run the script, you also need a recent version of Perl installed, and to view the graph you need a web browser capable of displaying SVG files, which all modern browsers do. To see the Chrome Trace Viewer visualization in the same chapter, you need to have the Chrome browser installed.\par
+
+\textbf{If you are using the digital version of this book, we advise you to type the code yourself or access the code via the GitHub repository (link available in the next section). Doing so will help you avoid any potential errors related to the copying and pasting of code.}\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{Download the example code files}
+
+You can download the example code files for this book from GitHub at https://github.com/PacktPublishing/Learn-LLVM-12. In case there's an update to the code, it will be updated on the existing GitHub repository.\par
+
+We also have other code bundles from our rich catalog of books and videos available at https://github.com/PacktPublishing/. Check them out!\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{Code in Action}
+
+Code in Action videos for this book can be viewed at https://bit.ly/3nllhED \par
+
+\hspace*{\fill} \par %插入空行
+\textbf{Download the color images}
+
+We also provide a PDF file that has color images of the screenshots/diagrams used in this book. You can download it here: 
+https://static.packt-cdn.com/
+downloads/9781839213502\_ColorImages.pdf.\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{Get in touch}
+
+Feedback from our readers is always welcome.\par
+
+General feedback: If you have questions about any aspect of this book, mention the book title in the subject of your message and email us at customercare@packtpub.com.\par
+
+Errata: Although we have taken every care to ensure the accuracy of our content, mistakes do happen. If you have found a mistake in this book, we would be grateful if you would report this to us. Please visit www.packtpub.com/support/errata, selecting your book, clicking on the Errata Submission Form link, and entering the details.\par
+
+Piracy: If you come across any illegal copies of our works in any form on the Internet, we would be grateful if you would provide us with the location address or website name. Please contact us at copyright@packt.com with a link to the material.\par
+
+If you are interested in becoming an author: If there is a topic that you have expertise in and you are interested in either writing or contributing to a book, please visit authors.packtpub.com.\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{Reviews}
+
+Please leave a review. Once you have read and used this book, why not leave a review on the site that you purchased it from? Potential readers can then see and use your unbiased opinion to make purchase decisions, we at Packt can understand what you think about our products, and our authors can see your feedback on their book. Thank you!\par
+
+For more information about Packt, please visit packt.com.\par
+
+\newpage
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
