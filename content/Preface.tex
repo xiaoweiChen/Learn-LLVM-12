@@ -2,105 +2,104 @@
 	\zihao{0} 前言
 \end{flushright}
 
-Constructing a compiler is a complex and fascinating task. The LLVM project provides reusable components for your compiler. The LLVM core libraries implement a world-class optimizing code generator, which translates a source language-independent intermediate representation of machine code for all popular CPU architectures. The compilers for many programming languages already take advantage of LLVM technology.\par
+构造编译器是一项复杂而有趣的任务。LLVM为编译器提供了可重用组件，其核心库实现了一个世界级的优化代码生成器，它为所有主流CPU架构转换代码提供了独立的中间表示。许多编译器已经在使用LLVM的相关技术了。\par
 
-This book teaches you how to implement your own compiler and how to use LLVM
-to achieve it. You will learn how the frontend of a compiler turns source code into an abstract syntax tree, and how to generate intermediate representation (IR) from it. Adding an optimization pipeline to your compiler, you can compile the IR to performant machine code.\par
+这本书会教您如何实现自己的编译器，并通过LLVM实现它。您将了解前端编译器如何将源代码转换为抽象语法树，以及如何从中生成中间表示(IR)。如何向编译器添加优化流水，对IR进行优化，并编译为性能不错的机器代码。\par
 
-The LLVM framework can be extended in several ways, and you will learn how to add new passes, new machine instructions, and even a completely new backend to LLVM. Advanced topics such as compiling for a different CPU architecture and extending clang and the clang static analyzer with your own plugins and checkers are also covered. This book follows a practical approach and is packed with example source code, which makes it easy to apply the knowledge gained in your own projects.\par
-
-\hspace*{\fill} \par %插入空行
-\textbf{Who this book is for}
-
-This book is for compiler developers, enthusiasts, and engineers who are new to LLVM and are interested in learning about the LLVM framework. It is also useful for C++ software engineers looking to use compiler-based tools for code analysis and improvement, as well as casual users of LLVM libraries who want to gain more knowledge of LLVM essentials. Intermediate-level experience with C++ programming is mandatory to understand the concepts covered in this book more effectively.\par
+LLVM框架可以通过多种方式进行扩展，您将学习如何添加新的通道、新的机器指令，甚至是全新的LLVM后端。还有高级主题，如编译不同的CPU架构和扩展clang、clang静态分析器与插件和检查器也涵盖其中。本书遵循最实用的方法，并附带了示例源代码，这可以让您更容易得在项目中应用所学习到的知识。\par
 
 \hspace*{\fill} \par %插入空行
-\textbf{What this book covers}
+\textbf{适宜读者}
 
-\textit{Chapter 1, Installing LLVM}, explains how to set up and use your development environment. At the end of the chapter, you will have compiled the LLVM libraries and learned how to customize the build process.\par
-
-\textit{Chapter 2, Touring the LLVM Source}, introduces you to the various LLVM projects and discusses the common directory layout shared by all projects. You will create your first project using the LLVM core libraries, and you will also compile it for a different CPU architecture.\par
-
-\textit{Chapter 3, The Structure of a Compiler}, gives you an overview of the components of a compiler. At the end of the chapter, you will have implemented your first compiler producing LLVM IR.\par
-
-\textit{Chapter 4, Turning the Source File into an Abstract Syntax Tree}, teaches you in detail how to implement the frontend of a compiler. You will create your own frontend for a small programming language, ending with the construction of an abstract syntax tree.\par
-
-\textit{Chapter 5, Basics of IR Generation}, shows you how to generate LLVM IR from an abstract syntax tree. At the end of the chapter, you will have implemented a compiler for the example language, emitting assembly text or object code files as a result.\par
-
-\textit{Chapter 6, IR Generation for High-Level Language Constructs}, illustrates how you translate source language features commonly found in high-level programming languages to LLVM IR. You will learn about the translation of aggregate data types, the various options to implement class inheritance and virtual functions, and how to comply with the application binary interface of your system.\par
-
-\textit{Chapter 7, Advanced IR Generation}, shows you how to generate LLVM IR for exceptionhandling statements in the source language. You will also learn how to add metadata for type-based alias analysis, and how to add debug information to the generated LLVM IR, and you will extend your compiler-generated metadata.\par
-
-\textit{Chapter 8, Optimizing IR}, explains the LLVM pass manager. You will implement your own pass, both as part of LLVM and as a plugin, and you will learn how to add your new pass to the optimizing pass pipeline.\par
-
-\textit{Chapter 9, Instruction Selection}, shows how LLVM lowers IR to machine instructions. You will learn how instructions are defined in LLVM, and you will add a new machine instruction to LLVM so that instruction selection takes the new instruction into account.\par
-
-\textit{Chapter 10, JIT Compilation}, discusses how you can use LLVM to implement a just-intime (JIT) compiler. By the end of the chapter, you will have implemented your own JIT compiler for LLVM IR in two different ways.\par
-
-\textit{Chapter 11, Debugging Using LLVM Tools}, explores the details of various libraries and components of LLVM, which helps you to identify bugs in your application. You will use the sanitizers to identify buffer overflows and other bugs. With the libFuzzer library, you will test functions with random data as input, and XRay will help you to find performance bottlenecks. You will use the clang static analyzer to identify bugs at the source level, and you will learn that you can add your own checker to the analyzer. You will also learn how to extend clang with your own plugin.\par
-
-\textit{Chapter 12, Creating Your Own Backend}, explains how you can add a new backend to LLVM. You will implement all the necessary classes, and at the end of the chapter you will compile LLVM IR to yet another CPU architecture.\par
+本书为刚接触LLVM并且对LLVM框架感兴趣的编译器开发人员、爱好者和工程师编写。对于希望使用基于编译器的工具进行代码分析和改进的C++软件工程师，以及希望获得更多LLVM基本知识的LLVM库的用户也很有用。为了更有效地理解本书中所涵盖的概念，必须具有中级C++编程经验。\par
 
 \hspace*{\fill} \par %插入空行
-\textbf{To get the most out of this book}
+\textbf{本书内容}
 
-\textit{You need a computer running Linux, Windows, macOS, or FreeBSD, with the development toolchain installed for the operating system. Please see the table for the required tools. All tools should be in the search path of your shell.}\par
+\textit{第1章，安装LLVM}，介绍如何设置和使用开发环境。您会了解如何编译了LLVM库，并学习了如何自定义构建过程。\par
 
-\begin{table}[]
-	\begin{tabular}{ll}
-		Software/hardware covered in the book                                                                                                                  & Os requirements                                                                  \\
-		\begin{tabular}[c]{@{}l@{}}A C/C++ compiler:gcc 5.1.0 or later, clang3.5 or later\\ Apple clang 6.0 or later, Visual Studio 2017 or later\end{tabular} & \begin{tabular}[c]{@{}l@{}}Linux(any), Windows,\\ macOS, or FreeBSD\end{tabular} \\
-		CMake 3.13.4 or later                                                                                                                                  &                                                                                  \\
-		Ninja 1.9.0                                                                                                                                            &                                                                                  \\
-		Python 3.6 or later                                                                                                                                    &                                                                                  \\
-		Git 1.7.10 or later                                                                                                                                    &                                                                                 
+\textit{第2章，浏览LLVM}，向您介绍各种LLVM项目，并讨论所有项目共享的公共目录结构。您将使用LLVM核心库创建第一个项目，还可以为不同的CPU架构编译它。\par
+
+\textit{第3章，编译器结构}，提供编译器组件的概述。您将首次实现可以生成LLVM IR的编译器。\par
+
+\textit{第4章，将源码转换为抽象语法树}，详细地介绍了如何实现编译器的前端。您将为小型编程语言创建自己的前端，最后构建抽象语法树。\par
+
+\textit{第5章，生成IR——基础知识}，展示了如何从抽象语法树生成LLVM IR。本章的最后，您将为示例语言实现一个编译器，从而产生汇编文本或目标代码文件。\par
+
+\textit{第6章，生成高级语言结构的IR}，介绍了如何将高级编程语言中常见的源语言特性转换为LLVM IR。您将了解聚合数据类型的转换、实现类继承和虚函数的各种选项，以及如何遵循系统的应用二进制接口。\par
+
+\textit{第七章，生成IR——进阶知识}，介绍了如何在源语言中为异常处理语句生成LLVM IR。您还将了解如何为基于类型的别名分析添加元数据，以及如何向生成的LLVM IR添加调试信息，并且您将扩展编译器生成的元数据。\par
+
+\textit{第8章，优化IR}，介绍LLVM通道管理器。您将实现你自己的通道，作为LLVM的一部分和插件，您将学习如何添加新通道到优化通道流水中。\par
+
+\textit{第9章，选择指令}，介绍了LLVM如何减少生成机器指令的IR。您将学习如何在LLVM中定义指令，并将向LLVM添加一条新的机器指令，以便在选择指令时使用新指令。\par
+
+\textit{第10章，JIT编译}，讨论如何使用LLVM来实现JIT编译器。本章结束时，您将通过两种不同的方式实现自己的LLVM IR JIT编译器。\par
+
+\textit{第11章，使用LLVM工具调试}，探索了LLVM的各种库和组件，这可以帮助您了解应用程序中的bug。您将使用“杀虫剂”来识别内存溢出和其他错误。使用libFuzzer库，将随机数据作为输入测试函数。XRay也能帮助您找到性能瓶颈。您将使用clang静态分析程序来识别源代码级的bug，并且可以将自己的检查程序添加到分析程序中。您还将学习如何使用自己的插件扩展clang。\par
+
+\textit{第12章，创建自己的后端}，说明如何向LLVM添加新的后端。需要实现所有必要的类，在本章的最后，将为另一种CPU架构编译LLVM IR。\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{编译环境}
+
+\textit{需要一台运行Linux、Windows、macOS或FreeBSD的计算机，并为该操作系统安装了开发工具链。所需工具见表。所有工具都应该在shell的搜索路径中。}\par
+
+\begin{table}[H]
+	\begin{tabular}{|l|l|}
+		\hline
+		书中涉及的软件/硬件                                                                                                                  & 操作系统                                                             \\ \hline
+		\begin{tabular}[c]{@{}l@{}} C/C++编译器：gcc 5.1.0或更高版本, clang3.5或更高版本\\ Apple clang 6.0或更高版本, Visual Studio 2017或更高版本\end{tabular} & \begin{tabular}[c]{@{}l@{}}Linux(any), Windows,\\ macOS,或FreeBSD\end{tabular} \\ \hline
+		CMake 3.13.4或更高版本                                                                                                                                  &                                                                                  \\ \hline
+		Ninja 1.9.0                                                                                                                                            &                                                                                  \\ \hline
+		Python 3.6或更高版本                                                                                                                                    &                                                                                  \\ \hline
+		Git 1.7.10或更高版本                                                                                                                                    &                                                                                  \\ \hline
 	\end{tabular}
 \end{table}
 
-To view the DAG visualization in Chapter 9, Instruction Selection, you must have the Graphviz software from https://graphviz.org/ installed. By default, the generated image is in PDF format, and you need a PDF viewer to show it.\par
+第9章“指令选择”中的DAG可视化，必须安装https://graphviz.org/的Graphviz。默认情况下，生成的图像是PDF格式的，所以需要PDF查看器来显示。\par
 
-To create the flame graph in Chapter 11, Debugging Using LLVM Tools, you need to install the scripts from https://github.com/brendangregg/FlameGraph. To run the script, you also need a recent version of Perl installed, and to view the graph you need a web browser capable of displaying SVG files, which all modern browsers do. To see the Chrome Trace Viewer visualization in the same chapter, you need to have the Chrome browser installed.\par
+第11章“使用LLVM工具调试”中创建“火焰图”，需要从\\https://github.com/brendangregg/FlameGraph获取安装脚本。要运行该脚本，还需要安装最新版本的Perl，要查看图形，还需要一个能够显示SVG文件的Web浏览器(主流浏览器都没问题)。要在同一章中看到Chrome跟踪查看器可视化，需要安装Chrome浏览器。\par
 
-\textbf{If you are using the digital version of this book, we advise you to type the code yourself or access the code via the GitHub repository (link available in the next section). Doing so will help you avoid any potential errors related to the copying and pasting of code.}\par
-
-\hspace*{\fill} \par %插入空行
-\textbf{Download the example code files}
-
-You can download the example code files for this book from GitHub at https://github.com/PacktPublishing/Learn-LLVM-12. In case there's an update to the code, it will be updated on the existing GitHub repository.\par
-
-We also have other code bundles from our rich catalog of books and videos available at https://github.com/PacktPublishing/. Check them out!\par
+\textbf{如果正在使用本书的数字版本，我们建议您自己输入代码或通过GitHub存储库访问代码(下一节提供链接)，将避免复制和粘贴代码。}\par
 
 \hspace*{\fill} \par %插入空行
-\textbf{Code in Action}
+\textbf{下载示例}
 
-Code in Action videos for this book can be viewed at https://bit.ly/3nllhED \par
+可以从GitHub网站https://github.com/PacktPublishing/Learn-LLVM-12下载本书的示例代码。如果有对代码的更新，也会在现有的GitHub存储库中更新。\par
 
-\hspace*{\fill} \par %插入空行
-\textbf{Download the color images}
-
-We also provide a PDF file that has color images of the screenshots/diagrams used in this book. You can download it here: 
-https://static.packt-cdn.com/
-downloads/9781839213502\_ColorImages.pdf.\par
+我们还在https://github.com/PacktPublishing/上提供了丰富的图书和视频目录中的其他代码包。可以一起拿来看看!\par
 
 \hspace*{\fill} \par %插入空行
-\textbf{Get in touch}
+\textbf{实例演示}
 
-Feedback from our readers is always welcome.\par
-
-General feedback: If you have questions about any aspect of this book, mention the book title in the subject of your message and email us at customercare@packtpub.com.\par
-
-Errata: Although we have taken every care to ensure the accuracy of our content, mistakes do happen. If you have found a mistake in this book, we would be grateful if you would report this to us. Please visit www.packtpub.com/support/errata, selecting your book, clicking on the Errata Submission Form link, and entering the details.\par
-
-Piracy: If you come across any illegal copies of our works in any form on the Internet, we would be grateful if you would provide us with the location address or website name. Please contact us at copyright@packt.com with a link to the material.\par
-
-If you are interested in becoming an author: If there is a topic that you have expertise in and you are interested in either writing or contributing to a book, please visit authors.packtpub.com.\par
+本书代码的演示视频可以在https://bit.ly/3nllhED上查看 \par
 
 \hspace*{\fill} \par %插入空行
-\textbf{Reviews}
+\textbf{下载彩图}
 
-Please leave a review. Once you have read and used this book, why not leave a review on the site that you purchased it from? Potential readers can then see and use your unbiased opinion to make purchase decisions, we at Packt can understand what you think about our products, and our authors can see your feedback on their book. Thank you!\par
+我们还提供了一个PDF文件，里面有本书中使用的屏幕截图/图表的彩色图像。可在此下载:
+https://static.packt-cdn.com/downloads/9781839213502\_ColorImages.pdf。\par
 
-For more information about Packt, please visit packt.com.\par
+\hspace*{\fill} \par %插入空行
+\textbf{联系方式}
+
+我们欢迎读者的反馈。\par
+
+反馈：如果你对这本书的任何方面有疑问，需要在你的信息的主题中提到书名，并给我们发邮件到customercare@packtpub.com。\par
+
+勘误：尽管我们谨慎地确保内容的准确性，但错误还是会发生。如果您在本书中发现了错误，请向我们报告，我们将不胜感激。请访问www.packtpub.com/support/errata，选择您的书，点击勘误表提交表单链接，并输入详细信息。\par
+
+盗版:如果您在互联网上发现任何形式的我们的作品的非法拷贝，我们将非常感谢您提供我们的位置地址或网站名称。请通过copyright@packt.com与我们联系，并提供材料链接。\par
+
+如果你对成为书籍作者感兴趣：如果你对某一主题有专长，又想写一本书或为之撰稿，请访问authors.packtpub.com。\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{欢迎评论}
+
+请留下评论。当您阅读并使用了本书，为什么不在购买网站上留下评论呢？其他读者可以看到您的评论，并根据您的意见来做出购买决定。我们在Packt可以了解您对我们产品的看法，作者也可以看到您对他们撰写书籍的反馈。谢谢你！\par
+
+想要了解Packt的更多信息，请访问packt.com。\par
 
 \newpage
 
