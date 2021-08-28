@@ -162,11 +162,18 @@
 	
 	
 	\begin{center}
-		写书是一项具有挑战性的任务。尤其是正计划移居加拿大时，突然一场流行病袭击了世界，改变了一切。Packt的团队在写作上给予指导，也对我缓慢的写作速度表示理解，并一直激励我坚持下去。我非常非常感谢他们。\par
+		\vspace*{\fill}
+		写书是一项具有挑战性的任务。尤其是正计划移居加拿大时，突然一场流行病袭击了世界，改变了一切。\par
+		
+		\hspace*{\fill} \par
+		
+		Packt的团队在写作上给予指导，也对我缓慢的写作速度表示理解，并一直激励我坚持下去。我非常非常感谢他们。\par
 		
 		\hspace*{\fill} \par
 		
 		没有家人的支持，就不可能有这本书。谢谢对我的信心!\par
+		
+		\vspace*{\fill}
 	\end{center}
 	
 	\newpage
@@ -179,19 +186,34 @@
 	\subfile{content/Preface.tex}
 
 	\setsecnumdepth{section}
-	\section{构建LLVM}
+	
+	\color{white}
+	  \section*{\zihao{1} 1 构建LLVM}
+	  \addcontentsline{toc}{section}{1 构建LLVM}
 	\subfile{content/1/Part-1.tex}
-	\subsection{1 安装LLVM}
-	%\subfile{content/1/chapter1/0.tex}
-		\subsubsection{相关准备}
-		%\subfile{content/1/chapter1/1.tex}
-		\subsubsection{使用CMake构建}
-		%\subfile{content/1/chapter1/2.tex}
-		\subsubsection{定制化构建}
-		%\subfile{content/1/chapter1/3.tex}
-		\subsubsection{总结}
-		%\subfile{content/1/chapter1/5.tex}
-	\subsection{2 了解LLVM源码}
+	\color{black}
+	
+	\subsection*{\zihao{2} 1 安装LLVM}
+	\addcontentsline{toc}{subsection}{1 安装LLVM}
+	\subfile{content/1/chapter1/0.tex}
+	
+		\subsubsection*{\zihao{3} 相关准备}
+		\addcontentsline{toc}{subsubsection}{相关准备}
+		\subfile{content/1/chapter1/1.tex}
+		
+		\subsubsection*{\zihao{3} 使用CMake构建}
+		\addcontentsline{toc}{subsubsection}{使用CMake构建}
+		\subfile{content/1/chapter1/2.tex}
+		
+		\subsubsection*{\zihao{3} 定制化构建}
+		\addcontentsline{toc}{subsubsection}{定制化构建}
+		\subfile{content/1/chapter1/3.tex}
+		
+		\subsubsection*{\zihao{3} 总结}
+		\addcontentsline{toc}{subsubsection}{总结}
+		\subfile{content/1/chapter1/4.tex}
+		
+	\subsection{2 浏览LLVM}
 	%\subfile{content/1/chapter2/0.tex}
 		\subsubsection{相关代码}
 		%\subfile{content/1/chapter2/1.tex}
@@ -205,7 +227,7 @@
 		%\subfile{content/1/chapter2/5.tex}
 		\subsubsection{总结}
 		%\subfile{content/1/chapter2/6.tex}
-	\subsection{3 编译器的结构}
+	\subsection{3 编译器结构}
 	%\subfile{content/1/chapter3/0.tex}
 		\subsubsection{相关代码}
 		%\subfile{content/1/chapter3/1.tex}
@@ -243,7 +265,7 @@
 		%\subfile{content/1/chapter4/4.tex}
 		\subsubsection{总结}
 		%\subfile{content/1/chapter4/5.tex}
-	\subsection{5 Basics of IR Code Generation}
+	\subsection{5 生成IR——基础知识}
 	%\subfile{content/1/chapter5/0.tex}
 		\subsubsection{Technical requirements}
 		%\subfile{content/1/chapter5/1.tex}
@@ -255,7 +277,7 @@
 		%\subfile{content/1/chapter5/3.tex}
 		\subsubsection{总结}
 		%\subfile{content/1/chapter5/4.tex}
-	\subsection{6 IR Generation for High-Level Language Constructs}
+	\subsection{6 生成高级语言结构的IR}
 	%\subfile{content/1/chapter6/0.tex}
 		\subsubsection{Technical requirements}
 		%\subfile{content/1/chapter6/1.tex}
@@ -267,7 +289,7 @@
 		%\subfile{content/1/chapter6/3.tex}
 		\subsubsection{总结}
 		%\subfile{content/1/chapter6/4.tex}
-	\subsection{7 Advanced IR Generation}
+	\subsection{7 生成IR——进阶知识}
 	%\subfile{content/1/chapter7/0.tex}
 		\subsubsection{Technical requirements}
 		%\subfile{content/1/chapter7/1.tex}
@@ -279,7 +301,7 @@
 		%\subfile{content/1/chapter7/4.tex}
 		\subsubsection{总结}
 		%\subfile{content/1/chapter7/5.tex}
-	\subsection{8 Optimizing IR}
+	\subsection{8 优化IR}
 	%\subfile{content/1/chapter8/0.tex}
 		\subsubsection{Technical requirements}
 		%\subfile{content/1/chapter8/1.tex}
@@ -296,7 +318,7 @@
 	
 	\section{Taking LLVM to the Next Level}
 	%\subfile{content/3/Part-3.tex}
-	\subsection{9 Instruction Selection}
+	\subsection{9 选择指令}
 	%\subfile{content/2/chapter9/0.tex}
 		\subsubsection{Technical requirements}
 		%\subfile{content/2/chapter9/1.tex}
@@ -310,7 +332,7 @@
 		%\subfile{content/2/chapter9/5.tex}
 		\subsubsection{总结}
 		%\subfile{content/2/chapter9/6.tex}
-	\subsection{10 JIT Compilation}
+	\subsection{10 JIT编译}
 	%\subfile{content/2/chapter10/0.tex}
 		\subsubsection{Technical requirements}
 		%\subfile{content/2/chapter10/1.tex}
@@ -322,7 +344,7 @@
 		%\subfile{content/2/chapter10/4.tex}
 		\subsubsection{总结}
 		%\subfile{content/2/chapter10/5.tex}
-	\subsection{11 Debugging Using LLVM Tools}
+	\subsection{11 使用LLVM工具调试}
 	%\subfile{content/2/chapter11/0.tex}
 		\subsubsection{Technical requirements}
 		%\subfile{content/2/chapter11/1.tex}
@@ -338,7 +360,7 @@
 		%\subfile{content/2/chapter11/5.tex}
 		\subsubsection{总结}
 		%\subfile{content/2/chapter11/6.tex}
-	\subsection{12 Create Your Own Backend}
+	\subsection{12 创建自己的后端}
 	%\subfile{content/2/chapter12/0.tex}
 		\subsubsection{Technical requirements}
 		%\subfile{content/2/chapter12/1.tex}
