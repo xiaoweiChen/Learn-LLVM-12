@@ -89,7 +89,7 @@
 	%\maketitle
 	
 	\begin{center}
-		\includegraphics[width=1.\textwidth]{cover}
+		\includegraphics[width=\textwidth,height=\textheight,keepaspectratio]{cover.png}
 		\newpage
 		\huge
 		\textbf{Learn LLVM 12} 
@@ -187,11 +187,13 @@
 
 	\setsecnumdepth{section}
 	
+	\pagecolor{mygray}
 	\color{white}
-	  \section*{\zihao{1} 1 构建LLVM}
-	  \addcontentsline{toc}{section}{1 构建LLVM}
+	\section*{\zihao{1} 1 构建LLVM}
+	\addcontentsline{toc}{section}{1 构建LLVM}
 	\subfile{content/1/Part-1.tex}
 	\color{black}
+	\pagecolor{white}
 	
 	\subsection*{\zihao{2} 1 安装LLVM}
 	\addcontentsline{toc}{subsection}{1 安装LLVM}
@@ -213,38 +215,61 @@
 		\addcontentsline{toc}{subsubsection}{总结}
 		\subfile{content/1/chapter1/4.tex}
 		
-	\subsection{2 浏览LLVM}
+	\subsection*{\zihao{2} 2 浏览LLVM}
+	\addcontentsline{toc}{subsection}{2 浏览LLVM}
 	%\subfile{content/1/chapter2/0.tex}
-		\subsubsection{相关代码}
+		\subsubsection*{\zihao{3} 相关代码}
+		\addcontentsline{toc}{subsubsection}{相关代码}
 		%\subfile{content/1/chapter2/1.tex}
-		\subsubsection{LLVM代码的内容}
+		\subsubsection*{\zihao{3} LLVM代码的内容}
+		\addcontentsline{toc}{subsubsection}{LLVM代码的内容}
 		%\subfile{content/1/chapter2/2.tex}
-		\subsubsection{LLVM的项目结构}
+		\subsubsection*{\zihao{3} LLVM的项目结构}
+		\addcontentsline{toc}{subsubsection}{LLVM的项目结构}
 		%\subfile{content/1/chapter2/3.tex}
-		\subsubsection{使用LLVM创建自己的项目}
+		\subsubsection*{\zihao{3} 使用LLVM创建自己的项目}
+		\addcontentsline{toc}{subsubsection}{使用LLVM创建自己的项目}
 		%\subfile{content/1/chapter2/4.tex}
-		\subsubsection{针对不同的CPU架构}
+		\subsubsection*{\zihao{3} 针对不同的CPU架构}
+		\addcontentsline{toc}{subsubsection}{针对不同的CPU架构}
 		%\subfile{content/1/chapter2/5.tex}
-		\subsubsection{总结}
+		\subsubsection*{\zihao{3} 总结}
+		\addcontentsline{toc}{subsubsection}{总结}
 		%\subfile{content/1/chapter2/6.tex}
-	\subsection{3 编译器结构}
+		
+	\subsection*{\zihao{2} 3 编译器结构}
+	\addcontentsline{toc}{subsection}{3 编译器结构}
 	%\subfile{content/1/chapter3/0.tex}
-		\subsubsection{相关代码}
+		\subsubsection*{\zihao{3} 相关代码}
+		\addcontentsline{toc}{subsubsection}{相关代码}
 		%\subfile{content/1/chapter3/1.tex}
-		\subsubsection{编译器的构建块}
+		\subsubsection*{\zihao{3} 编译器的构建块}
+		\addcontentsline{toc}{subsubsection}{编译器的构建块}
 		%\subfile{content/1/chapter3/2.tex}
-		\subsubsection{算术表达式语言}
+		\subsubsection*{\zihao{3} 算术表达式语言}
+		\addcontentsline{toc}{subsubsection}{算术表达式语言}
 		%\subfile{content/1/chapter3/3.tex}
-		\subsubsection{语法分析}
+		\subsubsection*{\zihao{3} 语法分析}
+		\addcontentsline{toc}{subsubsection}{语法分析}
 		%\subfile{content/1/chapter3/4.tex}
-		\subsubsection{语义分析}
+		\subsubsection*{\zihao{3} 语义分析}
+		\addcontentsline{toc}{subsubsection}{语义分析}
 		%\subfile{content/1/chapter3/4.tex}
-		\subsubsection{使用LLVM后端编译器生成代码}
+		\subsubsection*{\zihao{3} 使用LLVM后端编译器生成代码}
+		\addcontentsline{toc}{subsubsection}{使用LLVM后端编译器生成代码}
 		%\subfile{content/1/chapter3/4.tex}
-		\subsubsection{总结}
+		\subsubsection*{\zihao{3} 总结}
+		\addcontentsline{toc}{subsubsection}{总结}
 		%\subfile{content/1/chapter3/5.tex}
-	\section{从源码到机器码}
+		
+    \pagecolor{mygray}
+    \color{white}
+	\section*{\zihao{1} 2 从源码到机器码}
+	\addcontentsline{toc}{section}{2 从源码到机器码}
 	%\subfile{content/2/Part-2.tex}
+	\color{black}
+	\pagecolor{white}
+	
 	\subsection{4 将源文件转换为抽象语法树}
 	%\subfile{content/1/chapter4/0.tex}
 		\subsubsection{相关代码}
