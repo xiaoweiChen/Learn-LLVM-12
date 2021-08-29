@@ -109,7 +109,7 @@ Git还允许只克隆一个分支或标记(包括历史记录)。使用git clone
 	\$ ninja check-all
 \end{tcolorbox}
 
-同样，该命令的运行时因可用硬件资源的不同而有很大差异。Ninja检查目标运行所有测试用例。为每个包含测试用例的目录生成目标。使用check-llvm(而不是check-all)是运行LLVM测试，而不是Clang测试;check-llvm-codegen只运行来自LLVM的CodeGen目录中的测试(即LLVM /test/CodeGen目录)。\par
+同样，该命令的运行时因可用硬件资源的不同而有很大差异。Ninja检查目标运行所有测试用例。为每个包含测试用例的目录生成目标。使用check-llvm(而不是check-all)是运行LLVM测试，而不是Clang测试;check-llvm-codegen只运行来自LLVM的CodeGen目录中的测试(即llvm/test/CodeGen目录)。\par
 
 也可以做一个快速的手动检查。您将使用的LLVM应用程序是llc，LLVM编译器。如果你使用-version选项，会显示它的LLVM版本，主机CPU，以及它所支持的所有架构:\par
 
@@ -117,7 +117,7 @@ Git还允许只克隆一个分支或标记(包括历史记录)。使用git clone
 	\$ bin/llc -version
 \end{tcolorbox}
 
-如果您在编译LLVM时有困难，那么可以参考LLVM系统文档入门中的常见问题部分(https://llvm.org/docs/GettingStarted.html\#common-problems)，以获得常见问题的解决方案。\par
+如果您在编译LLVM时有困难，那么可以参考LLVM系统文档入门中的常见问题部分(\url{https://llvm.org/docs/GettingStarted.html\#common-problems})，以获得常见问题的解决方案。\par
 
 最后，安装二进制文件:\par
 
