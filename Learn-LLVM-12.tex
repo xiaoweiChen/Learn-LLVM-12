@@ -87,11 +87,17 @@
 	title=\lstname                      
 }
 
+\usepackage{tikz}
+
 \begin{document}
 	%\maketitle
 	
 	\begin{center}
-		\includegraphics[width=\textwidth,height=\textheight,keepaspectratio]{cover.png}
+		%\includegraphics[width=\textwidth,height=\textheight,keepaspectratio]{cover.png}
+		\begin{tikzpicture}[remember picture, overlay, inner sep=0pt]
+			\node at (current page.center) 
+			{\includegraphics[width=\paperwidth, height=\paperheight, keepaspectratio=false]{cover.png}};
+		\end{tikzpicture}
 		\newpage
 		\huge
 		\textbf{Learn LLVM 12} 
