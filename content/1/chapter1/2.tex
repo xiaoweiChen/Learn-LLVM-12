@@ -83,7 +83,7 @@ Git还允许只克隆一个分支或标记(包括历史记录)。使用git clone
 	\item Ninja: 对应Ninja的构建系统
 	\item Unix Makefiles: 对应GNU Make
 	\item Visual Studio 15 VS2017和Visual Studio 16 VS2019: 对应Visual Studio和MS Build
-	\item Xcode: 对应XCode工程
+	\item Xcode: 对应Xcode工程
 \end{itemize}
 
 可以使用-D选项设置各种变量来影响生成过程。通常，以CMAKE\underline{~}(由CMAKE定义)或LLVM\underline{~}(由LLVM定义)作为前缀。使用LLVM\underline{~}ENABLE\underline{~}PROJECTS=clang变量设置，CMake为LLVM之外的clang生成构建文件。命令的最后一部分告诉CMake在哪里可以找到LLVM核心库源代码。下一节中会有更多的相关内容。\par

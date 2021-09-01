@@ -25,8 +25,8 @@ Ubuntu和Debian发行版都有支持交叉编译的软件包。在下面的设�
 
 \begin{tcolorbox}[colback=white,colframe=black]
 	\$ sudo apt install gcc-8-aarch64-linux-gnu $\setminus$ \\
-	g++-8-aarch64-linux-gnu binutils-aarch64-linux-gnu $\setminus$ \\
-	libstdc++-8-dev-arm64-cross
+	\hspace*{1cm}g++-8-aarch64-linux-gnu binutils-aarch64-linux-gnu $\setminus$ \\
+	\hspace*{1cm}libstdc++-8-dev-arm64-cross
 \end{tcolorbox}
 
 新文件安装在/usr/aarch64-linux-gnu目录下。directory目标系统的(逻辑)根目录。它包含通常的bin、lib和include目录，并且交叉编译器(aarch64-linux-gnu-gcc-8和aarch64-linux-gnu-g++-8)知道这个目录。\par
@@ -41,10 +41,10 @@ Ubuntu和Debian发行版都有支持交叉编译的软件包。在下面的设�
 	\$ mkdir build-host \\
 	\$ cd build-host \\
 	\$ cmake -G Ninja $\setminus$ \\
-	-DLLVM\underline{~}TARGETS\underline{~}TO\underline{~}BUILD="X86" $\setminus$ \\
-	-DLLVM\underline{~}ENABLE\underline{~}ASSERTIONS=ON $\setminus$ \\
-	-DCMAKE\underline{~}BUILD\underline{~}TYPE=Release $\setminus$ \\
-	../llvm-project/llvm \\
+	\hspace*{1cm}-DLLVM\underline{~}TARGETS\underline{~}TO\underline{~}BUILD="X86" $\setminus$ \\
+	\hspace*{1cm}-DLLVM\underline{~}ENABLE\underline{~}ASSERTIONS=ON $\setminus$ \\
+	\hspace*{1cm}-DCMAKE\underline{~}BUILD\underline{~}TYPE=Release $\setminus$ \\
+	\hspace*{1cm}../llvm-project/llvm \\
 	\$ ninja llvm-tblgen \\
 	\$ cd ..
 \end{tcolorbox}
@@ -57,18 +57,18 @@ Ubuntu和Debian发行版都有支持交叉编译的软件包。在下面的设�
 	\$ mkdir build-target \\
 	\$ cd build-target \\
 	\$ cmake -G Ninja $\setminus$ \\
-	-DCMAKE\underline{~}CROSSCOMPILING=True $\setminus$ \\
-	-DLLVM\underline{~}TABLEGEN=../build-host/bin/llvm-tblgen $\setminus$ \\
-	-DLLVM\underline{~}DEFAULT\underline{~}TARGET\underline{~}TRIPLE=aarch64-linux-gnu $\setminus$ \\
-	-DLLVM\underline{~}TARGET\underline{~}ARCH=AArch64 $\setminus$ \\
-	-DLLVM\underline{~}TARGETS\underline{~}TO\underline{~}BUILD=AArch64 $\setminus$ \\
-	-DLLVM\underline{~}ENABLE\underline{~}ASSERTIONS=ON $\setminus$ \\
-	-DLLVM\underline{~}EXTERNAL\underline{~}PROJECTS=tinylang $\setminus$ \\
-	-DLLVM\underline{~}EXTERNAL\underline{~}TINYLANG\underline{~}SOURCE\underline{~}DIR=../tinylang $\setminus$ \\
-	-DCMAKE\underline{~}INSTALL\underline{~}PREFIX=../target-tinylang $\setminus$ \\	-DCMAKE\underline{~}BUILD\underline{~}TYPE=Release $\setminus$ \\
-	-DCMAKE\underline{~}C\underline{~}COMPILER=aarch64-linux-gnu-gcc-8 $\setminus$ \\
-	-DCMAKE\underline{~}CXX\underline{~}COMPILER=aarch64-linux-gnu-g++-8 $\setminus$ \\
-	../llvm-project/llvm \\
+	\hspace*{1cm}-DCMAKE\underline{~}CROSSCOMPILING=True $\setminus$ \\
+	\hspace*{1cm}-DLLVM\underline{~}TABLEGEN=../build-host/bin/llvm-tblgen $\setminus$ \\
+	\hspace*{1cm}-DLLVM\underline{~}DEFAULT\underline{~}TARGET\underline{~}TRIPLE=aarch64-linux-gnu $\setminus$ \\
+	\hspace*{1cm}-DLLVM\underline{~}TARGET\underline{~}ARCH=AArch64 $\setminus$ \\
+	\hspace*{1cm}-DLLVM\underline{~}TARGETS\underline{~}TO\underline{~}BUILD=AArch64 $\setminus$ \\
+	\hspace*{1cm}-DLLVM\underline{~}ENABLE\underline{~}ASSERTIONS=ON $\setminus$ \\
+	\hspace*{1cm}-DLLVM\underline{~}EXTERNAL\underline{~}PROJECTS=tinylang $\setminus$ \\
+	\hspace*{1cm}-DLLVM\underline{~}EXTERNAL\underline{~}TINYLANG\underline{~}SOURCE\underline{~}DIR=../tinylang $\setminus$ \\
+	\hspace*{1cm}-DCMAKE\underline{~}INSTALL\underline{~}PREFIX=../target-tinylang $\setminus$ \\	\hspace*{1cm}-DCMAKE\underline{~}BUILD\underline{~}TYPE=Release $\setminus$ \\
+	\hspace*{1cm}-DCMAKE\underline{~}C\underline{~}COMPILER=aarch64-linux-gnu-gcc-8 $\setminus$ \\
+	\hspace*{1cm}-DCMAKE\underline{~}CXX\underline{~}COMPILER=aarch64-linux-gnu-g++-8 $\setminus$ \\
+	\hspace*{1cm}../llvm-project/llvm \\
 	\$ ninja
 \end{tcolorbox}
 

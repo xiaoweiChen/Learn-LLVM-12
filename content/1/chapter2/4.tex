@@ -46,7 +46,7 @@
  	\item 搜索LLVM包，并将LLVM目录添加到CMake模块路径中:
  	\begin{tcolorbox}[colback=white,colframe=black]
  		find\underline{~}package(LLVM REQUIRED HINTS \\
- 		"\${LLVM\underline{~}CMAKE\underline{~}PATH}") \\
+ 		\hspace*{0.5cm}"\${LLVM\underline{~}CMAKE\underline{~}PATH}") \\
  		list(APPEND CMAKE\underline{~}MODULE\underline{~}PATH \${LLVM\underline{~}DIR})
  	\end{tcolorbox}
  	\item 然后，包含了LLVM提供的另外三个CMake模块。只有当使用Visual Studio作为构建编译器，并设置正确的运行时库，再次链接时才需要第一个。另外两个模块添加LLVM使用的宏，并根据提供的选项配置构建:
@@ -58,7 +58,7 @@
  	\item 接下来，将LLVM头文件的路径添加到include搜索路径中。新增两个目录。添加了构建目录中的include目录，因为这里保存了自动生成的文件。另一个include目录位于源目录中:
  	\begin{tcolorbox}[colback=white,colframe=black]
  		include\underline{~}directories("\${LLVM\underline{~}BINARY\underline{~}DIR}/include" \\
- 		"\${LLVM\underline{~}INCLUDE\underline{~}DIR}")
+ 		\hspace*{0.5cm}"\${LLVM\underline{~}INCLUDE\underline{~}DIR}")
  	\end{tcolorbox}
  	\item 使用link\underline{~}directories()，LLVM库的路径添加到链接器中:
  	\begin{tcolorbox}[colback=white,colframe=black]
@@ -72,19 +72,19 @@
  	\item 现在遵循常见的设置。将cmake/modules目录添加到CMake模块搜索路径中。这允许添加自己的CMake模块:
  	\begin{tcolorbox}[colback=white,colframe=black]
       list(APPEND CMAKE\underline{~}MODULE\underline{~}PATH \\
- 		"\${CMAKE\underline{~}CURRENT\underline{~}SOURCE\underline{~}DIR}/cmake/modules")
+ 		\hspace*{0.5cm}"\${CMAKE\underline{~}CURRENT\underline{~}SOURCE\underline{~}DIR}/cmake/modules")
  	\end{tcolorbox}
  	\item 接下来，检查用户是否正在执行超出构建树的构建。与LLVM一样，我们要求用户使用一个单独的目录来构建项目:
  	\begin{tcolorbox}[colback=white,colframe=black]
  		if(CMAKE\underline{~}SOURCE\underline{~}DIR STREQUAL CMAKE\underline{~}BINARY\underline{~}DIR AND NOT MSVC\underline{~}IDE) \\
-   		  message(FATAL\underline{~}ERROR "In-source builds are not allowed.") \\
+   		\hspace*{0.5cm}message(FATAL\underline{~}ERROR "In-source builds are not allowed.") \\
  		endif()
  	\end{tcolorbox}
  	\item tinylang的版本号通过configure\underline{~}file()命令写到生成的文件中。版本号取自TINYLANG\underline{~}VER\allowbreak SION\underline{~}STRING 变量。configure\underline{~}file()命令读取一个输入文件，用CMake变量的当前值替换它们，并写入一个输出文件。请注意，输入文件是从源目录读取的，并写入构建目录:
  	\begin{tcolorbox}[colback=white,colframe=black]
  		set(TINYLANG\underline{~}VERSION\underline{~}STRING "0.1") \\
  		configure\underline{~}file(\${CMAKE\underline{~}CURRENT\underline{~}SOURCE\underline{~}DIR}/include/ \\
- 		tinylang/Basic/Version.inc.in \\
+ 		\hspace*{0.5cm}tinylang/Basic/Version.inc.in \\
  		  \${CMAKE\underline{~}CURRENT\underline{~}BINARY\underline{~}DIR}/include/tinylang/Basic/Version.inc)
  	\end{tcolorbox}
  	\item 接下来，将包含另一个CMake模块。AddTinylang模块有一些辅助功能:
@@ -94,8 +94,8 @@
  	\item 接下来是另一个include\underline{~}directories()语句。将把我们自己的include目录添加到搜索路径的开头。在独立版本中，添加了两个目录:
  	\begin{tcolorbox}[colback=white,colframe=black]
  		include\underline{~}directories(BEFORE \\
- 		\${CMAKE\underline{~}CURRENT\underline{~}BINARY\underline{~}DIR}/include \\
- 		\${CMAKE\underline{~}CURRENT\underline{~}SOURCE\underline{~}DIR}/include \\
+ 		\hspace*{0.5cm}\${CMAKE\underline{~}CURRENT\underline{~}BINARY\underline{~}DIR}/include \\
+ 		\hspace*{0.5cm}\${CMAKE\underline{~}CURRENT\underline{~}SOURCE\underline{~}DIR}/include \\
  		)
  	\end{tcolorbox}
  	\item 在文件的末尾，在lib和tools目录其中找到CMakeLists.txt文件，这是连接目录的基本机制。这个示例应用程序只有lib和tools目录下的源文件，因此不需要其他文件。更复杂的项目将添加更多的目录，例如：单元测试:
@@ -109,43 +109,43 @@
 
 AddTinylang.make协助模块位于cmake/modules目录下。有以下内容:\par
 
-\begin{lstlisting}[caption={}]
-macro(add_tinylang_subdirectory name)
-  add_llvm_subdirectory(TINYLANG TOOL ${name})
+\begin{tcolorbox}[colback=white,colframe=black]
+macro(add\underline{~}tinylang\underline{~}subdirectory name) \\
+\hspace*{0.5cm}add\underline{~}llvm\underline{~}subdirectory(TINYLANG TOOL \${name}) \\
+endmacro() \\
+\\
+macro(add\underline{~}tinylang\underline{~}library name) \\
+\hspace*{0.5cm}if(BUILD\underline{~}SHARED\underline{~}LIBS) \\
+\hspace*{1cm}set(LIBTYPE SHARED) \\
+\hspace*{0.5cm}else() \\
+\hspace*{1cm}set(LIBTYPE STATIC) \\
+\hspace*{0.5cm}endif() \\
+\\
+\hspace*{0.5cm}llvm\underline{~}add\underline{~}library(\${name} \${LIBTYPE} \${ARGN}) \\
+\hspace*{0.5cm}if(TARGET \${name}) \\
+\hspace*{1cm}target\underline{~}link\underline{~}libraries(\${name} INTERFACE  \\
+\hspace*{1.5cm}\${LLVM\underline{~}COMMON\underline{~}LIBS})  \\
+\hspace*{1cm}install(TARGETS \${name}  \\
+\hspace*{1.5cm}COMPONENT \${name} \\
+\hspace*{1.5cm}LIBRARY DESTINATION lib\${LLVM\underline{~}LIBDIR\underline{~}SUFFIX} \\
+\hspace*{1.5cm}ARCHIVE DESTINATION lib\${LLVM\underline{~}LIBDIR\underline{~}SUFFIX} \\
+\hspace*{1.5cm}RUNTIME DESTINATION bin) \\
+\hspace*{0.5cm}else() \\
+\hspace*{1cm}add\underline{~}custom\underline{~}target(\${name}) \\
+\hspace*{0.5cm}endif() \\
+endmacro() \\
+ \\
+macro(add\underline{~}tinylang\underline{~}executable name) \\
+\hspace*{0.5cm}add\underline{~}llvm\underline{~}executable(\${name} \${ARGN} ) \\
+endmacro() \\
+ \\
+macro(add\underline{~}tinylang\underline{~}tool name) \\
+\hspace*{0.5cm}add\underline{~}tinylang\underline{~}executable(\${name} \${ARGN}) \\
+\hspace*{0.5cm}install(TARGETS \${name} \\
+\hspace*{1cm}RUNTIME DESTINATION bin \\
+\hspace*{1cm}COMPONENT \${name}) \\
 endmacro()
-
-macro(add_tinylang_library name)
-  if(BUILD_SHARED_LIBS)
-    set(LIBTYPE SHARED)
-  else()
-    set(LIBTYPE STATIC)
-  endif()
-  
-  llvm_add_library(${name} ${LIBTYPE} ${ARGN})
-  if(TARGET ${name})
-    target_link_libraries(${name} INTERFACE
-      ${LLVM_COMMON_LIBS})
-    install(TARGETS ${name}
-      COMPONENT ${name}
-      LIBRARY DESTINATION lib${LLVM_LIBDIR_SUFFIX}
-      ARCHIVE DESTINATION lib${LLVM_LIBDIR_SUFFIX}
-      RUNTIME DESTINATION bin)
-  else()
-    add_custom_target(${name})
-  endif()
-endmacro()
-
-macro(add_tinylang_executable name)
-  add_llvm_executable(${name} ${ARGN} )
-endmacro()
-
-macro(add_tinylang_tool name)
-  add_tinylang_executable(${name} ${ARGN})
-  install(TARGETS ${name}
-    RUNTIME DESTINATION bin
-    COMPONENT ${name})
-endmacro()
-\end{lstlisting}
+\end{tcolorbox}
 
 通过包含该模块，可以使用add\underline{~}tinylang\underline{~}subdirectory()、add\underline{~}tinylang\underline{~}library()、add\underline{~}tinylang\underline{~}exe\allowbreak cutable()和add\underline{~}tinylang\underline{~}tool()函数。这些是LLVM(在AddLLVM模块中)提供的函数包装器。tinylang\underline{~}subdirectory()为构建添加了一个新的源目录。此外，还添加了一个新的CMake选项。使用此选项，用户可以控制是否应该编译目录的内容。使用add\underline{~}tinylang\underline{~}library()，可以定义库并安装。Add \underline{~}tinylang\underline{~}executable()定义了可执行文件，Add \underline{~}tinylang\underline{~}tool()定义了同样安装的可执行文件。\par
 
@@ -161,7 +161,7 @@ Basic库只有一个源文件Version.cpp。这个目录中的CMakeLists.txt文�
 
 \begin{tcolorbox}[colback=white,colframe=black]
 add\underline{~}tinylang\underline{~}library(tinylangBasic \\
-Version.cpp \\
+\hspace*{0.5cm}Version.cpp \\
 )
 \end{tcolorbox}
 
@@ -180,16 +180,16 @@ add\underline{~}tinylang\underline{~}subdirectory(driver)
 
 \begin{tcolorbox}[colback=white,colframe=black]
 set(LLVM\underline{~}LINK\underline{~}COMPONENTS\\
-Support\\
+\hspace*{0.5cm}Support\\
 )\\
 \\
 add\underline{~}tinylang\underline{~}tool(tinylang\\
-Driver.cpp\\
+\hspace*{0.5cm}Driver.cpp\\
 ) \\
 
 target\underline{~}link\underline{~}libraries(tinylang \\
-PRIVATE\\
-tinylangBasic\\
+\hspace*{0.5cm}PRIVATE\\
+\hspace*{0.5cm}tinylangBasic\\
 )
 \end{tcolorbox}
 
@@ -205,7 +205,7 @@ tinylangBasic\\
 让我们从include/tinylang/Basic目录开始。首先，创建Version.inc.in模板文件，其中包含配置的版本号:\par
 
 \begin{lstlisting}[caption={}]
-#define TINYLANG_VERSION_STRING "@TINYLANG_VERSION_STRING@"
+#define TINYLANG\underline{~}VERSION\underline{~}STRING "@TINYLANG\underline{~}VERSION\underline{~}STRING@"
 \end{lstlisting}
 
 TINYLANG\underline{~}VERSION\underline{~}STRING周围的@符号表示这是一个CMake变量，可以进行内容替换。\par
@@ -213,8 +213,8 @@ TINYLANG\underline{~}VERSION\underline{~}STRING周围的@符号表示这是一�
 Version.h头文件声明了一个可获取version字符串的函数:\par
 
 \begin{lstlisting}[caption={}]
-#ifndef TINYLANG_BASIC_VERSION_H
-#define TINYLANG_BASIC_VERSION_H
+#ifndef TINYLANG\underline{~}BASIC\underline{~}VERSION\underline{~}H
+#define TINYLANG\underline{~}BASIC\underline{~}VERSION\underline{~}H
 
 #include "tinylang/Basic/Version.inc"
 #include <string>
@@ -232,7 +232,7 @@ namespace tinylang {
 #include "tinylang/Basic/Version.h"
 
 std::string tinylang::getTinylangVersion() {
-	return TINYLANG_VERSION_STRING;
+	return TINYLANG\underline{~}VERSION\underline{~}STRING;
 }
 \end{lstlisting}
 
@@ -240,11 +240,11 @@ std::string tinylang::getTinylangVersion() {
 
 \begin{lstlisting}[caption={}]
 #include "llvm/Support/InitLLVM.h"
-#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/raw\underline{~}ostream.h"
 #include "tinylang/Basic/Version.h"
 
-int main(int argc_, const char **argv_) {
-	llvm::InitLLVM X(argc_, argv_);
+int main(int argc\underline{~}, const char **argv\underline{~}) {
+	llvm::InitLLVM X(argc\underline{~}, argv\underline{~});
 	llvm::outs() << "Hello, I am Tinylang "
 	<< tinylang::getTinylangVersion()
 	<< "\n";
@@ -277,10 +277,10 @@ LLVM不使用C++标准库的iostream类，它有自己的实现。llvm::outs()�
 \item 执行如下CMake命令。
 	\begin{tcolorbox}[colback=white,colframe=black]
 	\$ cmake -G Ninja -DCMAKE\underline{~}BUILD\underline{~}TYPE=Release $\setminus$ \\
-	-DLLVM\underline{~}EXTERNAL\underline{~}PROJECTS=tinylang $\setminus$ \\
-	-DLLVM\underline{~}EXTERNAL\underline{~}TINYLANG\underline{~}SOURCE\underline{~}DIR=../tinylang $\setminus$ \\
-	-DCMAKE\underline{~}INSTALL\underline{~}PREFIX=../llvm-12 $\setminus$ \\
-	../llvm-project/llvm
+	\hspace*{1cm}-DLLVM\underline{~}EXTERNAL\underline{~}PROJECTS=tinylang $\setminus$ \\
+	\hspace*{1cm}-DLLVM\underline{~}EXTERNAL\underline{~}TINYLANG\underline{~}SOURCE\underline{~}DIR=../tinylang $\setminus$ \\
+	\hspace*{1cm}-DCMAKE\underline{~}INSTALL\underline{~}PREFIX=../llvm-12 $\setminus$ \\
+	\hspace*{1cm}../llvm-project/llvm
 	\end{tcolorbox}
 	通过这个命令，CMake为Ninja(-G Ninja)生成构建文件。构建类型设置为Release，从而生成优化的二进制文件(-DCMAKE\underline{~}BUILD\underline{~}TYPE=Release)。Tinylang作为一个外部项目与LLVM(-DLLVM\underline{~}EXTERNAL\underline{~}PROJECTS=Tinylang)一起构建，源代码位于与构建目录平行的目录中(-DLLVM\underline{~} EXTERNAL\underline{~}TINYLANG\underline{~}SOURCE\underline{~}DIR=../Tinylang)。还提供了构建二进制文件的目标目录(-DCMAKE\underline{~}INSTALL\underline{~}PREFIX=../llvm-12)。最后一个参数指定LLVM项目目录(../llvm-project/llvm)。
 	
@@ -315,8 +315,8 @@ LLVM不使用C++标准库的iostream类，它有自己的实现。llvm::outs()�
 	这一次，CMake仅用于构建LLVM:
 	\begin{tcolorbox}[colback=white,colframe=black]
 		\$ cmake -G Ninja -DCMAKE\underline{~}BUILD\underline{~}TYPE=Release $\setminus$ \\
-		-DCMAKE\underline{~}INSTALL\underline{~}PREFIX=../llvm-12 $\setminus$ \\
-		../llvm-project/llvm
+		\hspace*{1cm}-DCMAKE\underline{~}INSTALL\underline{~}PREFIX=../llvm-12 $\setminus$ \\
+		\hspace*{1cm}../llvm-project/llvm
 	\end{tcolorbox}
 
 	\item 与前面的CMake命令比较，除了tinylang的参数没了，其他都一样。
@@ -350,8 +350,8 @@ LLVM不使用C++标准库的iostream类，它有自己的实现。llvm::outs()�
 	\item 现在运行CMake来创建tinylang的构建文件。唯一的问题是如何发现LLVM，因为CMake不知道LLVM的安装位置。解决方案是指定LLVMConfig.cmake的路径。使用LLVM\underline{~}DIR变量指定该cmake文件所在的文件夹。命令如下:
 	\begin{tcolorbox}[colback=white,colframe=black]
 		\$ cmake -G Ninja -DCMAKE\underline{~}BUILD\underline{~}TYPE=Release $\setminus$ \\
-		-DLLVM\underline{~}DIR=../llvm-12/lib/cmake/llvm $\setminus$ \\
-		-DCMAKE\underline{~}INSTALL\underline{~}PREFIX=../tinylang ../tinylang/
+		\hspace*{1cm}-DLLVM\underline{~}DIR=../llvm-12/lib/cmake/llvm $\setminus$ \\
+		\hspace*{1cm}-DCMAKE\underline{~}INSTALL\underline{~}PREFIX=../tinylang ../tinylang/
 	\end{tcolorbox}
 
 	\item 安装目录现在也是分开的。像往常一样，构建和安装如下:
