@@ -62,3 +62,5 @@ LLVM是为了弥合编译器理论和实际开发之间的差异而出现的。�
 
 * github翻译地址：https://github.com/xiaoweiChen/Learn-LLVM-12
 * 本书代码：https://github.com/PacktPublishing/Learn-LLVM-12
+* 译文的LaTeX 环境配置：https://www.cnblogs.com/1625--H/p/11524968.html 
+
