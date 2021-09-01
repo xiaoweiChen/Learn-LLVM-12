@@ -11,7 +11,7 @@
 	\item \textbf{类型差异}:数据类型通常与硬件密切相关。long double类型可以使用64位(ARM)、80位(X86)或128位(ARMv8)。PowerPC系统可以对长双精度使用双精度算法，它通过使用两个64位双精度值的组合来提供更高的精度。
 \end{itemize}
 
-如果您不注意这些要点，那么即使您的应用程序在您的主机系统上完美地运行，它也可能在目标平台上表现惊人，或者会崩溃。LLVM库在不同的平台上进行了测试，并包含了针对上述问题的可移植解决方案。\par
+如果您不注意这些要点，那么即使应用程序在您的主机系统上完美地运行，它也可能在目标平台上表现惊人，或者会崩溃。LLVM库在不同的平台上进行了测试，并包含了针对上述问题的可移植解决方案。\par
 
 交叉编译时，需要使用以下工具:\par
 
@@ -31,7 +31,7 @@ Ubuntu和Debian发行版都有支持交叉编译的软件包。在下面的设�
 
 新文件安装在/usr/aarch64-linux-gnu目录下。directory目标系统的(逻辑)根目录。它包含通常的bin、lib和include目录，并且交叉编译器(aarch64-linux-gnu-gcc-8和aarch64-linux-gnu-g++-8)知道这个目录。\par
 
-\begin{tcolorbox}[colback=blue!5!white,colframe=blue!75!black, title=Cross-compiling on other systems]
+\begin{tcolorbox}[colback=blue!5!white,colframe=blue!75!black, title=在其他系统上交叉编译]
 如果您的发行版没有附带所需的工具链，那么您可以从源代码构建它。必须配置gcc和g++编译器来生成目标系统的代码，binutils工具需要处理目标系统的文件。此外，C和C++库需要用这个工具链来编译。该步骤因所使用的操作系统以及主机和目标体系结构而异。可以通过网页上，搜索gcc cross-compile <architecture>，从而找到找到相应的指令。
 \end{tcolorbox}
 
