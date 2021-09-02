@@ -1,0 +1,616 @@
+正如我们在上一节的示例中所看到的，编程语言由许多元素组成，例如关键字、标识符、数字、操作符等等。词法分析的任务是获取文本输入并从中创建标记序列。calc语言由with、:、+、-、*、/、(和)标记和([a- za -z])+(标识符)和([0-9])+(一个数字)正则表达式组成。我们为了方便处理，为每个令牌分配了唯一的索引(数字)。\par
+
+\hspace*{\fill} \par %插入空行 
+\textbf{手写的词法分析器}
+
+词法分析程序的实现通常称为Lexer。让我们创建一个名为Lexer.h的头文件，并开始定义Token:\par
+
+\begin{lstlisting}[caption={}]
+#ifndef LEXER_H
+#define LEXER_H
+
+#include "llvm/ADT/StringRef.h"
+#include "llvm/Support/MemoryBuffer.h"
+\end{lstlisting}
+
+llvm::MemoryBuffer类提供对一个内存块的只读访问，该内存块中填充了文件的内容。请求时，末尾的零字符('$\setminus$x00')添加到缓冲区的末尾。我们使用这个特性来读取整个缓冲区，而不检查每次访问缓冲区的长度。llvm::StringRef类封装了一个指向C字符串及其长度的指针。因为长度已存储的，所以字符串不需要像普通的C字符串那样以0字符结束('$\setminus$x00')。这允许StringRef的实例指向MemoryBuffer管理的内存。让我们更详细地了解一下:\par
+
+\begin{enumerate}
+	\item 首先，令牌类包含前面提到的令牌编号(枚举):
+	\begin{lstlisting}[caption={}]
+		class Lexer;
+	    class Token {
+			friend class Lexer;
+			
+	    public:
+			enum TokenKind : unsigned short {
+				eoi, unknown, ident, number, comma, colon, plus,
+				minus, star, slash, l_paren, r_paren, KW_with
+			};
+	\end{lstlisting}
+	除了为每个令牌定义成员外，我们还添加了两个额外的值:eoi和unknown。eoi表示输入的结束，如果处理完输入的所有字符，则返回eoi。unknown用于词汇错误的情况，例如：\#不是语言标识，所以它会映射为unknown。 
+	
+	\item 除了枚举之外，该类还有一个成员Text，它指向令牌文本的开头。使用前面提到的StringRef类:
+	\begin{lstlisting}[caption={}]
+		private:
+		  TokenKind Kind;
+		  llvm::StringRef Text;
+		  
+		public:
+		  TokenKind getKind() const { return Kind; }
+		  llvm::StringRef getText() const { return Text; }
+	\end{lstlisting}
+	对于语义处理，知道标识符的名称很重要。
+	
+	\item is()和isOneOf()方法用于测试令牌是否属于某种类型。isOneOf()使用可变参数模板，允许可变数量的参数:
+	\begin{lstlisting}[caption={}]
+		bool is(TokenKind K) const { return Kind == K; }
+		bool isOneOf(TokenKind K1, TokenKind K2) const {
+			return is(K1) || is(K2);
+		}
+		template <typename... Ts>
+		bool isOneOf(TokenKind K1, TokenKind K2, Ts... Ks)
+		const {
+			return is(K1) || isOneOf(K2, Ks...);
+		}
+	};
+	\end{lstlisting}
+
+	\item Lexer类本身也有一个简单接口，接下来在头文件中会出现:
+	\begin{lstlisting}[caption={}]
+		class Lexer {
+			const char *BufferStart;
+			const char *BufferPtr;
+			public:
+			Lexer(const llvm::StringRef &Buffer) {
+				BufferStart = Buffer.begin();
+				BufferPtr = BufferStart;
+			}
+			void next(Token &token);
+			private:
+			void formToken(Token &Result, const char *TokEnd,
+			Token::TokenKind Kind);
+		};
+	#endif
+	\end{lstlisting}
+	除了构造函数，公共接口只包含next()，返回下一个令牌。该方法的作用类似于迭代器，总会指向下一个可用的令牌。该类的唯一成员是指向输入开头和下一个未处理字符的指针，并且假设缓冲区以0结尾(类似于C字符串)。
+	
+	\item 让我们在Lexer.cpp文件中实现Lexer类。从一些辅助函数开始，可以帮助分类字符:
+	\begin{lstlisting}[caption={}]
+	#include "Lexer.h"
+	
+	namespace charinfo {
+	LLVM_READNONE inline bool isWhitespace(char c) {
+		return c == ' ' || c == '\t' || c == '\f' ||
+		c == '\v' ||
+		c == '\r' || c == '\n';
+	}
+
+	LLVM_READNONE inline bool isDigit(char c) {
+		return c >= '0' && c <= '9';
+	}
+	LLVM_READNONE inline bool isLetter(char c) {
+		return (c >= 'a' && c <= 'z') ||
+		(c >= 'A' && c <= 'Z');
+	}
+	}
+	\end{lstlisting}
+	这些函数让条件判断的可读性更好。
+	\begin{tcolorbox}[colback=blue!5!white,colframe=blue!75!black,title=Note]
+		我们不使用<cctype>标准库头提供的函数，有两个原因。首先，这些函数根据环境中定义的语境来改变行为。例如，如果语境是德语，那么德语umlauts可以归类为字母。这在编译器中通常是不需要的。第二，由于函数的参数类型是int，必须从char类型进行转换。这种转换的结果取决于char是当作有符号还是无符号类型，这会导致可移植性问题。
+	\end{tcolorbox}
+
+	\item 上一节的语法中，我们知道了该语言的所有标记。但是语法没有定义需要忽略的字符。例如，空格或新行只会增加空格，并且经常被忽略。next()方法首先要跳过这些字符:
+	\begin{lstlisting}[caption={}]
+	void Lexer::next(Token &token) {
+		while (*BufferPtr &&
+		charinfo::isWhitespace(*BufferPtr)) {
+			++BufferPtr;
+		}
+	\end{lstlisting}
+
+	\item 接下来，确保仍然有字符需要处理:
+	\begin{lstlisting}[caption={}]
+	if (!*BufferPtr) {
+		token.Kind = Token::eoi;
+		return;
+	}
+	\end{lstlisting}
+	至少要处理一个字符。
+	
+	\item 因此，首先检查字符是小写还是大写。本例中，令牌要么是标识符，要么是with关键字。因为标识符的正则表达式也匹配关键字，所以常见的解决方案是收集正则表达式匹配的字符，并检查字符串是否是关键字:
+	\begin{lstlisting}[caption={}]
+		if (charinfo::isLetter(*BufferPtr)) {
+			const char *end = BufferPtr + 1;
+			while (charinfo::isLetter(*end))
+				++end;
+			llvm::StringRef Name(BufferPtr, end - BufferPtr);
+			Token::TokenKind kind =
+				Name == "with" ? Token::KW_with : Token::ident;
+			formToken(token, end, kind);
+			return;
+		}
+	\end{lstlisting}
+	formToken()方法用于填充令牌。
+
+	\item 接下来，我们检查数字。下面的代码与前面的代码非常相似:
+	\begin{lstlisting}[caption={}]
+		else if (charinfo::isDigit(*BufferPtr)) {
+			const char *end = BufferPtr + 1;
+			while (charinfo::isDigit(*end))
+				++end;
+			formToken(token, end, Token::number);
+			return;
+		}
+	\end{lstlisting}
+
+	\item 现在，只剩下由固定字符串定义的标记，这很容易用开关来完成。因为所有这些标记都只有一个字符，所以使用CASE宏来减少输入:
+	\begin{lstlisting}[caption={}]
+		else {
+			switch (*BufferPtr) {
+	#define CASE(ch, tok) \
+	case ch: formToken(token, BufferPtr + 1, tok); break
+	CASE('+', Token::plus);
+	CASE('-', Token::minus);
+	CASE('*', Token::star);
+	CASE('/', Token::slash);
+	CASE('(', Token::Token::l_paren);
+	CASE(')', Token::Token::r_paren);
+	CASE(':', Token::Token::colon);
+	CASE(',', Token::Token::comma);
+	#undef CASE
+	\end{lstlisting}
+
+	\item 最后，我们需要检查“意外”的字符:
+	\begin{lstlisting}[caption={}]
+			default:
+				formToken(token, BufferPtr + 1, Token::unknown);
+			}
+		return;
+		}
+	}
+	\end{lstlisting}
+	现在，只缺少formToken()了。
+
+	\item 这个helper方法填充Token实例的成员，并更新指向下一个未处理字符:
+	\begin{lstlisting}[caption={}]
+	void Lexer::formToken(Token &Tok, const char *TokEnd,
+	                      Token::TokenKind Kind) {
+		Tok.Kind = Kind;
+		Tok.Text = llvm::StringRef(BufferPtr, TokEnd -
+								   BufferPtr);
+		BufferPtr = TokEnd;
+	}
+	\end{lstlisting}
+\end{enumerate}
+
+下一节中，我们将了解如何构造语法分析的解析器。\par
+
+语法分析由解析器完成，下面我们将实现解析器，它的基础是前面几节中的语法和词法表。解析过程的结果是一个称为抽象语法树(AST)的动态数据结构。AST是输入的一种非常浓缩的表现形式，非常适合进行语义分析。首先，我们将实现解析器。之后，再一起来了解一下AST。\par
+
+
+\hspace*{\fill} \par %插入空行
+\textbf{手写的解析器}
+
+解析器的接口定义在parser.h头文件中:\par
+
+\begin{lstlisting}[caption={}]
+	#ifndef PARSER_H
+	#define PARSER_H
+	
+	#include "AST.h"
+	#include "Lexer.h"
+	#include "llvm/Support/raw_ostream.h"
+\end{lstlisting}
+
+AST.h头文件声明了AST的接口，将在后面展示。LLVM的编码指南禁止使用<iostream>，所以必须包含相同功能的LLVM头文件。需要使用输出流输出一个错误信息，让我们更详细地了解一下：\par
+
+\begin{enumerate}
+\item 首先，Parser类声明了一些私有成员:
+\begin{lstlisting}[caption={}]
+	class Parser {
+		Lexer &Lex;
+		Token Tok;
+		bool HasError;
+\end{lstlisting}
+Lex和Tok是上一节中类的实例。Tok存储下一个令牌(前置)，而Lex用于检索下一个令牌。HasError标志指示是否检测到错误。
+
+\item 处理令牌的两个方法:
+\begin{lstlisting}[caption={}]
+	void error() {
+		llvm::errs() << "Unexpected: " << Tok.getText()
+		<< "\n";
+		HasError = true;
+	}
+	
+	void advance() { Lex.next(Tok); }
+	
+	bool expect(Token::TokenKind Kind) {
+		if (Tok.getKind() != Kind) {
+			error();
+			return true;
+		}
+		return false;
+	}
+	
+	bool consume(Token::TokenKind Kind) {
+		if (expect(Kind))
+		return true;
+		advance();
+		return false;
+	}
+\end{lstlisting}
+advance()从词法分析器中检索下一个令牌。在Expect()中测试，并提前检查是否为预期的类型，如果不是，则发出错误消息。最后，如果是预期的类型，consume()将检索下一个令牌。如果发出错误消息，则将HasError标志设置为true。\par
+
+\item 对于语法中的每个非终结符，声明一个解析规则的方法:
+\begin{lstlisting}[caption={}]
+	AST *parseCalc();
+	Expr *parseExpr();
+	Expr *parseTerm();
+	Expr *parseFactor();
+\end{lstlisting}
+\begin{tcolorbox}[colback=blue!5!white,colframe=blue!75!black, title=Note]
+	没有识别和编号的方法。这些规则只返回令牌，并替换相应的令牌。
+\end{tcolorbox}
+
+\item 下面是公共接口。构造函数初始化所有成员并从解析器中检索第一个令牌:
+\begin{lstlisting}[caption={}]
+	public:
+	Parser(Lexer &Lex) : Lex(Lex), HasError(false) {
+		advance();
+	}
+\end{lstlisting}
+
+\item 获取错误标志的值:
+\begin{lstlisting}[caption={}]
+	bool hasError() { return HasError; }
+\end{lstlisting}
+
+\item 最后，parse()是解析的主要入口点:
+\begin{lstlisting}[caption={}]
+	AST *parse();
+};
+#endif
+\end{lstlisting}
+	
+\end{enumerate}
+
+下一节中，我们将学习如何实现解析器。\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{解析器的实现}
+
+让我们深入分析解析器的实现:\par
+
+\begin{enumerate}
+\item 解析器的实现可以在parser.cpp文件中找到，并以parse()为入口:
+\begin{lstlisting}[caption={}]
+#include "Parser.h"
+
+AST *Parser::parse() {
+	AST *Res = parseCalc();
+	expect(Token::eoi);
+	return Res;
+}
+\end{lstlisting}
+parse()的要点是处理整个输入。您还记得第一部分中的解析示例添加了一个特殊符号来表示输入的结束吗?我们在这里检查一下。
+
+\item parseCalc()实现相应的规则。因为其他解析方法遵循相同的模式，所以值得仔细研究一下。让我们回顾一下第一节中的规则:
+\begin{lstlisting}[caption={}]
+calc : ("with" ident ("," ident)* ":")? expr ;
+\end{lstlisting}
+
+\item 该方法首先声明一些局部变量:
+\begin{lstlisting}[caption={}]
+AST *Parser::parseCalc() {
+	Expr *E;
+	llvm::SmallVector<llvm::StringRef, 8> Vars;
+\end{lstlisting}
+
+\item 要做的第一个决定是是否必须解析可选组。组以with开始，因此我们将令牌与以下值进行比较:
+\begin{lstlisting}[caption={}]
+	if (Tok.is(Token::KW_with)) {
+		advance();
+\end{lstlisting}
+
+\item 接下来，我们期待一个标识符:
+\begin{lstlisting}[caption={}]
+	if (expect(Token::ident))
+		goto _error;
+	Vars.push_back(Tok.getText());
+	advance();
+\end{lstlisting}
+如果有标识符，则将其保存在Vars中。否则，是一个语法错误，将被单独处理。
+
+\item 在现在的语法中，后面跟着一个重复组，它要解析更多用逗号分隔的标识符:
+\begin{lstlisting}[caption={}]
+	while (Tok.is(Token::comma)) {
+		advance();
+		if (expect(Token::ident))
+			goto _error;
+		Vars.push_back(Tok.getText());
+		advance();
+	}
+\end{lstlisting}
+这里，您应该不会感到惊讶。重复组以with开始，令牌的测试成为while循环的条件，实现零或多次重复。循环内的标识符会和之前的处理一样。
+
+\item 最后，可选组需要在末尾加冒号:
+\begin{lstlisting}[caption={}]
+	if (consume(Token::colon))
+		goto _error;
+	}
+\end{lstlisting}
+
+\item 现在，对expr规则进行解析:
+\begin{lstlisting}[caption={}]
+	E = parseExpr();
+\end{lstlisting}
+
+\item 通过调用，规则已经成功解析。我们收集到的信息可以用于创建AST节点:
+\begin{lstlisting}[caption={}]
+	if (Vars.empty()) return E;
+	else return new WithDecl(Vars, E);
+\end{lstlisting}
+\end{enumerate}
+
+现在，只缺少错误处理代码了。检测语法错误很容易，但从中错误中恢复却异常复杂。这里，使用了一种称为“恐慌模式”的简单方法。\par
+
+在恐慌模式下，将从令牌流中删除令牌，直到找到解析器可以使用的令牌才继续工作。大多数编程语言都有表示结束的符号;例如：C++，我们可以使用;(语句的结束)或\}(块的结束)。这样的标识是很好的选择。\par
+
+另一方面，错误可能是我们正在寻找的符号不见了。这种情况下，许多标识可能在解析器继续之前被删除。这并不像听起来那么糟糕。现今，编译器的速度非常重要。在出现错误的情况下，开发人员可以查看第一个错误消息，修复它，并重新启动编译器。这与使用穿孔卡片不同，在穿孔卡片中需要获取尽可能多的错误消息，因为等编译器运行完成就是第二天了。\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{错误处理}
+
+不使用一些任意的标记，而使用另一组标记。对于每个非终止符，会有一系列标识在规则中遵循这个规则。让我们看一下。\par
+
+\begin{enumerate}
+\item 在calc中，只有输入的结尾跟在这个非终止符之后。它的实现很简单:
+\begin{lstlisting}[caption={}]
+_error:
+	while (!Tok.is(Token::eoi))
+		advance();
+	return nullptr;
+}
+\end{lstlisting}
+
+\item 其他解析方法也以类似的方式构造。parseExpr()是对expr规则的翻译:
+\begin{lstlisting}[caption={}]
+Expr *Parser::parseExpr() {
+	Expr *Left = parseTerm();
+	while (Tok.isOneOf(Token::plus, Token::minus)) {
+		BinaryOp::Operator Op =
+			Tok.is(Token::plus) ? BinaryOp::Plus :
+								  BinaryOp::Minus;
+		advance();
+		Expr *Right = parseTerm();
+		Left = new BinaryOp(Op, Left, Right);
+	}
+	return Left;
+}
+\end{lstlisting}
+规则内的重复组会转换为while循环。注意，isOneOf()的使用简化了对几个令牌的检查。
+
+\item 术语规则的编码看起来都一样:
+\begin{lstlisting}[caption={}]
+Expr *Parser::parseTerm() {
+	Expr *Left = parseFactor();
+	while (Tok.isOneOf(Token::star, Token::slash)) {
+		BinaryOp::Operator Op =
+		Tok.is(Token::star) ? BinaryOp::Mul :
+		BinaryOp::Div;
+		advance();
+		Expr *Right = parseFactor();
+		Left = new BinaryOp(Op, Left, Right);
+	}
+	return Left;
+}
+\end{lstlisting}
+这个方法与parseExpr()非常地相似，您可能会想将它们组合成一个。在语法中，可以有一条规则来处理乘法运算符和加法运算符。使用两个规则而不是一个规则的好处是，运算符的优先级与计算的数学顺序非常吻合。如果将两个规则结合起来，则需要在其他地方找出计算顺序。
+
+\item 最后，您需要实现factor规则:
+\begin{lstlisting}[caption={}]
+Expr *Parser::parseFactor() {
+	Expr *Res = nullptr;
+	switch (Tok.getKind()) {
+		case Token::number:
+			Res = new Factor(Factor::Number, Tok.getText());
+			advance(); break;
+\end{lstlisting}
+这里使用switch语句似乎更合适，而不是使用if和else if，因为每个选项都只从一个令牌开始。通常，您应该考虑偏爱哪种翻译模式。如果以后需要改变解析方法，那么在每个方法都有相同的语法规则实现方式时，就是一种优势。
+
+\item 如果使用switch语句，那么在默认情况下会进行错误处理:
+\begin{lstlisting}[caption={}]
+		case Token::ident:
+			Res = new Factor(Factor::Ident, Tok.getText());
+			advance(); break;
+		case Token::l_paren:
+			advance();
+			Res = parseExpr();
+			if (!consume(Token::r_paren)) break;
+		default:
+			if (!Res) error();
+\end{lstlisting}
+由于失败，我们在这里避免发出错误消息。
+
+\item 如果括号表达式中有语法错误，则会发出错误消息。该守卫可以避免第二个错误消息触发:
+\begin{lstlisting}[caption={}]
+			while (!Tok.isOneOf(Token::r_paren, Token::star,
+								Token::plus, Token::minus,
+								Token::slash, Token::eoi))
+			advance();
+	}
+	return Res;
+}
+\end{lstlisting}
+
+\end{enumerate}
+
+这很简单，不是吗?当您记住了使用的模式，就会发现基于语法规则编写解析器很刻板。这种类型的解析器称为递归下降解析器。
+
+\begin{tcolorbox}[colback=blue!5!white,colframe=blue!75!black, title=递归下降解析器不能适配所有语法]
+语法必须满足某些条件才能适合构造递归下降解析器。这类语法叫做LL(1)。事实上，您可以在网上找到的大多数语法都不属于这一类语法。大多数关于编译器构造理论的书籍都解释了这一原因。关于这个主题的经典书籍是所谓的“龙书”，由Aho, Lam, Sethi和Ullman编写的《编译器:原理，技术和工具》。
+\end{tcolorbox}
+
+
+\hspace*{\fill} \par %插入空行
+\textbf{抽象语法树}
+
+解析的结果是AST，是输入程序的另一种紧凑表示形式。它捕获了重要的信息。许多编程语言都有作为分隔符的符号，而这些符号没有意义。例如，在C++中，分号;表示单个语句的结束。当然，这些信息对解析器很重要。当我们将语句转换为内存中的表示，分号就可以删除了。\par
+
+如果您查看示例表达式语言的第一条规则，那么很明显with关键字、逗号、顿号和冒号:对程序的意义来说并不真正重要。重要的是可以在表达式中使用的声明变量列表。结果只需要两个类来记录信息:Factor保存数字或标识符，BinaryOp保存算术运算符和表达式的左右两边，WithDecl存储声明的变量和表达式的列表。AST和Expr仅用于创建公共类的层次结构。\par
+
+除了来自解析过的输入的信息外，还支持在使用访问者模式时进行树形遍历。这些都在AST.h头文件中，让我们看一看：\par
+
+
+\begin{enumerate}
+\item 从访问者接口开始:
+\begin{lstlisting}[caption={}]
+#ifndef AST_H
+#define AST_H
+
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/StringRef.h"
+
+class AST;
+class Expr;
+class Factor;
+class BinaryOp;
+class WithDecl;
+
+class ASTVisitor {
+public:
+	virtual void visit(AST &){};
+	virtual void visit(Expr &){};
+	virtual void visit(Factor &) = 0;
+	virtual void visit(BinaryOp &) = 0;
+	virtual void visit(WithDecl &) = 0;
+};
+\end{lstlisting}
+访问者模式需要知道它必须访问的每个类。因为每个类也引用访问器，所以在文件的顶部声明所有类。请注意AST和Expr的visit()方法有一个默认实现，它什么也不做。
+
+\item AST类是层次结构的根:
+\begin{lstlisting}[caption={}]
+class AST {
+public:
+	virtual ~AST() {}
+	virtual void accept(ASTVisitor &V) = 0;
+};
+\end{lstlisting}
+
+\item 类似地，Expr是与表达式相关的AST根类:
+\begin{lstlisting}[caption={}]
+class Expr : public AST {
+public:
+	Expr() {}
+};
+\end{lstlisting}
+
+\item Factor类存储一个数字或变量名:
+\begin{lstlisting}[caption={}]
+class Factor : public Expr {
+public:
+	enum ValueKind { Ident, Number };
+	
+private:
+	ValueKind Kind;
+	llvm::StringRef Val;
+	
+public:
+	Factor(ValueKind Kind, llvm::StringRef Val)
+	: Kind(Kind), Val(Val) {}
+	ValueKind getKind() { return Kind; }
+	llvm::StringRef getVal() { return Val; }
+	virtual void accept(ASTVisitor &V) override {
+		V.visit(*this);
+	}
+};
+\end{lstlisting}
+本例中，数字和变量的处理方法几乎相同，因此我们决定只创建一个AST节点类来表示它们。Kind成员告诉我们实例代表哪一种情况。在更复杂的语言中，通常希望有不同的AST类，例如：用于数字的NumberLiteral类和用于变量引用的VariableAccess类。
+
+\item BinaryOp类保存了计算表达式所需的数据:
+\begin{lstlisting}[caption={}]
+class BinaryOp : public Expr {
+public:
+	enum Operator { Plus, Minus, Mul, Div };
+	
+private:
+	Expr *Left;
+	Expr *Right;
+	Operator Op;
+	
+public:
+	BinaryOp(Operator Op, Expr *L, Expr *R)
+		: Op(Op), Left(L), Right(R) {}
+	Expr *getLeft() { return Left; }
+	Expr *getRight() { return Right; }
+	Operator getOperator() { return Op; }
+	virtual void accept(ASTVisitor &V) override {
+		V.visit(*this);
+	}
+};	
+\end{lstlisting}
+与解析器相比，BinaryOp类没有区分乘法运算符和加法运算符。操作符的优先级隐含在树型结构中。
+
+\item 最后，WithDecl存储声明的变量和表达式:
+\begin{lstlisting}[caption={}]
+class WithDecl : public AST {
+	using VarVector =
+					llvm::SmallVector<llvm::StringRef, 8>;
+	VarVector Vars;
+	Expr *E;
+	
+public:
+	WithDecl(llvm::SmallVector<llvm::StringRef, 8> Vars,
+			 Expr *E)
+		: Vars(Vars), E(E) {}
+	VarVector::const_iterator begin()
+								{ return Vars.begin(); }
+	VarVector::const_iterator end() { return Vars.end(); }
+	Expr *getExpr() { return E; }
+	virtual void accept(ASTVisitor &V) override {
+		V.visit(*this);
+	}
+};
+#endif	
+\end{lstlisting}
+
+\end{enumerate}
+
+AST是在解析期间构造的。语义分析检查树是否符合语言的含义(例如，声明使用的变量)，并可能扩充树。之后，使用树生成代码。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
