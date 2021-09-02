@@ -1,0 +1,388 @@
+后端的任务是从模块的IR中创建优化的机器码。IR是后端的接口，可以使用C++接口或文本形式创建。同样，IR是由AST生成的。\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{LLVM IR的文本表示}
+
+在尝试生成LLVM IR之前，我们需要了解我们想要生成的东西。对于表达式语言的例子，计划如下。
+
+
+\begin{enumerate}
+	\item 向用户询问每个变量的值。
+	\item 计算表达式的值。
+	\item 打印结果。
+\end{enumerate}
+
+为了要求用户提供一个变量的值并打印出结果，使用了两个库函数，calc\underline{~}read()和calc\underline{~}write()。对于with a: 3*a表达式，生成的IR如下：\par
+
+\begin{enumerate}
+\item 标准库函数必须声明，和C一样，语法也类似于C。函数名之前的类型是返回类型。由圆括号包围的类型名是参数类型。声明可以出现在文件的任何地方:
+\begin{tcolorbox}[colback=white,colframe=black]
+declare i32 @calc\underline{~}read(i8*) \\
+declare void @calc\underline{~}write(i32)
+\end{tcolorbox}
+
+\item calc/underline{~}read()函数将变量名作为参数。下面的定义了一个常数，持有a和空字节，空字节在C语言中作为字符串的结束符。
+\begin{tcolorbox}[colback=white,colframe=black]
+@a.str = private constant [2 x i8] c"a$\setminus$00"
+\end{tcolorbox}
+
+\item 接下来是main()函数。参数的名字被省略了，因为它们不没使用到。像C语言一样，函数的主体置于大括号中。
+\begin{tcolorbox}[colback=white,colframe=black]
+define i32 @main(i32, i8**) \{
+\end{tcolorbox}
+
+\item 每个基本块都必须有一个标签。因为这是函数的第一个基本块，我们把它命名为entry。
+\begin{tcolorbox}[colback=white,colframe=black]
+entry:
+\end{tcolorbox}
+
+\item 调用calc/underline{~}read()函数来读取a变量的值。嵌套使用getelemenptr指令进行了索引计算，以计算指向字符串常量第一个元素的指针。该函数的结果分配给未命名的 \%2 变量。
+\begin{tcolorbox}[colback=white,colframe=black]
+\hspace*{1cm}\%2 = call i32 @calc\underline{~}read(i8* getelementptr inbounds \\
+\hspace*{3.5cm}([2 x i8], [2 x i8]* @a.str, i32 0, i32
+0))
+\end{tcolorbox}
+
+\item 接下来，该变量乘以3。
+\begin{tcolorbox}[colback=white,colframe=black]
+\hspace*{1cm}\%3 = mul nsw i32 3, \%2
+\end{tcolorbox}
+
+\item 结果通过calc\underline{~}write()函数打印结果到控制台。
+\begin{tcolorbox}[colback=white,colframe=black]
+	\hspace*{1cm}call void @calc\underline{~}write(i32 \%3)
+\end{tcolorbox}
+
+\item 最后，main()函数返回0，表示成功执行。
+\begin{tcolorbox}[colback=white,colframe=black]
+	\hspace*{1cm}ret i32 0 \\
+\}
+\end{tcolorbox}
+
+\end{enumerate}
+
+LLVM IR中的每个值都是类型化的，i32表示32位的整数类型，i8*表示一个字节的指针。IR代码非常易读（除了getelementptr操作，这将在第5章，IR生成的基础知识中详细解释）。既然现在已经清楚了IR的样子，我们就从AST中生成它吧。\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{从AST生成IR}
+
+该接口在CodeGen.h头文件中提供：
+
+\begin{lstlisting}[caption={}]
+#ifndef CODEGEN_H
+#define CODEGEN_H
+
+#include "AST.h"
+
+class CodeGen
+{
+public:
+	void compile(AST *Tree);
+};
+#endif
+\end{lstlisting}
+
+因为AST包含了语义分析阶段的信息，所以基本思路是用一个访问者来遍历AST。CodeGen.cpp文件的实现方式如下：
+
+\begin{enumerate}
+\item 所需的包括在文件的顶端：
+\begin{lstlisting}[caption={}]
+#include "CodeGen.h"
+#include "llvm/ADT/StringMap.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/Support/raw_ostream.h"
+\end{lstlisting}
+
+\item LLVM库的命名空间用于查找名称:
+\begin{lstlisting}[caption={}]
+using namespace llvm;
+\end{lstlisting}
+
+\item 首先，在访问器中声明一些私有成员。每个编译单元在LLVM中由模块类表示，访问者有一个指向模块调用的指针M。为了便于生成IR，使用生成器（IRBuilder<>类型）。LLVM有一个类的层次结构来表示IR中的类型。你可以在LLVM的上下文中查找基本类型的实例，如i32。这些基本类型经常被使用。为了避免重复查找，我们缓存了需要的类型实例，它可以是VoidTy、Int32Ty、Int8PtrTy、Int8PtrPtrTy或Int32Zero。V是当前的计算值，通过树形遍历更新。最后，nameMap将一个变量名映射到由calc/underline{~}read()函数返回的值：
+\begin{lstlisting}[caption={}]
+namespace {
+class ToIRVisitor : public ASTVisitor {
+	Module *M;
+	IRBuilder<> Builder;
+	Type *VoidTy;
+	Type *Int32Ty;
+	Type *Int8PtrTy;
+	Type *Int8PtrPtrTy;
+	Constant *Int32Zero;
+	Value *V;
+	StringMap<Value *> nameMap;
+\end{lstlisting}
+
+\item 构造函数初始化了所有成员：
+\begin{lstlisting}[caption={}]
+public:
+	ToIRVisitor(Module *M) : M(M), Builder(M->getContext())
+	{
+		VoidTy = Type::getVoidTy(M->getContext());
+		Int32Ty = Type::getInt32Ty(M->getContext());
+		Int8PtrTy = Type::getInt8PtrTy(M->getContext());
+		Int8PtrPtrTy = Int8PtrTy->getPointerTo();
+		Int32Zero = ConstantInt::get(Int32Ty, 0, true);
+	}
+\end{lstlisting}
+
+\item 对于每个函数，都必须创建一个FunctionType实例。在C++术语中，这就是一个函数原型。函数本身是用function实例定义的。首先，run()方法定义了LLVM IR中的main()函数:
+\begin{lstlisting}[caption={}]
+	void run(AST *Tree) {
+		FunctionType *MainFty = FunctionType::get(
+			Int32Ty, {Int32Ty, Int8PtrPtrTy}, false);
+		Function *MainFn = Function::Create(
+			MainFty, GlobalValue::ExternalLinkage,
+			"main", M);
+\end{lstlisting}
+
+\item 然后，我们创建带有入口标签的BB基本块，并将其附加到IR构建器上。
+\begin{lstlisting}[caption={}]
+		BasicBlock *BB = BasicBlock::Create(M->getContext(),
+											"entry", MainFn);
+		Builder.SetInsertPoint(BB);
+\end{lstlisting}
+
+\item 做好这些准备工作后，就可以开始进行树形遍历。
+\begin{lstlisting}[caption={}]
+		Tree->accept(*this);
+\end{lstlisting}
+
+\item 遍历树后，通过调用calc\underline{~}write()函数打印计算值。同样，必须创建函数原型(FunctionType的实例)。唯一的参数是当前值V:
+\begin{lstlisting}[caption={}]
+		FunctionType *CalcWriteFnTy =
+			FunctionType::get(VoidTy, {Int32Ty}, false);
+		Function *CalcWriteFn = Function::Create(
+			CalcWriteFnTy, GlobalValue::ExternalLinkage,
+			"calc_write", M);
+		Builder.CreateCall(CalcWriteFnTy, CalcWriteFn, {V});
+\end{lstlisting}
+
+\item 生成结束时，main()函数返回0:
+\begin{lstlisting}[caption={}]
+		Builder.CreateRet(Int32Zero);
+	}
+\end{lstlisting}
+
+\item WithDecl节点保存声明变量的名称。首先，需要为calc\underline{~}read()函数创建一个函数原型:
+\begin{lstlisting}[caption={}]
+	virtual void visit(WithDecl &Node) override {
+		FunctionType *ReadFty =
+			FunctionType::get(Int32Ty, {Int8PtrTy}, false);
+		Function *ReadFn = Function::Create(
+			ReadFty, GlobalValue::ExternalLinkage,
+			"calc_read", M);
+\end{lstlisting}
+
+\item 该方法遍历变量名:
+\begin{lstlisting}[caption={}]
+		for (auto I = Node.begin(), E = Node.end(); I != E;
+			++I) {
+\end{lstlisting}
+
+\item 对于每个变量，都会创建一个带有变量名称的字符串。
+\begin{lstlisting}[caption={}]
+			StringRef Var = *I;
+			Constant *StrText = ConstantDataArray::getString(
+				M->getContext(), Var);
+			GlobalVariable *Str = new GlobalVariable(
+				*M, StrText->getType(),
+				/*isConstant=*/true,
+				GlobalValue::PrivateLinkage,
+				StrText, Twine(Var).concat(".str"));
+\end{lstlisting}
+
+\item 然后，调用calcunderline{~}read()函数的IR代码被创建。在上一步骤中创建的字符串会作为参数传递:
+\begin{lstlisting}[caption={}]
+			Value *Ptr = Builder.CreateInBoundsGEP(
+				Str, {Int32Zero, Int32Zero}, "ptr");
+			CallInst *Call =
+				Builder.CreateCall(ReadFty, ReadFn, {Ptr});
+\end{lstlisting}
+
+\item 返回值存储在mapNames中供以后使用:
+\begin{lstlisting}[caption={}]
+			nameMap[Var] = Call;
+		}
+\end{lstlisting}
+
+\item 使用树形遍历继续遍历表达式:
+\begin{lstlisting}[caption={}]
+		Node.getExpr()->accept(*this);
+	};
+\end{lstlisting}
+
+\item Factor节点可以是变量名，也可以是数字。对于变量名，将在mapNames中查找值。对于数字，该值转换为常数值:
+\begin{lstlisting}[caption={}]
+	virtual void visit(Factor &Node) override {
+		if (Node.getKind() == Factor::Ident) {
+			V = nameMap[Node.getVal()];
+		} else {
+			int intval;
+			Node.getVal().getAsInteger(10, intval);
+			V = ConstantInt::get(Int32Ty, intval, true);
+		}
+	};
+\end{lstlisting}
+
+\item 最后，对于BinaryOp节点，必须使用正确的计算操作:
+\begin{lstlisting}[caption={}]
+	virtual void visit(BinaryOp &Node) override {
+		Node.getLeft()->accept(*this);
+		Value *Left = V;
+		Node.getRight()->accept(*this);
+		Value *Right = V;
+		switch (Node.getOperator()) {
+			case BinaryOp::Plus:
+			V = Builder.CreateNSWAdd(Left, Right); break;
+			case BinaryOp::Minus:
+			V = Builder.CreateNSWSub(Left, Right); break;
+			case BinaryOp::Mul:
+			V = Builder.CreateNSWMul(Left, Right); break;
+			case BinaryOp::Div:
+			V = Builder.CreateSDiv(Left, Right); break;
+		}
+	};
+};
+}
+\end{lstlisting}
+
+\item 这样，访问者类就完成了。compile()方法创建了全局上下文和模块，执行了树形遍历，并将生成的IR转储到控制台:
+\begin{lstlisting}[caption={}]
+void CodeGen::compile(AST *Tree) {
+	LLVMContext Ctx;
+	Module *M = new Module("calc.expr", Ctx);
+	ToIRVisitor ToIR(M);
+	ToIR.run(Tree);
+	M->print(outs(), nullptr);
+}
+\end{lstlisting}
+\end{enumerate}
+
+我们实现了编译器的前端，从读取源代码到生成IR。当然，所有这些组件必须在用户输入时协同工作，这是编译器驱动程序的任务，我们还需要实现运行时所需的功能。我们将在下一节中讨论这两个问题。\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{缺少的部分-驱动程序和运行时库}
+
+前几节中的所有阶段都是由Calc.cpp驱动程序结合在一起的，我们将在这里实现它。需要为输入表达式声明一个参数，初始化LLVM，调用前几节中的所有阶段。让我们来看看:
+
+\begin{enumerate}
+\item 首先，我们必须包含必需的头文件:
+\begin{lstlisting}[caption={}]
+#include "CodeGen.h"
+#include "Parser.h"
+#include "Sema.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/InitLLVM.h"
+#include "llvm/Support/raw_ostream.h"
+\end{lstlisting}
+
+\item LLVM自带了声明命令行选项的系统，只需要为所需的每个选项声明一个静态变量。在此过程中，该选项将被注册到全局命令行解析器中。这种方法的优点是，每个组件都可以在需要时添加命令行选项。我们必须为输入表达式声明一个选项:
+\begin{lstlisting}[caption={}]
+static llvm::cl::opt<std::string>
+	Input(llvm::cl::Positional,
+		llvm::cl::desc("<input expression>"),
+		llvm::cl::init(""));
+\end{lstlisting}
+
+\item 在main()函数中，LLVM库初始化，需要调用ParseCommandLineOptions来处理命令行上的选项。这也可以处理打印帮助信息。在出现错误的情况下，此方法会让应用程序终止运行:
+\begin{lstlisting}[caption={}]
+int main(int argc, const char **argv) {
+	llvm::InitLLVM X(argc, argv);
+	llvm::cl::ParseCommandLineOptions(
+		argc, argv, "calc - the expression compiler\n");
+\end{lstlisting}
+
+\item 接下来，我们调用词法分析器和解析器。在语法分析之后，检查是否发生了错误。如果有错，则使用返回代码退出编译器，表示失败:
+\begin{lstlisting}[caption={}]
+	Lexer Lex(Input);
+	Parser Parser(Lex);
+	AST *Tree = Parser.parse();
+	if (!Tree || Parser.hasError()) {
+		llvm::errs() << "Syntax errors occured\n";
+		return 1;
+	}
+\end{lstlisting}
+
+\item 如果有语义错误，也会这样:
+\begin{lstlisting}[caption={}]
+	Sema Semantic;
+	if (Semantic.semantic(Tree)) {
+		llvm::errs() << "Semantic errors occured\n";
+		return 1;
+	}
+\end{lstlisting}
+
+\item 最后，在驱动程序中，调用代码生成器:
+\begin{lstlisting}[caption={}]
+	CodeGen CodeGenerator;
+	CodeGenerator.compile(Tree);
+	return 0;
+}
+\end{lstlisting}
+
+\end{enumerate}
+
+这样，就成功地为用户输入创建了IR代码。我们将目标代码的生成委托给LLVM静态编译器llc，这样就完成了编译器的实现。我们必须将所有组件链接到一起，从而创建calc应用程序。\par
+
+运行库由一个名为rtcalc.c的文件组成。它包含了用C语言编写的calc\underline{~}read()和calc\underline{~}write()函数的实现。\par
+
+\begin{lstlisting}[caption={}]
+#include <stdio.h>
+#include <stdlib.h>
+
+void calc_write(int v)
+{
+	printf("The result is: %d\n", v);
+}
+\end{lstlisting}
+
+calc\underline{~}write()只把结果值写到终端。
+
+\begin{lstlisting}[caption={}]
+int calc_read(char *s)
+{
+	char buf[64];
+	int val;
+	printf("Enter a value for %s: ", s);
+	fgets(buf, sizeof(buf), stdin);
+	if (EOF == sscanf(buf, "%d", &val))
+	{
+		printf("Value %s is invalid\n", buf);
+		exit(1);
+	}
+	return val;
+}
+\end{lstlisting}
+
+calc\underline{~}read()从终端读取一个整数。没有什么可以阻止用户输入字母或其他字符，所以我们必须仔细检查输入。如果输入不是数字，则应用程序退出。一种更复杂的方法是让用户意识到这个问题，并再次请求一个数字。\par
+
+现在，我们可以试试我们的编译器。calc应用程序从一个表达式创建IR。LLVM静态编译器将IR编译为一个目标文件。然后，可以使用您喜欢的C编译器链接到小型运行时库。在Unix上，你可以输入以下内容:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ calc "with a: a*3" | llc –filetype=obj –o=expr.o \\
+\$ clang –o expr expr.o rtcalc.c \\
+\$ expr \\
+\hspace*{0.5cm}Enter a value for a: 4 \\
+\hspace*{0.5cm}The result is: 12
+\end{tcolorbox}
+
+在Windows上，很可能会使用cl编译器:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ calc "with a: a*3" | llc –filetype=obj –o=expr.obj \\
+\$ cl expr.obj rtcalc.c \\
+\$ expr \\
+\hspace*{0.5cm}Enter a value for a: 4 \\
+\hspace*{0.5cm}The result is: 12
+\end{tcolorbox}
+
+这样，您就创建了第一个基于llvm的编译器!请花点时间研究一下这些不同的表达方式。还要检查乘法运算符是否在加法运算符之前求值，以及使用括号是否会改变求值顺序，这与基本计算器的要求一致。\par
+
+
+
+
+
+
+
