@@ -15,7 +15,7 @@
 
 在了解了可能的选择后，哪一个最好呢?使您的项目成为LLVM源代码树的一部分有点不灵活。只要您不打算将您的项目添加到顶级项目列表中，我建议使用一个单独的目录。可以在GitHub或类似的服务上维护你的项目，而不用担心如何与LLVM项目同步。正如前面所示，您仍然可以与其他LLVM项目一起构建它。\par
 
-让我们用一个非常简单的库和应用程序创建一个项目。第一步是创建目录布局。选择一个你方便的地方。在下面的步骤中，我假设它位于克隆llvm-project目录的同一个目录中。使用mkdir(Unix)或md(Windows)创建以下目录:\par
+让我们用一个非常简单的库和应用程序创建一个项目。第一步是创建目录布局，假设当前位于克隆llvm-project目录。使用mkdir(Unix)或md(Windows)创建以下目录:\par
 
 \hspace*{\fill} \par %插入空行
 \begin{center}
@@ -205,7 +205,7 @@ target\underline{~}link\underline{~}libraries(tinylang \\
 让我们从include/tinylang/Basic目录开始。首先，创建Version.inc.in模板文件，其中包含配置的版本号:\par
 
 \begin{lstlisting}[caption={}]
-#define TINYLANG\underline{~}VERSION\underline{~}STRING "@TINYLANG\underline{~}VERSION\underline{~}STRING@"
+#define TINYLANG_VERSION_STRING "@TINYLANG_VERSION_STRING@"
 \end{lstlisting}
 
 TINYLANG\underline{~}VERSION\underline{~}STRING周围的@符号表示这是一个CMake变量，可以进行内容替换。\par
@@ -213,8 +213,8 @@ TINYLANG\underline{~}VERSION\underline{~}STRING周围的@符号表示这是一�
 Version.h头文件声明了一个可获取version字符串的函数:\par
 
 \begin{lstlisting}[caption={}]
-#ifndef TINYLANG\underline{~}BASIC\underline{~}VERSION\underline{~}H
-#define TINYLANG\underline{~}BASIC\underline{~}VERSION\underline{~}H
+#ifndef TINYLANG_BASIC_VERSION_H
+#define TINYLANG_BASIC_VERSION_H
 
 #include "tinylang/Basic/Version.inc"
 #include <string>
@@ -232,7 +232,7 @@ namespace tinylang {
 #include "tinylang/Basic/Version.h"
 
 std::string tinylang::getTinylangVersion() {
-	return TINYLANG\underline{~}VERSION\underline{~}STRING;
+	return TINYLANG_VERSION_STRING;
 }
 \end{lstlisting}
 
@@ -240,11 +240,11 @@ std::string tinylang::getTinylangVersion() {
 
 \begin{lstlisting}[caption={}]
 #include "llvm/Support/InitLLVM.h"
-#include "llvm/Support/raw\underline{~}ostream.h"
+#include "llvm/Support/raw_ostream.h"
 #include "tinylang/Basic/Version.h"
 
-int main(int argc\underline{~}, const char **argv\underline{~}) {
-	llvm::InitLLVM X(argc\underline{~}, argv\underline{~});
+int main(int argc_, const char **argv_) {
+	llvm::InitLLVM X(argc_, argv_);
 	llvm::outs() << "Hello, I am Tinylang "
 	<< tinylang::getTinylangVersion()
 	<< "\n";

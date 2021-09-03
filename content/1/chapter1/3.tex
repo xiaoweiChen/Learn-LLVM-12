@@ -27,28 +27,28 @@ CC是CMAKE\underline{~}C\underline{~}COMPILER CMAKE变量的默认值，而CXX�
 CMake定义的其他常用变量如下:\par
 
 \begin{itemize}
-	\item CMAKE\underline{~}INSTALL\underline{~}PREFIX:在安装过程中添加到每个路径上的路径前缀。在Unix上默认为/usr/local，在Windows上默认为C:$\setminus$Program Files$\setminus$。如果要在“/opt/LLVM”目录下安装LLVM，必须指定-DCMAKE\underline{~}INSTALL\underline{~}PREFIX=/opt/LLVM。二进制文件复制到/opt/llvm/bin，库文件被复制到/opt/llvm/lib，以此类推。
+	\item CMAKE\underline{~}INSTALL\underline{~}PREFIX:在安装过程中添加到每个路径上的路径前缀。在Unix上默认为/usr/local，在Windows上默认为C:$\setminus$Program Files$\setminus$。如果要在/opt/LLVM目录下安装LLVM，必须指定-DCMAKE\underline{~}INSTALL\underline{~}PREFIX=/opt/LLVM。二进制文件复制到/opt/llvm/bin，库文件被复制到/opt/llvm/lib，以此类推。
 	\item CMAKE\underline{~}BUILD\underline{~}TYPE:不同类型的构建需要不同的设置。例如，调试构建需要指定用于生成调试符号的选项，并且通常是针对系统库的调试版本进行链接。相比之下，发布版本使用针对库的生产版本的优化标志和链接。此变量仅用于只能处理一种构建类型的构建系统，如Ninja或Make。对于IDE构建系统，您必须使用IDE的机制在构建类型之间进行切换。一些可能的值如下:\par
 	DEBUG: 使用调试符号构建\par
 	RELEASE: 以速度优化为主的构建\par
 	RELWITHDEBINFO: 使用调试符号的发布构建\par
 	MINSIZEREL: 以优化大小为主的构建\par
-	默认的构建类型是DEBUG。要构建为发布版本，必须指定 -DCMAKE\underline{~}BUILD\underline{~}TYPE=RELEASE.\par
+	默认的构建类型是DEBUG。要构建为发布版本，必须指定 -DCMAKE\underline{~}BUILD\underline{~}TYPE=RELE\allowbreak ASE。\par
 	\item CMAKE\underline{~}C\underline{~}FLAGS和CMAKE\underline{~} FLAGS:当我们编译C和C++源文件时，这些是额外的标志。初始值取自CFLAGS和CXXFLAGS环境变量，可以替代变量使用。
 	\item CMAKE\underline{~}MODULE\underline{~}PATH:指定在CMAKE模块中搜索的附加目录。在搜索默认目录之前搜索指定的目录。以分号分隔的目录列表。
 	\item PYTHON\underline{~}EXECUTABLE:如果没有找到PYTHON解释器，或者如果你安装了多个版本的PYTHON解释器。在CMake选择了错误的解释器时，可以将该变量设置为正确PYTHON二进制文件的路径。这个变量只有在包含了CMake的Python模块时才会生效(对于LLVM也是如此)。
 \end{itemize}
 
-CMake为变量提供了内置帮助。--help-variable var选项打印var变量的帮助信息。例如，您可以输入以下命令来获取CMAKE\underline{~}BUILD\underline{~} type的帮助:\par
+CMake为变量提供了内置帮助。\verb|--|help-variable var选项打印var变量的帮助信息。例如，您可以输入以下命令来获取CMAKE\underline{~}BUILD\underline{~} type的帮助:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
-	\$ cmake --help-variable CMAKE\underline{~}BUILD\underline{~}TYPE
+	\$ cmake \verb|--|help-variable CMAKE\underline{~}BUILD\underline{~}TYPE
 \end{tcolorbox}
 
 也可以用下面的命令列出所有的变量:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
-	\$ cmake --help-variablelist
+	\$ cmake \verb|--|help-variablelist
 \end{tcolorbox}
 
 这个清单很长。\par
@@ -76,7 +76,7 @@ LLVM定义的变量的工作方式与CMake定义的变量相同，只是没有�
 	
 	\item LLVM\underline{~}ENABLE\underline{~}RTTI:LLVM使用一个轻量级的、自构建的系统来提供运行时类型信息。默认情况下，C++ RTTI的生成是关闭的。与异常处理支持一样，这可能与其他库不兼容。要开启C++ RTTI的生成，必须指定-DLLVM \underline{~}ENABLE\underline{~}RTTI=ON。
 	
-	\item LLVM\underline{~}ENABLE\underline{~}WARNINGS:如果可能的话，编译LLVM应该不会产生任何警告消息。因此，默认情况下，打印警告消息的选项是打开的。要关闭它，必须指定-DLLVM \underline{~}ENABLE\underline{~}WARNINGS=OFF。
+	\item LLVM\underline{~}ENABLE\underline{~}WARNINGS:如果可能的话，编译LLVM应该不会产生任何警告消息。因此，默认情况下，打印警告消息的选项是打开的。要关闭它，必须指定-DLLVM \underline{~}ENABLE\underline{~}WARNI\allowbreak NGS=OFF。
 	
 	\item LLVM\underline{~}ENABLE\underline{~}PEDANTIC:LLVM源文件应该符合C/ C++语言标准。因此，默认情况下启用了对源的学究式检查。如果可能，也禁用编译器特定的扩展。要关闭此设置，必须指定-DLLVM \underline{~}ENABLE\underline{~}PEDANTIC=OFF。
 	
