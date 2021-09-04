@@ -1,0 +1,178 @@
+实际的编译器必须能够处理许多文件。通常，开发人员用主编译单元的名称来调用编译器。这个编译单元可以引用其他文件，例如：通过C语言中的\#include指令，或Python或Modula-2中的import语句。导入的模块可以导入其他模块等等。所有这些文件都必须加载到内存中，并通过编译器的分析阶段运行。在开发过程中，开发人员可能会犯语法或语义错误。当检测到错误信息时，应该打印出错误信息，包括源行和一个标记，很明显，这个基本组件很重要。\par
+
+幸运的是，LLVM附带了一个解决方案:LLVM::SourceMgr类。通过调用AddNewSourceBuffer()方法，将新源文件添加到SourceMgr。或者，可以通过调用AddIncludeFile()方法来加载文件。这两个方法都返回一个ID来标识缓冲区，可以使用这个ID来检索指向关联文件的内存缓冲区的指针。要在文件中定义位置，必须使用llvm::SMLoc类，这个类将指针封装到缓冲区中。各种PrintMessage()方法会向用户发出错误和其他信息消息。\par
+
+只缺少一种集中定义消息的方法。大型软件(如编译器)中，您不希望到处都是消息字符串。如果有人要求更改消息或将其翻译成另一种语言，那么最好把它们放在中心位置!\par
+
+一种简单的方法是，每个消息都有一个ID(一个enum成员)、一个严重性级别和一个包含消息的字符串。在代码中，您只引用消息ID。严重性级别和消息字符串仅在打印消息时使用。必须一致地管理这三个项(ID、安全级别和消息)。LLVM库使用一个预处理器来解决这个问题。数据存储在一个后缀为a.def的文件中，并封装在一个宏名称中。该文件通常包含多次，宏的定义不同。它的定义在include/tinylang/Basic/Diagnostic.def文件路径中，如下所示:\par
+
+\begin{lstlisting}[caption={}]
+#ifndef DIAG
+#define DIAG(ID, Level, Msg)
+#endif
+
+DIAG(err_sym_declared, Error, "symbol {0} already declared")
+#undef DIAG
+\end{lstlisting}
+
+第一个宏参数ID是枚举标签，第二个参数Level是严重性，第三个参数Msg是消息文本。有了这个定义，我们就可以定义一个DiagnosticsEngine类来发出错误消息。该接口位于include/tinylang/Basic/Diagnostic.h文件中:\par
+
+\begin{lstlisting}[caption={}]
+#ifndef TINYLANG_BASIC_DIAGNOSTIC_H
+#define TINYLANG_BASIC_DIAGNOSTIC_H
+
+#include "tinylang/Basic/LLVM.h"
+#include "llvm/ADT/StringRef.h"
+#include "llvm/Support/FormatVariadic.h"
+
+#include "llvm/Support/SMLoc.h"
+#include "llvm/Support/SourceMgr.h"
+#include "llvm/Support/raw_ostream.h"
+#include <utility>
+
+namespace tinylang {
+\end{lstlisting}
+
+在包含必要的头文件之后，现在使用Diagnostic.def来定义枚举。为了不污染全局命名空间，需要使用命名空间diag:\par
+
+\begin{lstlisting}[caption={}]
+namespace diag {
+	enum {
+		#define DIAG(ID, Level, Msg) ID,
+		#include "tinylang/Basic/Diagnostic.def"
+	};
+} // namespace diag
+\end{lstlisting}
+
+DiagnosticsEngine类使用SourceMgr实例通过report()方法发出消息。消息可以有参数。要实现这个功能，必须使用LLVM的可变格式支持。在静态方法的帮助下检索消息文本和严重性级别。此外，还会计算发出的错误消息的数量:\par
+
+\begin{lstlisting}[caption={}]
+class DiagnosticsEngine {
+	static const char *getDiagnosticText(unsigned DiagID);
+	static SourceMgr::DiagKind
+	getDiagnosticKind(unsigned DiagID);
+\end{lstlisting}
+
+消息字符串由getDiagnosticText()返回，级别由getDiagnosticKind()返回。这两种方法都将在以后的.cpp文件中实现:\par
+
+\begin{lstlisting}[caption={}]
+	SourceMgr &SrcMgr;
+	unsigned NumErrors;
+	
+public:
+	DiagnosticsEngine(SourceMgr &SrcMgr)
+		: SrcMgr(SrcMgr), NumErrors(0) {}
+		
+	unsigned nunErrors() { return NumErrors; }
+\end{lstlisting}
+
+因为消息可以有可变数量的参数，所以C++中的解决方案是使用可变参数模板。当然，LLVM提供的formatv()函数也使用这种方法。要获得格式化的消息，我们只需要转发模板参数:\par
+
+\begin{lstlisting}[caption={}]
+	template <typename... Args>
+	void report(SMLoc Loc, unsigned DiagID,
+				Args &&... Arguments) {
+		std::string Msg =
+			llvm::formatv(getDiagnosticText(DiagID),
+						  std::forward<Args>(Arguments)...)
+				.str();
+		SourceMgr::DiagKind Kind = getDiagnosticKind(DiagID);
+		SrcMgr.PrintMessage(Loc, Kind, Msg);
+		NumErrors += (Kind == SourceMgr::DK_Error);
+	}
+};
+
+} // namespace tinylang
+
+#endif
+\end{lstlisting}
+
+这样，我们就实现了类的大部分内容。只缺少getDiagnosticText()和getDiagnosticKind()。它们在lib/Basic/Diagnostic.cpp文件中定义，并使用Diagnostic.def文件:\par
+
+\begin{lstlisting}[caption={}]
+#include "tinylang/Basic/Diagnostic.h"
+using namespace tinylang;
+namespace {
+	const char *DiagnosticText[] = {
+		#define DIAG(ID, Level, Msg) Msg,
+		#include "tinylang/Basic/Diagnostic.def"
+	};
+\end{lstlisting}
+
+与头文件中一样，DIAG宏定义为检索所需的部分。这里，我们将定义一个数组来保存文本消息。因此，DIAG宏只返回Msg部分。我们将使用相同的方法:\par
+
+\begin{lstlisting}[caption={}]
+SourceMgr::DiagKind DiagnosticKind[] = {
+#define DIAG(ID, Level, Msg) SourceMgr::DK_##Level,
+#include "tinylang/Basic/Diagnostic.def"
+};
+} // namespace
+\end{lstlisting}
+
+不出所料，这两个函数都只是简单地对数组进行索引，并返回所需的数据:\par
+
+\begin{lstlisting}[caption={}]
+const char *
+DiagnosticsEngine::getDiagnosticText(unsigned DiagID) {
+	return DiagnosticText[DiagID];
+}
+
+SourceMgr::DiagKind
+DiagnosticsEngine::getDiagnosticKind(unsigned DiagID) {
+	return DiagnosticKind[DiagID];
+}
+\end{lstlisting}
+
+SourceMgr和DiagnosticsEngine类的这种组合为其他组件提供了良好的基础。让我们先在词法分析器中使用一下!\par
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

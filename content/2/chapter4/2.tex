@@ -1,0 +1,124 @@
+真正的编程语言比前一章简单的calc语言更复杂。为了更详细地研究它，我将在本章和接下来的章节中使用Modula-2的子集。Modula-2设计良好，可选地支持泛型和面向对象编程(OOP)(并不是说要在本书中创建一个完整的Modula-2编译器)。因此，我将把我的子集命名为tinylang。\par
+
+让我们快速浏览一下tinylang语法的子集。在接下来的小节中，我们将从该语法派生词法分析器和解析器:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+compilationUnit \\
+\hspace*{0.5cm}: "MODULE" identifier ";" ( import )* block identifier "." ; \\
+Import : ( "FROM" identifier )? "IMPORT" identList ";" ; \\
+Block \\
+\hspace*{0.5cm}: ( declaration )* ( "BEGIN" statementSequence )? "END" ;
+\end{tcolorbox}
+
+在Modula-2中，编译单元以MODULE关键字开头，然后是模块的名称。模块的内容可以是导入的模块列表、声明和在初始化时运行的语句的块:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+declaration \\
+\hspace*{0.5cm}: "CONST" ( constantDeclaration ";" )* \\
+\hspace*{0.5cm}| "VAR" ( variableDeclaration ";" )* \\
+\hspace*{0.5cm}| procedureDeclaration ";" ;
+\end{tcolorbox}
+
+声明引入常量、变量和过程。已声明的常量以CONST关键字作为前缀。类似地，变量声明以VAR关键字开头。声明常量非常简单:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+constantDeclaration : identifier "=" expression ;
+\end{tcolorbox}
+
+标识符是常量的名称。该值派生自表达式，该表达式必须在编译时是可计算的。声明变量有点复杂:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+variableDeclaration : identList ":" qualident ; \\
+qualident : identifier ( "." identifier )* ; \\
+identList : identifier ( "," identifier)* ;
+\end{tcolorbox}
+
+为了能够一次声明多个变量，必须使用标识符列表，类型的名称可能来自另一个模。本例中以模块名作为前缀，称为限定标识符。过程需要最多详细信息:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+procedureDeclaration \\
+\hspace*{0.5cm}: "PROCEDURE" identifier ( formalParameters )? ";" \\
+\hspace*{1cm}block identifier ; \\
+formalParameters \\
+\hspace*{0.5cm}: "(" ( formalParameterList )? ")" ( ":" qualident )? ; \\
+formalParameterList \\
+\hspace*{0.5cm}: formalParameter (";" formalParameter )* ; \\
+formalParameter : ( "VAR" )? identList ":" qualident ;
+\end{tcolorbox}
+
+在前面的代码中，您可以看到常量、变量和过程是如何声明的。过程可以有参数和返回类型。普通参数作为值传递，而VAR参数通过引用传递。前面的块规则缺少的另一部分是statementSequence，只是单个语句的列表:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+statementSequence \\
+\hspace*{0.5cm}: statement ( ";" statement )* ;
+\end{tcolorbox}
+
+如果一个语句后面跟着另一个语句，则该语句用分号分隔。同样，这只是Modula-2语句支持的子集:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+statement \\
+\hspace*{0.5cm}: qualident ( ":=" expression | ( "(" ( expList )? ")" )? ) \\
+\hspace*{0.5cm}| ifStatement | whileStatement | "RETURN" ( expression )? ;
+\end{tcolorbox}
+
+该规则的第一部分描述了一个赋值或过程调用。后跟:=的限定标识符是一个赋值。另一方面，如果后面跟着(，则它是一个过程调用。其他语句是常用的控制语句:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+ifStatement \\
+\hspace*{0.5cm}: "IF" expression "THEN" statementSequence \\
+\hspace*{0.5cm}( "ELSE" statementSequence )? "END" ;
+\end{tcolorbox}
+
+IF语句也有一个简化的语法，因为它只能有一个ELSE块。可以通过这个语句，我们有条件地保护语句:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+whileStatement \\
+\hspace*{0.5cm}: "WHILE" expression "DO" statementSequence "END" ;
+\end{tcolorbox}
+
+WHILE语句描述了一个由条件保护的循环。加上IF语句，我们可以用tinylang编写简单的算法。最后，没有表达式的定义:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+expList \\
+\hspace*{0.5cm}: expression ( "," expression )* ; \\
+expression \\
+\hspace*{0.5cm}: simpleExpression ( relation simpleExpression )? ; \\
+relation \\
+\hspace*{0.5cm}: "=" | "\#" | "<" | "<=" | ">" | ">=" ; \\
+simpleExpression \\
+\hspace*{0.5cm}: ( "+" | "-" )? term ( addOperator term )* ; \\
+addOperator \\
+\hspace*{0.5cm}: "+" | "-" | "OR" ; \\
+term \\
+\hspace*{0.5cm}: factor ( mulOperator factor )* ; \\
+mulOperator \\
+\hspace*{0.5cm}: "*" | "/" | "DIV" | "MOD" | "AND" ; \\
+factor \\
+\hspace*{0.5cm}: integer\underline{~}literal | "(" expression ")" | "NOT" factor \\
+| qualident ( "(" ( expList )? ")" )? ;
+\end{tcolorbox}
+
+表达式语法与前一章的calc非常相似，只支持INTEGER和BOOLEAN数据类型。\par
+
+此外，还使用identifier和integer\underline{~}literal标记。\textbf{标识符}以字母或下划线开头，后面跟着字母、数字和下划线。\textbf{整数字面值}可以是一个十进制数字序列，也可以是一个十六进制数字序列，后面跟着字母H。\par
+
+虽然已经介绍了很多规则，但这里只涉及Modula-2的一部分!尽管如此，还是可以使用这个子集中编写小型应用程序。让我们为tinylang实现一个编译器!\par
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

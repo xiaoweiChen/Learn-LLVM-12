@@ -1,0 +1,150 @@
+如前一章所示，解析器是从语法派生出来的。让我们回顾一下所有的构造规则：对于每个语法规则，都要创建一个以规则左侧的非终结符命名的方法，以便解析规则的右侧。根据右边的定义，必须做以下事情:\par
+
+\begin{itemize}
+	\item 对于每个非终结符，调用相应的方法。
+	\item 处理每个令牌。
+	\item 对于可选组和可选组或重复组，将检查前瞻性令牌(下一个未使用的令牌)，以决定从哪里继续。
+\end{itemize}
+
+让我们将这些结构规则应用到以下语法规则中:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+ifStatement \\
+\hspace*{0.5cm}: "IF" expression "THEN" statementSequence \\
+\hspace*{1cm}( "ELSE" statementSequence )? "END" ;
+\end{tcolorbox}
+
+我们可以很容易地将其转换为以下C++方法:\par
+
+\begin{lstlisting}[caption={}]
+void Parser::parseIfStatement() {
+	consume(tok::kw_IF);
+	parseExpression();
+	consume(tok::kw_THEN);
+	parseStatementSequence();
+	if (Tok.is(tok::kw_ELSE)) {
+		advance();
+		parseStatementSequence();
+	}
+	consume(tok::kw_END);
+}
+\end{lstlisting}
+
+tinylang的整个语法可以用这种方式转换成C++。不过，您必须小心并避免一些陷阱。\par
+
+需要注意的一个问题是左递归规则。如果右边和左边以相同的终端开始，规则是左递归的。表达式的语法中可以找到一个典型的例子:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+expression : expression "+" term ;
+\end{tcolorbox}
+
+如果还不清楚语法，那么下面对C++的翻译应该可以清楚地表明，这将导致无限递归:\par
+
+\begin{lstlisting}[caption={}]
+void Parser::parseExpression() {
+	parseExpression();
+	consume(tok::plus);
+	parseTerm();
+}
+\end{lstlisting}
+
+左递归也可能间接发生，涉及更多规则，这很难发现。这就是为什么存在一种可以检测和消除左递归的算法。\par
+
+每个步骤中，解析器决定如何仅通过使用预先标记继续。如果不能确定，语法就会发生冲突。为了说明这一点，让我们看看C\#中的using语句。与C++类似，using语句可用于在名称空间中使符号可见，例如在using Math;中。还可以为导入的符号定义别名;也就是说，使用M = Math;在语法中，可以这样表达:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+usingStmt : "using" (ident "=")? ident ";"
+\end{tcolorbox}
+
+显然，这里有个问题。解析器使用了using关键字之后，就标识了预先标记。但是，这些信息不足以让我们决定是否必须跳过或解析可选组。如果可选组开始的一组标记与可选组后面的一组标记重叠，则总是会出现这种情况。\par
+
+让我们用一个替代方案来重写这个规则:\par
+
+
+\begin{tcolorbox}[colback=white,colframe=black]
+usingStmt : "using" ( ident "=" ident | ident ) ";" ;
+\end{tcolorbox}
+
+现在，有一个不同的冲突:两个选择都以相同的标记开始。只看预先标记，解析器不能决定哪个选项是正确的。\par
+
+这些冲突非常普遍。因此，需要了解如何处理它们。一种方法是以冲突消失的方式重写语法。在前面的示例中，两个选项都以相同的标记开始。这可以分解，得到以下规则:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+usingStmt : "using" ident ("=" ident)? ";" ;
+\end{tcolorbox}
+
+这种表述没有冲突。然而，还应该注意的是，它的表达性较差。其他两个公式中，很明显哪个标识是别名，哪个标识是名称空间名称。这个无冲突规则中，最左边的标识改变了它的角色。首先，它是名称空间名称，但是如果后面跟着等号(=)，那么就变成别名。\par
+
+第二种方法是添加一个额外的谓词来区分这两种情况。这个谓词通常称为解释器，它可以使用上下文信息进行决策(例如符号表中的名称查找)，但它可以查看多个令牌。让我们假设lexer有一个Token \&peek(int n)方法，它在当前查找令牌之后返回第n个令牌。这里，等号的存在可以作为判定中的附加谓词:\par
+
+\begin{lstlisting}[caption={}]
+if (Tok.is(tok::ident) && Lex.peek(0).is(tok::equal)) {
+	advance();
+	consume(tok::equal);
+}
+consume(tok::ident);
+\end{lstlisting}
+
+现在，让我们加入错误恢复。前一章中，介绍了“恐慌模式”作为一种错误恢复技术。基本思想是跳过标记，直到找到适合继续解析的标记为止。例如，在tinylang中，语句后面跟着分号(:)。\par
+
+如果If语句中存在语法问题，则跳过所有标记，直到找到分号。然后，继续下一个。与其为令牌集的特别定义标记，不如使用系统方法。\par
+
+对于每个非终结符，计算可以在跟随该非终结符的标记集(称为FOLLOW集)。对于非终结符语句，可以跟;、ELSE和END标记。因此，您可以在parseStatement()的错误恢复部分中使用这个集合。当然，此方法假设语法错误可以在本地处理。一般来说，这不太可能。因为解析器会跳过标记，所以可能会跳过很多标记，以至于到达输入的末尾。所以，无法进行本地恢复。\par
+
+为了防止无意义的错误消息，需要通知调用方法错误恢复仍未完成。这可以通过bool返回值来完成:true表示错误恢复尚未完成，false表示解析(包括可能的错误恢复)是成功的。\par
+
+有许多方法可以扩展这个错误恢复方案，一种流行的方法是也使用活动调用者的FOLLOW集合。一个简单的例子，让我们假设parseStatement()由parseStatementSequence()调用，而parseBlock()本身调用parseBlock()，而parseModule()调用parseStatement()。\par
+
+这里，每个对应的非终端都有一个FOLLOW集。如果解析器检测到parseStatement()中的语法错误，那么将跳过令牌，直到令牌至少出现在活动调用者的一个FOLLOW集合中。如果令牌在语句的FOLLOW集合中，则在本地恢复错误，并将一个假值返回给调用者。否则，返回一个真值，这意味着错误恢复必须继续。这个扩展的一个可能的实现策略是，传递std::bitset或std::tuple来表示当前FOLLOW的集合返回给调用者。\par
+
+最后一个问题仍然未解决:如何调用错误恢复?前一章中，使用goto跳转到错误恢复块。这是可行的，但不是很优雅的解决方案。根据前面的讨论，我们可以在单独的方法中跳过标记。为此，Clang有一个名为skipUntil()的方法，我们也可以将其用于tinylang。\par
+
+因为下一步是向解析器添加语义操作，所以如果有必要，最好有一个位置放置清理代码。嵌套函数是做该任务最佳选择。C++没有嵌套函数，而lambda函数可以用于这项任务。具有错误恢复的parseIfStatement()如下所示:\par
+
+\begin{lstlisting}[caption={}]
+bool Parser::parseIfStatement() {
+	auto _errorhandler = [this] {
+		return SkipUntil(tok::semi, tok::kw_ELSE, tok::kw_END);
+	};
+	if (consume(tok::kw_IF))
+		return _errorhandler();
+	if (parseExpression(E))
+		return _errorhandler();
+	if (consume(tok::kw_THEN))
+		return _errorhandler();
+	if (parseStatementSequence(IfStmts))
+		return _errorhandler();
+	if (Tok.is(tok::kw_ELSE)) {
+		advance();
+		if (parseStatementSequence(ElseStmts))
+			return _errorhandler();
+	}
+	if (expect(tok::kw_END))
+		return _errorhandler();
+	return false;
+}
+\end{lstlisting}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
