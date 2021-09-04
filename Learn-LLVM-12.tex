@@ -300,126 +300,127 @@
 		\subfile{content/2/chapter4/9.tex}
 	\subsection{5 生成IR——基础知识}
 	%\subfile{content/1/chapter5/0.tex}
-		\subsubsection{Technical requirements}
+		\subsubsection{相关代码}
 		%\subfile{content/1/chapter5/1.tex}
-		\subsubsection{Generating IR from the AST}
+		\subsubsection{使用AST生成IR}
 		%\subfile{content/1/chapter5/1.tex}
-		\subsubsection{Using AST numbering to generate IR code in SSA form}
+		\subsubsection{使用AST编码生成SSA形式的IR}
 		%\subfile{content/1/chapter5/2.tex}
-		\subsubsection{Setting up the module and the driver}
+		\subsubsection{设置模块和驱动程序}
 		%\subfile{content/1/chapter5/3.tex}
 		\subsubsection{总结}
 		%\subfile{content/1/chapter5/4.tex}
 	\subsection{6 生成高级语言结构的IR}
 	%\subfile{content/1/chapter6/0.tex}
-		\subsubsection{Technical requirements}
+		\subsubsection{相关代码}
 		%\subfile{content/1/chapter6/1.tex}
-		\subsubsection{Working with arrays, structs,and pointers}
+		\subsubsection{使用数组、结构体和指针}
 		%\subfile{content/1/chapter6/2.tex}
-		\subsubsection{Getting the application binary interface right}
+		\subsubsection{正确的获取二进制程序的接口}
 		%\subfile{content/1/chapter6/3.tex}
-		\subsubsection{Creating IR code for classes and virtual functions}
+		\subsubsection{为类和虚函数创建IR代码}
 		%\subfile{content/1/chapter6/3.tex}
 		\subsubsection{总结}
 		%\subfile{content/1/chapter6/4.tex}
 	\subsection{7 生成IR——进阶知识}
 	%\subfile{content/1/chapter7/0.tex}
-		\subsubsection{Technical requirements}
+		\subsubsection{相关代码}
 		%\subfile{content/1/chapter7/1.tex}
-		\subsubsection{Generating metadata for type-based alias analysis}
+		\subsubsection{基于类型的别名生成元数据的分析}
 		%\subfile{content/1/chapter7/2.tex}
-		\subsubsection{Throwing and catching exceptions}
+		\subsubsection{抛出和捕获异常}
 		%\subfile{content/1/chapter7/3.tex}
-		\subsubsection{Adding debug metadata}
+		\subsubsection{添加调试元数据}
 		%\subfile{content/1/chapter7/4.tex}
 		\subsubsection{总结}
 		%\subfile{content/1/chapter7/5.tex}
 	\subsection{8 优化IR}
 	%\subfile{content/1/chapter8/0.tex}
-		\subsubsection{Technical requirements}
+		\subsubsection{相关代码}
 		%\subfile{content/1/chapter8/1.tex}
-		\subsubsection{Introducing the LLVM Pass manager}
+		\subsubsection{介绍LLVM Pass管理器}
 		%\subfile{content/1/chapter8/2.tex}
-		\subsubsection{Implementing a Pass using the new Pass manager}
+		\subsubsection{使用新的Pass管理器实现一个Pass}
 		%\subfile{content/1/chapter8/3.tex}
-		\subsubsection{Adapting a Pass for use with the old Pass manager}
+		\subsubsection{使用旧的Pass管理器中适配一个Pass}
 		%\subfile{content/1/chapter8/4.tex}
-		\subsubsection{Adding an optimization pipeline to your compiler}
+		\subsubsection{向编译器添加优化流水线}
 		%\subfile{content/1/chapter8/5.tex}
 		\subsubsection{总结}
 		%\subfile{content/1/chapter8/7.tex}
 	
-	\pagecolor{mygray}
+	
 	\color{white}
-	\section*{\zihao{1} 3 Taking LLVM to the Next Level}
-	\addcontentsline{toc}{section}{3 Taking LLVM to the Next Level}
+	\section*{\zihao{1} 3 LLVM进阶}
+	\pagecolor{mygray}
+	\addcontentsline{toc}{section}{3 LLVM进阶}
 	%\subfile{content/3/Part-3.tex}
 	\color{black}
 	\pagecolor{white}
 	
 	\subsection{9 选择指令}
 	%\subfile{content/2/chapter9/0.tex}
-		\subsubsection{Technical requirements}
+		\subsubsection{相关代码}
 		%\subfile{content/2/chapter9/1.tex}
-		\subsubsection{Understanding the LLVM target backend structure}
+		\subsubsection{理解LLVM目标后端结构}
 		%\subfile{content/2/chapter9/2.tex}
-		\subsubsection{Using MIR to test and debug the backend}
+		\subsubsection{使用MIR对后端进行测试和调试}
 		%\subfile{content/2/chapter9/3.tex}
-		\subsubsection{How instruction selection works}		
+		\subsubsection{如何选择指令}		
 		%\subfile{content/2/chapter9/4.tex}
-		\subsubsection{Supporting new machine instructions}
+		\subsubsection{支持新的机器指令}
 		%\subfile{content/2/chapter9/5.tex}
 		\subsubsection{总结}
 		%\subfile{content/2/chapter9/6.tex}
 	\subsection{10 JIT编译}
 	%\subfile{content/2/chapter10/0.tex}
-		\subsubsection{Technical requirements}
+		\subsubsection{相关代码}
 		%\subfile{content/2/chapter10/1.tex}
-		\subsubsection{Getting an overview of LLVM's JIT implementation and use cases}
+		\subsubsection{概述LLVM的JIT实现和用例}
 		%\subfile{content/2/chapter10/2.tex}
-		\subsubsection{Using JIT compilation for direct execution}
+		\subsubsection{使用JIT编译直接执行}
 		%\subfile{content/2/chapter10/3.tex}
-		\subsubsection{Utilizing a JIT compiler for code evaluation}
+		\subsubsection{利用JIT编译器进行代码评审}
 		%\subfile{content/2/chapter10/4.tex}
 		\subsubsection{总结}
 		%\subfile{content/2/chapter10/5.tex}
 	\subsection{11 使用LLVM工具调试}
 	%\subfile{content/2/chapter11/0.tex}
-		\subsubsection{Technical requirements}
+		\subsubsection{相关代码}
 		%\subfile{content/2/chapter11/1.tex}
-		\subsubsection{Instrumenting an application with sanitizers}
+		\subsubsection{使用sanitizer安装应用程序}
 		%\subfile{content/2/chapter11/2.tex}
-		\subsubsection{Finding bugs with libFuzzer}
+		\subsubsection{用libFuzzer找Bug}
 		%\subfile{content/2/chapter11/3.tex}
-		\subsubsection{Performance profiling with XRay}
+		\subsubsection{使用xRay进行性能分析}
 		%\subfile{content/2/chapter11/4.tex}
-		\subsubsection{Checking the source with the Clang Static Analyzer}
+		\subsubsection{使用Clang静态分析器检查源码}
 		%\subfile{content/2/chapter11/5.tex}
-		\subsubsection{Creating your own Clang-based tool}
+		\subsubsection{创建自己的基于Clang的工具}
 		%\subfile{content/2/chapter11/5.tex}
 		\subsubsection{总结}
 		%\subfile{content/2/chapter11/6.tex}
-	\subsection{12 创建自己的后端}
+	\subsection{12 自定义编译器后端}
 	%\subfile{content/2/chapter12/0.tex}
-		\subsubsection{Technical requirements}
+		\subsubsection{相关代码}
 		%\subfile{content/2/chapter12/1.tex}
-		\subsubsection{Setting the stage for a new backend}
+		\subsubsection{为新的后端搭建舞台}
 		%\subfile{content/2/chapter12/2.tex}
-		\subsubsection{Adding the new architecture to the Triple class}
+		\subsubsection{将新的体系结构添加到Triple类中}
 		%\subfile{content/2/chapter12/3.tex}
-		\subsubsection{Extending the ELF file format definition in LLVM}
+		\subsubsection{在LLVM中扩展ELF文件格式定义}
 		%\subfile{content/3/chapter13/1.tex}
-		\subsubsection{Creating the target description}
+		\subsubsection{创建目标描述}
 		%\subfile{content/3/chapter13/2.tex}
-		\subsubsection{Implementing the DAG instruction selection classes}
+		\subsubsection{实现DAG指令选择类}
 		%\subfile{content/3/chapter14/1.tex}
-		\subsubsection{Generating assembler instructions}
+		\subsubsection{生成汇编指令}
 		%\subfile{content/3/chapter14/2.tex}
-		\subsubsection{Emitting machine code}
+		\subsubsection{计算机编码}
 		%\subfile{content/3/chapter14/3.tex}
-		\subsubsection{Adding support for disassembling}
+		\subsubsection{添加对反汇编的支持}
 		%\subfile{content/3/chapter14/4.tex}
-		\subsubsection{Piecing it all together}
+		\subsubsection{自定义后端的汇总}
 		%\subfile{content/3/chapter15/1.tex}
 		\subsubsection{总结}
 		%\subfile{content/3/chapter15/7.tex}
