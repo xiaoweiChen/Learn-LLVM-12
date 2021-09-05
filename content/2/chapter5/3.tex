@@ -1,0 +1,432 @@
+为了从AST生成SSA形式的IR编码，我们使用了一种称为AST编码的方法。基本思想是，对于每个基本块，我们存储写这个基本块中局部变量的当前值。\par
+
+虽然它很简单，但仍然需要几个步骤。我们将首先介绍所需的数据结构，然后实现对基本块局部值的读写。然后，将处理在几个基本块中使用的值，并通过优化所创建的phi指令得出结论。\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{定义保存值的数据结构}
+
+我们使用struct BasicBlockDef来保存单个块的信息:\par
+
+\begin{lstlisting}[caption={}]
+struct BasicBlockDef {
+llvm::DenseMap<Decl *, llvm::TrackingVH<llvm::Value>> Defs;
+// ...
+};
+\end{lstlisting}
+
+LLVM类LLVM::Value表示一个SSA形式的值，Value类的作用类似于计算结果上的标签。它通常通过IR指令创建一次，然后使用。在各种优化过程中可能会有更改。例如，如果优化器检测到值\%1和\%2总是相同的，那么可以将\%2的使用替换为\%1。基本上，这会改变标签，但不会改变计算。要注意这些变化，我们不能直接使用Value类。相反，我们需要一个值句柄。有不同功能的值句柄。要跟踪替换，要使用llvm::TrackingVH<>类。因此，Defs成员将AST的声明(变量或形式参数)映射到其当前值。现在我们需要为每个基本块存储这些信息:\par
+
+\begin{lstlisting}[caption={}]
+llvm::DenseMap<llvm::BasicBlock *, BasicBlockDef>
+	CurrentDef;
+\end{lstlisting}
+
+有了这个数据结构，我们现在就能够处理局部值了。\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{读写基本块的局部值}
+
+为了将局部变量的当前值存储在一个基本块中，我们只需在映射中创建一个条目:\par
+
+\begin{lstlisting}[caption={}]
+void writeLocalVariable(llvm::BasicBlock *BB, Decl *Decl,
+						llvm::Value *Val) {
+	CurrentDef[BB].Defs[Decl] = Val;
+}
+\end{lstlisting}
+
+变量值的查找稍微复杂一点，因为值可能不在基本块中。这种情况下，我们需要使用可能的递归搜索将搜索扩展到前面几个基本块:\par
+
+\begin{lstlisting}[caption={}]
+llvm::Value *
+readLocalVariable(llvm::BasicBlock *BB, Decl *Decl) {
+	auto Val = CurrentDef[BB].Defs.find(Decl);
+	if (Val != CurrentDef[BB].Defs.end())
+		return Val->second;
+	return readLocalVariableRecursive(BB, Decl);
+}
+\end{lstlisting}
+
+真正的工作是搜索前几个基本块，这将在下一节中实现。\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{搜索前一个块以查找值}
+
+如果我们正在查看的当前基本块只有一个前块，那么我们在那里搜索变量的值。如果基本块有几个前块，那么我们需要搜索所有这些块中的值，并将结果合并。为了说明这种情况，可以查看上一节中带有WHILE语句条件的基本块。\par
+
+这个基本块有两个前块—一个来自WHILE循环之前的语句，另一个来自WHILE循环主体的分支。条件中使用的变量应该有一个初始值，并且很可能在循环体中更改。所以，我们需要收集这些定义并从中创建一条phi指令。由WHILE语句创建的基本块包含一个循环。\par
+
+因为我们递归地搜索前一个块，所以必须打破这个循环。为此，我们使用一个简单的技巧——插入一条空的phi指令，并将其记录为变量的当前值。如果在搜索中再次看到这个基本块，那么就会发现这个变量有一个值，我们会使用它。搜索到此为止。在我们收集了所有的值之后，必须对phi指令进行更新。\par
+
+我们仍将面临一个问题。在查找时，并不是所有基本块的前块都是已知的。这是怎么可能呢?看看WHILE语句的基本块的创建。首先生成循环条件的IR。但是，从body的末端返回到包含条件的基本块的分支只能在生成body的IR之后添加，因为这个基本块之前是不知道的。如果我们需要在条件中读取一个变量的值，那么就会卡住，因为不是所有的前一个变量都是已知的。\par
+
+要解决这个问题，我们必须再多做一点:\par
+
+\begin{itemize}
+\item 首先，给基本块附加一个标志。
+	
+\item 然后，如果知道基本块的所有前块，就定义一个基本块为“密封的”。基本块没有密封，我们需要查找这个基本块中尚未定义的变量值，然后插入一个空的phi指令，并将其作为值。
+	
+\item 我们还需要记住这个标识。该块之后被密封时，我们需要用实际值更新指令。IncompletePhis的map记录了我们需要更新的phi指令，Sealed标志表明基本块是否密封:
+\begin{lstlisting}[caption={}]
+llvm::DenseMap<llvm::PHINode *, Decl *>
+	IncompletePhis;
+unsigned Sealed : 1;
+\end{lstlisting}
+
+\item 然后，该方法的实现如下:
+\begin{lstlisting}[caption={}]
+llvm::Value *readLocalVariableRecursive(
+								llvm::BasicBlock *BB,
+								Decl *Decl) {
+	llvm::Value *Val = nullptr;
+	if (!CurrentDef[BB].Sealed) {
+		llvm::PHINode *Phi = addEmptyPhi(BB, Decl);
+		CurrentDef[BB].IncompletePhis[Phi] = Decl;
+		Val = Phi;
+	} else if (auto *PredBB = BB
+							->getSinglePredecessor()) {
+		Val = readLocalVariable(PredBB, Decl);
+	} else {
+		llvm::PHINode *Phi = addEmptyPhi(BB, Decl);
+		Val = Phi;
+		writeLocalVariable(BB, Decl, Val);
+		addPhiOperands(BB, Decl, Phi);
+	}
+	writeLocalVariable(BB, Decl, Val);
+	return Val;
+}
+\end{lstlisting}
+
+\item addEmptyPhi()方法在基本块的开头插入一条空phi指令:
+\begin{lstlisting}[caption={}]
+llvm::PHINode *addEmptyPhi(llvm::BasicBlock *BB, Decl
+*Decl) {
+	return BB->empty()
+		? llvm::PHINode::Create(mapType(Decl), 0,
+			"", BB)
+		: llvm::PHINode::Create(mapType(Decl), 0,
+			"", &BB->front());
+}
+\end{lstlisting}
+
+\item 为了将缺失的操作数加到phi指令中，我们首先搜索基本块的所有前任，然后将操作数对值和基本块加到phi指令中。然后，我们尝试优化指令:
+\begin{lstlisting}[caption={}]
+void addPhiOperands(llvm::BasicBlock *BB, Decl *Decl,
+					llvm::PHINode *Phi) {
+	for (auto I = llvm::pred_begin(BB),
+			  E = llvm::pred_end(BB);
+		 I != E; ++I) {
+		Phi->addIncoming(readLocalVariable(*I, Decl), *I);
+	}
+	optimizePhi(Phi);
+}
+\end{lstlisting}
+
+\end{itemize}
+
+这种算法会产生不必要的phi指令。下一节将尝试实现一种优化方法。\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{优化生成的phi指令}
+
+我们如何优化phi指令，为什么要这样做?虽然SSA形式对许多优化是有利的，但phi指令通常不被算法理解，因此在一般情况下会阻碍优化。因此，我们生成的phi指令是越少越好:\par
+
+\begin{itemize}
+\item 如果指令只有一个操作数或所有操作数都有相同的值，则用这个值替换指令。如果指令没有操作数，则用特殊值Undef替换该指令。只有当指令有两个或多个不同的操作数时，才需要保留指令:
+\begin{lstlisting}[caption={}]
+void optimizePhi(llvm::PHINode *Phi) {
+	llvm::Value *Same = nullptr;
+	for (llvm::Value *V : Phi->incoming_values()) {
+		if (V == Same || V == Phi)
+			continue;
+		if (Same && V != Same)
+			return;
+		Same = V;
+	}
+	if (Same == nullptr)
+		Same = llvm::UndefValue::get(Phi->getType());
+\end{lstlisting}
+
+\item 删除一个phi指令可能会导致其他phi指令有优化的机会。我们搜索值在其他phi指令中的用法后，尝试优化这些指令:
+\begin{lstlisting}[caption={}]
+	llvm::SmallVector<llvm::PHINode *, 8> CandidatePhis;
+	for (llvm::Use &U : Phi->uses()) {
+		if (auto *P =
+					llvm::dyn_cast<llvm::PHINode>(U.getUser()))
+			CandidatePhis.push_back(P);
+	}
+	Phi->replaceAllUsesWith(Same);
+	Phi->eraseFromParent();
+	for (auto *P : CandidatePhis)
+		optimizePhi(P);
+}
+\end{lstlisting}
+
+\end{itemize}
+
+如果需要，该算法还可以进一步改进。我们可以选择并记住两个不同的值，而不是迭代每个phi指令的值列表。在优化函数中，可以检查这两个值是否仍然在phi指令的列表中。如果是，那么就知道没有什么需要优化的了。但即使没有这个优化，这个算法也运行得很快，所以我们现在不打算实现它。\par
+
+我们快实现完了。只有密封基本块的操作还没有实现，我们将在下一节中实现。\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{密封一个块}
+
+只要我们知道一个块的所有前块，就可以密封该块。如果源语言只包含结构化语句，比如tinylang，那么很容易确定块可以被密封的位置。再次查看为WHILE语句生成的基本块。包含条件的基本块可以密封后，从分支体的末端添加，因为这是最后一个缺失的前块。要封住一个块，只需将缺少的操作数添加到不完整的phi指令中，并设置标志:\par
+
+\begin{lstlisting}[caption={}]
+void sealBlock(llvm::BasicBlock *BB) {
+	for (auto PhiDecl : CurrentDef[BB].IncompletePhis) {
+		addPhiOperands(BB, PhiDecl.second, PhiDecl.first);
+	}
+	CurrentDef[BB].IncompletePhis.clear();
+	CurrentDef[BB].Sealed = true;
+}
+\end{lstlisting}
+
+有了这些方法，我们现在可以为表达式生成IR代码了。\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{为表达式创建IR代码}
+
+一般来说，你可以按照第3章编译器的结构来翻译表达式，唯一有难度的部分是如何访问变量。上一节介绍了局部变量，但还有其他类型的变量。让我们简单讨论一下我们需要做什么:\par
+
+\begin{itemize}
+	\item 对于过程的局部变量，使用上一节中的readLocalVariable()和writeLocalVariable()方法。
+	\item 对于封闭过程中的局部变量，需要一个指向封闭过程框架的指针。后面的部分将对此进行处理。
+	\item 对于全局变量，生成加载和存储指令。
+	\item 对于形式参数，必须区分按值传递和按引用传递(tinylang中的VAR参数)。按值传递的参数被视为局部变量，按引用传递的参数被视为全局变量。
+\end{itemize}
+
+把所有这些放在一起，我们可以得到下面的代码，从而可以读取变量或形式参数:\par
+
+\begin{lstlisting}[caption={}]
+llvm::Value *CGProcedure::readVariable(llvm::BasicBlock
+										*BB,
+										Decl *D) {
+	if (auto *V = llvm::dyn_cast<VariableDeclaration>(D)) {
+		if (V->getEnclosingDecl() == Proc)
+			return readLocalVariable(BB, D);
+		else if (V->getEnclosingDecl() ==
+				CGM.getModuleDeclaration()) {
+			return Builder.CreateLoad(mapType(D),
+									  CGM.getGlobal(D));
+		} else
+			llvm::report_fatal_error(
+				"Nested procedures not yet supported");
+	} else if (auto *FP =
+					llvm::dyn_cast<FormalParameterDeclaration>(
+					D)) {
+		if (FP->isVar()) {
+			return Builder.CreateLoad(
+				mapType(FP)->getPointerElementType(),
+				FormalParams[FP]);
+		} else
+		return readLocalVariable(BB, D);
+	} else
+		llvm::report_fatal_error("Unsupported declaration");
+}
+\end{lstlisting}
+
+写入变量或形式参数是对称的，只需要将读的方法与写的方法交换，并使用store指令而不是load指令。\par
+
+接下来，在为函数生成IR代码时应用这些函数，我们将在接下来实现这些函数。\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{生成函数的IR代码}
+
+大多数IR代码将存在于函数中。IR代码中的函数类似于C中的函数，它指定了名称、参数类型、返回值和其他属性。要在不同的编译单元中调用函数，需要声明函数。这类似于C语言中的原型。如果向函数中添加基本块，那么就可以定义函数。我们将在下一节中完成所有这些工作，首先讨论关于符号名的可见性。\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{使用连接和名称修饰的方式控制可见性}
+
+函数(以及全局变量)有一个附加的链接样式。使用链接样式，我们定义了符号名的可见性，以及如果多个符号具有相同的名称应该发生什么。最基本的链接样式是私有的和外部可访问的。具有私有链接的符号仅在当前编译单元中可见，而具有外部链接的符号则是全局可用的。\par
+
+对于没有适当模块概念的语言，如C，这足够了。对于模块，我们需要做更多的工作。假设有一个名为Square的模块提供了一个Root()函数，而Cube模块也提供了一个Root()函数。如果函数是私有的，显然没有问题。该函数获取名称Root和私有链接。如果导出函数，情况就不同了，这样就可以在其他模块中调用它。仅使用函数名是不够的，因为函数名不唯一。\par
+
+解决方案是调整名称，使其具有全局唯一性，这叫做名称修饰。如何做到这一点取决于语言的需求和特征。我们的例子中，基本思想是使用模块名和函数名的组合来创建一个全局唯一名。使用Square.Root作为名称看起来是一个简单的解决方案，但可能会导致汇编程序的问题，因为点可能有特殊的含义。我们不需要在名称组件之间使用分隔符，而是可以用名称组件的长度作为前缀:6Square4Root，从而获得类似的效果。这不是LLVM的合法标识符，但我们可以通过在整个名称前加上\underline{~}t (t代表tinylang): \underline{~}t6Square4Root来解决这个问题。通过这种方式，我们可以为导出的符号，并创建唯一的名称:\par
+
+\begin{lstlisting}[caption={}]
+std::string CGModule::mangleName(Decl *D) {
+	std::string Mangled;
+	llvm::SmallString<16> Tmp;
+	while (D) {
+		llvm::StringRef Name = D->getName();
+		Tmp.clear();
+		Tmp.append(llvm::itostr(Name.size()));
+		Tmp.append(Name);
+		Mangled.insert(0, Tmp.c_str());
+		D = D->getEnclosingDecl();
+	}
+	Mangled.insert(0, "_t");
+	return Mangled;
+}
+\end{lstlisting}
+
+如果你的源语言支持类型重载，那么需要用类型名来扩展这个方案。例如，为了区分C++函数int root(int)和double root(double)，形参的类型和返回值需要添加到函数名中。\par
+
+您还需要考虑生成的名称的长度，因为一些链接器对长度进行了限制。在C++中使用嵌套的名称空间和类，修饰后的名称可能会相当长。所以，C++定义了一个压缩方案来避免一遍又一遍地重复命名组件。\par
+
+接下来，我们看看如何处理参数类型。\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{将类型从AST描述转换为LLVM类型}
+
+函数的参数也需要考虑。首先，需要将源语言的类型映射到LLVM类型。因为tinylang目前只有两种类型，这很简单:\par
+
+\begin{lstlisting}[caption={}]
+llvm::Type *convertType(TypeDeclaration *Ty) {
+	if (Ty->getName() == "INTEGER")
+		return Int64Ty;
+	if (Ty->getName() == "BOOLEAN")
+		return Int1Ty;
+	llvm::report_fatal_error("Unsupported type");
+}
+\end{lstlisting}
+
+Int64Ty、Int1Ty和后来的void都是类成员，它们持有LLVM类型i64、i1和void的类型表示。\par
+
+对于通过引用传递的形式参数是不够的，该参数的LLVM类型为指针。我们将函数推广并考虑形式参数:\par
+
+\begin{lstlisting}[caption={}]
+llvm::Type *mapType(Decl *Decl) {
+	if (auto *FP = llvm::
+	dyn_cast<FormalParameterDeclaration>(
+			Decl)) {
+		llvm::Type *Ty = convertType(FP->getType());
+		if (FP->isVar())
+			Ty = Ty->getPointerTo();
+		return Ty;
+	}
+	if (auto *V = llvm::dyn_cast<VariableDeclaration>(Decl))
+		return convertType(V->getType());
+	return convertType(llvm::cast<TypeDeclaration>(Decl));
+}
+\end{lstlisting}
+
+有了这些助手函数，接下就来创建LLVM IR函数。\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{创建LLVM IR函数}
+
+要在LLVM IR中计算函数，需要一个函数类型，这类似于C中的原型。创建函数类型需要映射类型，然后调用工厂方法来创建函数类型:\par
+
+\begin{lstlisting}[caption={}]
+llvm::FunctionType *createFunctionType(
+	ProcedureDeclaration *Proc) {
+	llvm::Type *ResultTy = VoidTy;
+	if (Proc->getRetType()) {
+		ResultTy = mapType(Proc->getRetType());
+	}
+	auto FormalParams = Proc->getFormalParams();
+	llvm::SmallVector<llvm::Type *, 8> ParamTypes;
+	for (auto FP : FormalParams) {
+		llvm::Type *Ty = mapType(FP);
+		ParamTypes.push_back(Ty);
+	}
+	return llvm::FunctionType::get(ResultTy, ParamTypes,
+									/* IsVarArgs */ false);
+}
+\end{lstlisting}
+
+根据函数类型，我们还创建了LLVM函数，将函数类型与链接和修饰后的名称关联起来:\par
+
+\begin{lstlisting}[caption={}]
+llvm::Function *
+createFunction(ProcedureDeclaration *Proc,
+			   llvm::FunctionType *FTy) {
+	llvm::Function *Fn = llvm::Function::Create(
+		Fty, llvm::GlobalValue::ExternalLinkage,
+		mangleName(Proc), getModule());
+\end{lstlisting}
+
+getModule()方法返回当前的LLVM模块，稍后我们将对其进行设置。\par
+
+创建这个函数后，可以向它添加更多的信息。首先，我们可以给出参数的名称。这使得IR更具可读性。其次，我们可以向函数和参数添加属性，以指定一些特征。例如，我们可以对通过引用传递的参数进行这样的操作。\par
+
+从LLVM层来看，这些参数是指针。但是从源语言设计来看，这些都是非常受限的指针。类似于C++中的引用，需要为VAR参数指定一个变量。因此，通过设计，我们知道这个指针永不为空，而且总是可解引用的，这意味着我们可以冒着保护故障的风险读取指向的值。所以，这个指针不能被传递。特别地，没有指针的副本比函数调用的时间周期长。因此，我们说指针没有被捕获。\par
+
+AttributeBuilder类用于为形参构建属性集。要获得参数类型的存储大小，我们可以简单地查询数据布局:\par
+
+\begin{lstlisting}[caption={}]
+	size_t Idx = 0;
+	for (auto I = Fn->arg_begin(), E = Fn->arg_end(); I != E;
+	++I, ++Idx) {
+		llvm::Argument *Arg = I;
+		FormalParameterDeclaration *FP =
+		Proc->getFormalParams()[Idx];
+		if (FP->isVar()) {
+			llvm::AttrBuilder Attr;
+			llvm::TypeSize Sz =
+				CGM.getModule()
+					->getDataLayout().getTypeStoreSize(
+						CGM.convertType(FP->getType()));
+			Attr.addDereferenceableAttr(Sz);
+			Attr.addAttribute(llvm::Attribute::NoCapture);
+			Arg->addAttrs(Attr);
+		}
+	Arg->setName(FP->getName());
+	}
+	return Fn;
+}
+\end{lstlisting}
+
+现在我们已经创建了IR功能。在下一节中，我们将函数体的基本块添加到函数中。\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{生成函数体}
+
+我们几乎完成了函数的IR代码生成!我们只需要将各个部分组合在一起就可以生成一个函数，包括函数体:\par
+
+\begin{itemize}
+\item 给定tinylang中的过程声明，首先创建函数类型和函数:
+\begin{lstlisting}[caption={}]
+void run(ProcedureDeclaration *Proc) {
+	this->Proc = Proc;
+	Fty = createFunctionType(Proc);
+	Fn = createFunction(Proc, Fty);
+\end{lstlisting}
+
+\item 接下来，创建函数的第一个基本块，并将其设置为当前块:
+\begin{lstlisting}[caption={}]
+	llvm::BasicBlock *BB = llvm::BasicBlock::Create(
+		CGM.getLLVMCtx(), "entry", Fn);
+	setCurr(BB);
+\end{lstlisting}
+
+\item 然后遍历所有形式参数。为了正确处理VAR参数，我们需要初始化FormalParams成员(在readVariable()中使用)。与局部变量不同，形式参数在第一个基本块中有一个值，所以这些值是已知的:
+\begin{lstlisting}[caption={}]
+	size_t Idx = 0;
+	auto &Defs = CurrentDef[BB];
+	for (auto I = Fn->arg_begin(), E = Fn->arg_end(); I !=
+		 E; ++I, ++Idx) {
+		llvm::Argument *Arg = I;
+		FormalParameterDeclaration *FP = Proc->
+			getParams()[Idx];
+		FormalParams[FP] = Arg;
+		Defs.Defs.insert(
+			std::pair<Decl *, llvm::Value *>(FP, Arg));
+	}
+\end{lstlisting}
+
+\item 按照这个设定，我们可以调用emit()方法来开始为语句生成IR代码:
+\begin{lstlisting}[caption={}]
+	auto Block = Proc->getStmts();
+	emit(Proc->getStmts());
+\end{lstlisting}
+
+\item 生成IR代码后的最后一个块可能还没有密封，因此现在调用sealBlock()。tinylang中的过程可能有隐式的return，所以我们还要检查最后一个基本块是否有合适的终止符，如果没有，就添加一个:
+\begin{lstlisting}[caption={}]
+	sealBlock(Curr);
+	if (!Curr->getTerminator()) {
+		Builder.CreateRetVoid();
+	}
+}
+\end{lstlisting}
+
+\end{itemize}
+
+这就完成了函数IR代码的生成。我们仍然需要创建LLVM模块，它将所有IR代码保存在一起。\par
+
+
+
