@@ -99,7 +99,7 @@ consume(tok::ident);
 
 最后一个问题仍然未解决:如何调用错误恢复?前一章中，使用goto跳转到错误恢复块。这是可行的，但不是很优雅的解决方案。根据前面的讨论，我们可以在单独的方法中跳过标记。为此，Clang有一个名为skipUntil()的方法，我们也可以将其用于tinylang。\par
 
-因为下一步是向解析器添加语义操作，所以如果有必要，最好有一个位置放置清理代码。嵌套函数是做该任务最佳选择。C++没有嵌套函数，而lambda函数可以用于这项任务。具有错误恢复的parseIfStatement()如下所示:\par
+因为下一步是向解析器添加语义操作，所以如果有必要，最好有找个位置完成清理代码(嵌套函数是不错的选择)。C++没有嵌套函数，而Lambda函数可以用于这项任务。具有错误恢复的parseIfStatement()如下所示:\par
 
 \begin{lstlisting}[caption={}]
 bool Parser::parseIfStatement() {

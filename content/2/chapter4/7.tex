@@ -1,0 +1,125 @@
+手动构造词法分析器和解析器并不困难，通常会产生处理速度很快的组件。但缺点是不容易更改，特别是在解析器中。如果您正在创建一种新的编程语言的原型，那么这一点非常重要。使用特定的工具可以缓解这个问题。\par
+
+有许多工具可以根据规范文件生成词法分析器或解析器。在Linux中，flex (\url{https://github.com/westes/flex})和bison (\url{https://www.gnu.org/software/bison/})是常用工具。Flex从一组正则表达式生成分析器，而bison从语法描述生成解析器。通常，这两种工具会一起使用。\par
+
+Bison根据语法描述生成LALR(1)解析器。LALR(1)解析器是一种自下而上的解析器，并且使用自动机实现。bison的输入是一个语法文件，与本章开始介绍的语法文件非常相似。主要的区别是右侧规则不支持正则表达式，可选的组和重复检查必须为规则重写。tinylang的bison规范，存储在tinylang.yy文件中，以以下内容开始:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\%require "3.2" \\
+\%language "c++" \\
+\%defines "Parser.h" \\
+\%define api.namespace {tinylang} \\
+\%define api.parser.class {Parser} \\
+\%define api.token.prefix {T\underline{~}} \\
+\%token \\
+identifier integer\underline{~}literal string\underline{~}literal \\
+PLUS MINUS STAR SLASH
+\end{tcolorbox}
+
+我们指示bison使用\%语言指令生成C++代码。使用\%define指令，重写了代码生成的一些默认值:生成的类应该命名为Parser，并位于tinylang命名空间中。此外，表示标记类型的枚举的成员应该以T\underline{~}作为前缀。我们需要3.2或更高版本，因为其中一些变量是在这个版本中引入的。为了能够与flex交互，我们告诉bison用\%define指令编写一个Parser.h头文件。最后，我们必须使用\%令牌指令声明所有已使用的令牌。\%\%后面是具体的语法规则:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\%\% \\
+compilationUnit \\
+\hspace*{0.5cm}: MODULE identifier SEMI imports block identifier PERIOD ; \\
+imports : \%empty | import imports ; \\
+import \\
+\hspace*{0.5cm}: FROM identifier IMPORT identList SEMI \\
+\hspace*{0.5cm}| IMPORT identList SEMI ;
+\end{tcolorbox}
+
+请将这些规则与本章第一节所示的语法规范进行比较。bison不知道重复组，因此需要添加一个名为imports的新规则来对这种重复。在导入规则中，我们必须引入一个替代方法来对可选组建模。\par
+
+我们还需要用这种风格重写tinylang语法的其他规则。例如，IF语句的规则如下:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+ifStatement \\
+\hspace*{0.5cm}: IF expression THEN statementSequence \\
+\hspace*{1cm}elseStatement END ; \\
+elseStatement : \%empty | ELSE statementSequence ;
+\end{tcolorbox}
+
+同样，我们必须引入一个新的规则来处理可选的ELSE语句。可以省略\%空指令，但这里使用的是空分支。\par
+
+当我们用bison风格重写了所有语法规则，我们就可以用以下命令生成解析器:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ bison tinylang.yy
+\end{tcolorbox}
+
+这就是创建与上一节中手写解析器类似解析器的全部内容!\par
+
+类似地，flex很容易使用。flex的规范是一个正则表达式和相关操作的列表，如果正则表达式匹配，则执行该列表。tinylang.l文件指定tinylang的词法分析器。与bison规范一样，它也有一个标准开头:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\%{ \\
+\#include "Parser.h" \\
+\%} \\
+\%option noyywrap nounput noinput batch \\
+id [a-zA-Z\underline{~}][a-zA-Z\underline{~}0-9]* \\
+digit [0-9] \\
+hexdigit [0-9A-F] \\
+space [ $\setminus$t$\setminus$r]
+\end{tcolorbox}
+
+在\%\{\}\%里面的文本复制到flex生成的文件中，我们使用这种机制来包含由bison生成的头文件。使用\%选项指令，我们控制生成的解析器应该具有哪些特性。只读取一个文件，并且在读取完一个文件后不需要继续读取另一个文件，所以可以指定noyywrap来禁用这个特性。我们也不需要访问底层的文件流，并使用nounput和noinout禁用它。因为我们已经不需要一个交互式的解析器了，所以需要生成一个批扫描程序。。\par
+
+在开头的内容中，我们还可以定义字符模式以供以后使用。在\%\%后面跟着定义部分:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\%\% \\
+{space}+ \\
+{digit}+ \hspace{1 cm}return \\
+\hspace*{3 cm}tinylang::Parser::token::T\underline{~}integer\underline{~}literal;
+\end{tcolorbox}
+
+定义部分中，指定正则表达式模式和在模式与输入匹配时执行的操作。动作也可以是空的。\par
+
+\{space\}+模式使用序言中定义的空格字符模式，它匹配一个或多个空格字符。我们没有定义任何操作，因此将忽略所有空白。\par
+
+要匹配一个数字，我们使用{digit}+模式。作为一个动作，我们只返回关联的令牌类型。对所有令牌都做了同样的操作。例如，对算术运算符执行以下操作:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+"+" \hspace{2cm}return tinylang::Parser::token::T\underline{~}PLUS; \\
+"-" \hspace{2cm}return tinylang::Parser::token::T\underline{~}MINUS; \\
+"*" \hspace{2cm}return tinylang::Parser::token::T\underline{~}STAR; \\
+"/" \hspace{2cm}return tinylang::Parser::token::T\underline{~}SLASH;	
+\end{tcolorbox}
+
+如果有几个模式匹配输入，则选择匹配时间最长的模式。如果仍然有多个模式与输入匹配，那么将选择规范文件中按字典顺序最先出现的模式。这就是为什么必须首先定义关键字的模式，而只在所有关键字之后定义标识符模式:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+"VAR" \hspace{2cm}return tinylang::Parser::token::T\underline{~}VAR; \\
+"WHILE" \hspace{2cm}return tinylang::Parser::token::T\underline{~}WHILE; \\
+{id} \hspace{2cm}return tinylang::Parser::token::T\underline{~}identifier;	
+\end{tcolorbox}
+
+这些操作不仅仅局限于return语句。如果您的代码有多行，那么您必须用大括号括起来\{\}。\par
+
+扫描是通过以下命令生成的:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ flex –c++ tinylang.l
+\end{tcolorbox}
+
+在语言项目中你应该使用哪种方法?解析器生成器通常生成LALR(1)解析器。LALR(1)类比LL(1)类大，可以为其构造递归下降解析器。如果您不能调整语法以适应LL(1)类，那么应该考虑使用解析器生成器，手工构造这样一个自底向上的解析器是不可行的。即使您的语法是LL(1)，解析器生成器在生成与您手工编写的代码类似的代码时也会提供更多的便利。通常，这受许多因素影响的选择。Clang使用手写解析器，而GCC使用bison生成的解析器。\par
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,460 @@
+我们在上一节构造的解析器只检查输入的语法，下一步是添加执行语义分析的能力。在前一章的calc例子中，解析器构造了AST。在另一个阶段，语义分析器会处理这棵树。在本节中，我们将使用一种不同的方法，并将解析器和语义分析器进一步融合在一起。\par
+
+以下是语义分析器必须执行的一些任务:\par
+
+\begin{itemize}
+	\item 对于每个声明，语义分析器必须检查所使用的名称是否已经在其他地方声明过。
+	\item 对于表达式或语句中每次出现的名称，语义分析程序必须检查名称是否已声明，以及期望的用途是否符合声明。
+	\item 对于每个表达式，语义分析器必须计算得到的类型。还需要计算表达式是否为常量，如果是，它的值是多少。
+	\item 对于赋值和参数传递，语义分析器必须检查类型是否兼容。此外，必须检查IF和WHILE语句中的条件是否为布尔类型。
+\end{itemize}
+
+对于这样一个编程语言的子集来说，要检查的内容已经很多了!\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{处理名称的作用域}
+
+让我们先看看名称的作用域，名称的范围是名称可见的范围。与C语言一样，tinylang也使用了先声明后使用的模型，例如：B和X变量是在模块级声明的，因此它们是INTEGER类型:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+VAR B, X: INTEGER;
+\end{tcolorbox}
+
+在声明之前，变量是未知的，不能使用。这只有在声明之后才有可能。在过程中，可以声明更多的变量:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+PROCEDURE Proc; \\
+VAR B: BOOLEAN; \\
+BEGIN \\
+\hspace*{0.5cm}(* Statements *)\\
+END Proc;
+\end{tcolorbox}
+
+在这个过程中，在注释所在的地方，使用B指的是局部变量B，而使用X指的是全局变量X。局部变量B的作用域是Proc过程。如果在当前作用域中找不到名称，则在外围作用域中继续搜索。因此，可以在过程中使用X变量。在tinylang中，只有模块和过程才能打开一个新的作用域。其他语言构造，如struct和class，通常也打开作用域。预定义(如INTEGER类型或TRUE字面值)在全局作用域中声明，该作用域中包含模块的作用域。\par
+
+在tinylang，只有名字才是关键。因此，作用域可以实现为从名称到其声明的映射。只有在新名称不存在的情况下才能插入新名称。对于查找，封闭或父作用域也必须是已知的。该接口(在include/tinylang/Sema/Scope.h文件中)如下所示:\par
+
+\begin{lstlisting}[caption={}]
+#ifndef TINYLANG_SEMA_SCOPE_H
+#define TINYLANG_SEMA_SCOPE_H
+
+#include "tinylang/Basic/LLVM.h"
+#include "llvm/ADT/StringMap.h"
+#include "llvm/ADT/StringRef.h"
+
+namespace tinylang {
+	
+class Decl;
+
+class Scope {
+	Scope *Parent;
+	StringMap<Decl *> Symbols;
+	
+public:
+	Scope(Scope *Parent = nullptr) : Parent(Parent) {}
+	
+	bool insert(Decl *Declaration);
+	Decl *lookup(StringRef Name);
+	
+	Scope *getParent() { return Parent; }
+};
+} // namespace tinylang
+#endif
+\end{lstlisting}
+
+lib/Sema/Scope.cpp文件中的实现如下所示:\par
+
+\begin{lstlisting}[caption={}]
+#include "tinylang/Sema/Scope.h"
+#include "tinylang/AST/AST.h"
+
+using namespace tinylang;
+
+bool Scope::insert(Decl *Declaration) {
+	return Symbols
+		.insert(std::pair<StringRef, Decl *>(
+			Declaration->getName(), Declaration))
+		.second;
+}
+\end{lstlisting}
+
+请注意，StringMap::insert()方法并不覆盖现有的规则条目。生成的std::pair的第二个成员表示表是否更新，该信息将返回给调用者。\par
+
+为了实现对符号声明的搜索，lookup()方法搜索当前范围;如果没有找到，则搜索由父成员链接的作用域:\par
+
+\begin{lstlisting}[caption={}]
+Decl *Scope::lookup(StringRef Name) {
+	Scope *S = this;
+	while (S) {
+		StringMap<Decl *>::const_iterator I =
+			S->Symbols.find(Name);
+		if (I != S->Symbols.end())
+			return I->second;
+		S = S->getParent();
+	}
+	return nullptr;
+}
+\end{lstlisting}
+
+然后对变量声明进行如下处理:\par
+
+\begin{itemize}
+	\item 当前作用域是模块作用域。
+	\item 查找INTEGER类型声明。如果没有找到任何声明，或者不是类型声明，则为错误。
+	\item 实例化了新的AST节点VariableDeclaration，其中重要的属性是名称、B和类型。
+	\item 将名称B插入到当前作用域，并映射到声明实例。如果名称已经出现在作用域中，那么是一个错误。这种情况下，当前范围的内容不会改变。
+	\item 对X变量也做了同样的处理。
+\end{itemize}
+
+这里执行两个任务。与在calc示例中一样，构造了AST节点。同时，计算节点的属性，比如它的类型。为什么这样可行呢?\par
+
+语义分析器可以依赖两组不同的属性。作用域是从调用者继承的，可以通过计算类型声明的名称来计算(或合成)类型声明。这种语言的设计方式使这两组属性足以计算AST节点的所有属性。\par
+
+其中一个重要的方面是使用前声明模型。如果一种语言允许在声明之前使用名称，比如C++中的类中的成员，不可能一次计算AST节点的所有属性。这种情况下，AST节点必须仅使用部分计算的属性或纯信息构造(例如calc示例)。\par
+
+必须访问AST一次或多次才能确定丢失的信息。在tinylang(和Modula-2)的情况下，也可以不使用AST构造——AST是通过parseXXX()方法的调用层次结构间接表示。从AST生成代码要常见得多，因此我们在这里构造了AST。\par
+
+在我们把所有的部分放在一起之前，需要理解使用运行时类型信息(RTTI)的LLVM风格。\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{在aAST中使用LLVM风格的RTTI}
+
+当然，AST节点是类层次结构的一部分。声明总是有名字的，其他属性取决于声明的内容。如果声明了一个变量，则需要一个类型。常量声明需要类型和值等。当然，在运行时需要找出使用的是哪种声明。可以使用dynamic\underline{~}cast<> C++操作符。问题是，必需的RTTI只有在C++类附加了一个虚表时才可用;也就是说，使用虚函数。另一个缺点是C++ RTTI过于臃肿。为了避免这些缺点，LLVM开发人员引入了一种自制的RTTI风格。\par
+
+层次结构的(抽象)基类是Decl。要实现LLVM风格的RTTI，需要添加一个包含每个子类标签的公共枚举。此外，还需要此类型的私有成员和公共getter，私有成员通常称为Kind。我们的例子中，它看起来像这样:\par
+
+\begin{lstlisting}[caption={}]
+class Decl {
+public:
+	enum DeclKind { DK_Module, DK_Const, DK_Type,
+		DK_Var, DK_Param, DK_Proc };
+private:
+	const DeclKind Kind;
+public:
+	DeclKind getKind() const { return Kind; }
+};
+\end{lstlisting}
+
+每个子类现在都需要一个名为classof的特殊函数成员。此函数的目的是确定给定实例是否属于请求的类型，对于VariableDeclaration，实现如下:\par
+
+\begin{lstlisting}[caption={}]
+static bool classof(const Decl *D) {
+	return D->getKind() == DK_Var;
+}
+\end{lstlisting}
+
+现在，可以使用llvm::isa<>特殊模板来检查对象是否为所请求的类型，并使用llvm::dyn\underline{~}cast<>来强制转换对象。还有更多的模板，但这两个是最常用的。其他模板请参阅\url{https://llvm.org/docs/ProgrammersManual.html\#the-isa-cast-and-dyn-cast-templates}。关于LLVM样式的更多信息，包括更高级的用法，请参阅\url{https://llvm.org/docs/HowToSetUpLLVMStyleRTTI.html}。\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{创建语义分析器}
+
+有了这些知识，我们现在可以实现语义分析器，在分析器创建的AST节点上操作。首先，我们将为一个变量实现AST节点的定义，该变量存储在include/llvm/tinylang/AST/AST.h文件中。除了支持LLVM风格的RTTI之外，基类还存储声明的名称、名称的位置和一个指向声明的指针，后者是代码生成嵌套过程所必需的。Decl基类的声明如下:\par
+
+\begin{lstlisting}[caption={}]
+class Decl {
+	public:
+		enum DeclKind { DK_Module, DK_Const, DK_Type,
+						DK_Var, DK_Param, DK_Proc };
+	
+	private:
+		const DeclKind Kind;
+		
+	protected:
+		Decl *EnclosingDecL;
+		SMLoc Loc;
+		StringRef Name;
+		
+	public:
+		Decl(DeclKind Kind, Decl *EnclosingDecL, SMLoc Loc,
+			 StringRef Name)
+			: Kind(Kind), EnclosingDecL(EnclosingDecL), Loc(Loc),
+			  Name(Name) {}
+	
+	DeclKind getKind() const { return Kind; }
+	SMLoc getLocation() { return Loc; }
+	StringRef getName() { return Name; }
+	Decl *getEnclosingDecl() { return EnclosingDecL; }
+};
+\end{lstlisting}
+
+变量的声明只添加指向类型声明的指针:\par
+
+\begin{lstlisting}[caption={}]
+class TypeDeclaration;
+
+class VariableDeclaration : public Decl {
+	TypeDeclaration *Ty;
+	
+public:
+	VariableDeclaration(Decl *EnclosingDecL, SMLoc Loc,
+						StringRef Name, TypeDeclaration *Ty)
+		: Decl(DK_Var, EnclosingDecL, Loc, Name), Ty(Ty) {}
+	
+	TypeDeclaration *getType() { return Ty; }
+	
+	static bool classof(const Decl *D) {
+		return D->getKind() == DK_Var;
+	}
+};
+\end{lstlisting}
+
+解析器中的方法需要用语义动作和收集到的信息的变量进行扩展:\par
+
+\begin{lstlisting}[caption={}]
+bool Parser::parseVariableDeclaration(DeclList &Decls) {
+	auto _errorhandler = [this] {
+		while (!Tok.is(tok::semi)) {
+			advance();
+			if (Tok.is(tok::eof)) return true;
+		}
+		return false;
+	};
+
+	Decl *D = nullptr; IdentList Ids;
+	if (parseIdentList(Ids)) return _errorhandler();
+	if (consume(tok::colon)) return _errorhandler();
+	if (parseQualident(D)) return _errorhandler();
+	Actions.actOnVariableDeclaration(Decls, Ids, D);
+	return false;
+}
+\end{lstlisting}
+
+DeclList是一个名为std::vector<Decl*>的声明列表，而IdentList是一个类型为std::vector<std::pair<SMLoc, StringRef>>的位置和标识符列表。\par
+
+parseQualident()方法返回一个声明。本例中，应该是一个类型声明。\par
+
+解析器类知道语义分析器类Sema的一个实例，该实例存储在Actions成员中。对actOnVariableDeclaration()的调用运行语义分析器和AST构造。实现在lib/Sema/Sema.cpp文件中:\par
+
+\begin{lstlisting}[caption={}]
+void Sema::actOnVariableDeclaration(DeclList &Decls,
+									IdentList &Ids,
+									Decl *D) {
+	if (TypeDeclaration *Ty = dyn_cast<TypeDeclaration>(D)) {
+		for (auto I = Ids.begin(), E = Ids.end(); I != E; ++I) {
+			SMLoc Loc = I->first;
+			StringRef Name = I->second;
+			VariableDeclaration *Decl = new VariableDeclaration(
+				CurrentDecl, Loc, Name, Ty);
+			if (CurrentScope->insert(Decl))
+				Decls.push_back(Decl);
+			else
+				Diags.report(Loc, diag::err_symbold_declared, Name);
+		}
+	} else if (!Ids.empty()) {
+		SMLoc Loc = Ids.front().first;
+		Diags.report(Loc, diag::err_vardecl_requires_type);
+	}
+}
+\end{lstlisting}
+
+首先，使用llvm::dyn\underline{~}cast<TypeDeclaration>检查类型声明。如果不是类型声明，则打印错误消息。否则，对于Ids列表中的每个名称，将实例化一个VariableDeclaration并添加到声明列表中。如果将变量添加到当前作用域失败，因为名称已经声明，则打印一条错误消息。\par
+
+大多数其他实体都是以相同方式构造，唯一不同的是它们语义分析的复杂性。模块和过程需要更多的工作，因为它们开辟了一个新的范围。开辟新的作用域很容易:只需要实例化一个新的scope对象。当模块或过程被解析，就必须删除作用域。\par
+
+这必须以一种可靠的方式完成，因为我们不想在语法错误的情况下将名称添加到错误的作用域。这是C++中资源获取即初始化(RAII)习惯用法的经典用法。另一个复杂之处在于过程可以递归地调用自己。因此，在使用过程之前，必须将过程的名称添加到当前作用域，语义分析器有两种方法来进入和离开一个范围。作用域与声明相关联:\par
+
+\begin{lstlisting}[caption={}]
+void Sema::enterScope(Decl *D) {
+	CurrentScope = new Scope(CurrentScope);
+	CurrentDecl = D;
+}
+
+void Sema::leaveScope() {
+	Scope *Parent = CurrentScope->getParent();
+	delete CurrentScope;
+	CurrentScope = Parent;
+	CurrentDecl = CurrentDecl->getEnclosingDecl();
+}
+\end{lstlisting}
+
+简单的helper类用于实现RAII:\par
+
+\begin{lstlisting}[caption={}]
+class EnterDeclScope {
+	Sema &Semantics;
+	public:
+	EnterDeclScope(Sema &Semantics, Decl *D)
+	: Semantics(Semantics) {
+		Semantics.enterScope(D);
+	}
+~EnterDeclScope() { Semantics.leaveScope(); }
+};
+\end{lstlisting}
+
+在解析模块或过程中，有两个与语义分析器的交互。第一个是在名称解析之后。这里，构造了(几乎为空的)AST节点，并建立了一个新的作用域:\par
+
+\begin{lstlisting}[caption={}]
+bool Parser::parseProcedureDeclaration(/* … */) {
+	/* … */
+	if (consume(tok::kw_PROCEDURE)) return _errorhandler();
+	if (expect(tok::identifier)) return _errorhandler();
+	ProcedureDeclaration *D =
+		Actions.actOnProcedureDeclaration(
+			Tok.getLocation(), Tok.getIdentifier());
+	EnterDeclScope S(Actions, D);
+	/* … */
+}
+\end{lstlisting}
+
+语义分析器不只是检查当前作用域中的名称，还要返回AST节点:\par
+
+\begin{lstlisting}[caption={}]
+ProcedureDeclaration *
+Sema::actOnProcedureDeclaration(SMLoc Loc, StringRef Name) {
+	ProcedureDeclaration *P =
+			new ProcedureDeclaration(CurrentDecl, Loc, Name);
+	if (!CurrentScope->insert(P))
+		Diags.report(Loc, diag::err_symbold_declared, Name);
+	return P;
+}
+\end{lstlisting}
+
+当解析了所有的声明和过程的主体，实际工作就完成了。基本上，语义分析器必须只检查过程声明末尾的名称是否等于过程的名称，以及用于返回类型的声明是否真的是类型声明:\par
+
+\begin{lstlisting}[caption={}]
+void Sema::actOnProcedureDeclaration(
+	ProcedureDeclaration *ProcDecl, SMLoc Loc,
+	StringRef Name, FormalParamList &Params, Decl *RetType,
+	DeclList &Decls, StmtList &Stmts) {
+		
+	if (Name != ProcDecl->getName()) {
+		Diags.report(Loc, diag::err_proc_identifier_not_equal);
+		Diags.report(ProcDecl->getLocation(),
+					 diag::note_proc_identifier_declaration);
+	}
+	ProcDecl->setDecls(Decls);
+	ProcDecl->setStmts(Stmts);
+	
+	auto RetTypeDecl =
+		dyn_cast_or_null<TypeDeclaration>(RetType);
+	if (!RetTypeDecl && RetType)
+		Diags.report(Loc, diag::err_returntype_must_be_type,
+					 Name);
+	else
+		ProcDecl->setRetType(RetTypeDecl);
+}
+\end{lstlisting}
+
+有些声明是固有的，不能由开发人员定义。这包括BOOLEAN和INTEGER类型以及TRUE和FALSE字面值。这些声明存在于全局作用域中，必须通过编程方式添加。Modula-2还预定义了一些，如INC或DEC，也应该添加到全局范围。给定我们的类，全局作用域的初始化很简单:\par
+
+\begin{lstlisting}[caption={}]
+void Sema::initialize() {
+	CurrentScope = new Scope();
+	CurrentDecl = nullptr;
+	IntegerType =
+		new TypeDeclaration(CurrentDecl, SMLoc(), "INTEGER");
+	BooleanType =
+		new TypeDeclaration(CurrentDecl, SMLoc(), "BOOLEAN");
+	TrueLiteral = new BooleanLiteral(true, BooleanType);
+	FalseLiteral = new BooleanLiteral(false, BooleanType);
+	TrueConst = new ConstantDeclaration(CurrentDecl, SMLoc(),
+										"TRUE", TrueLiteral);
+	FalseConst = new ConstantDeclaration(
+		CurrentDecl, SMLoc(), "FALSE", FalseLiteral);
+	CurrentScope->insert(IntegerType);
+	CurrentScope->insert(BooleanType);
+	CurrentScope->insert(TrueConst);
+	CurrentScope->insert(FalseConst);
+}
+\end{lstlisting}
+
+有了这个方案，tinylang所需的所有计算都可以完成。例如，要计算表达式是否产生常量值，必须确保:\par
+
+\begin{itemize}
+	\item 常量声明的文字或引用是常量。
+	\item 如果表达式的两边都是常量，应用该操作符也会得到一个常量。
+\end{itemize}
+
+在为表达式创建AST节点时，可以轻松地将这些规则嵌入到语义分析器中。同样，可以计算类型和常量值。\par
+
+需要指出的是，并不是所有类型的计算都可以用这种方法来完成。例如，要检测未初始化变量的使用，可以使用一种称为符号解释的方法。在其一般形式中，该方法需要通过AST的特殊遍历顺序(这在构造期间是不可能的)。好消息是，本文介绍的方法创建了一个经过修饰的AST，它可以用于代码生成。当然，这个AST可以用于进一步的分析，可以根据需要打开或关闭分析。\par
+
+要使用前端，还需要更新驱动程序。由于缺少代码生成，正确的tinylang程序不会产生输出。尽管如此，它仍可用于探索错误恢复和引发语义错误:\par
+
+\begin{lstlisting}[caption={}]
+#include "tinylang/Basic/Diagnostic.h"
+#include "tinylang/Basic/Version.h"
+#include "tinylang/Parser/Parser.h"
+#include "llvm/Support/InitLLVM.h"
+#include "llvm/Support/raw_ostream.h"
+
+using namespace tinylang;
+
+int main(int argc_, const char **argv_) {
+	llvm::InitLLVM X(argc_, argv_);
+	llvm::SmallVector<const char *, 256> argv(argv_ + 1,
+											  argv_ + argc_);
+	llvm::outs() << "Tinylang "
+	 			 << tinylang::getTinylangVersion() << "\n";
+	 			 
+	for (const char *F : argv) {
+		llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>>
+			FileOrErr = llvm::MemoryBuffer::getFile(F);
+		if (std::error_code BufferError =
+				FileOrErr.getError()) {
+			llvm::errs() << "Error reading " << F << ": "
+						 << BufferError.message() << "\n";
+			continue;
+		}
+	
+		llvm::SourceMgr SrcMgr;
+		DiagnosticsEngine Diags(SrcMgr);
+		SrcMgr.AddNewSourceBuffer(std::move(*FileOrErr),
+								  llvm::SMLoc());
+		auto lexer = Lexer(SrcMgr, Diags);
+		auto sema = Sema(Diags);
+		auto parser = Parser(lexer, sema);
+		parser.parse();
+	}
+}
+\end{lstlisting}
+
+恭喜你!已经完成了tinylang的前端实现!\par
+
+现在，让我们尝试一下我们目前所学到的东西。以下是欧几里得最大公约数算法的实现的源代码，保存为Gcd.mod文件:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+MODULE Gcd; \\
+\\
+PROCEDURE GCD(a, b: INTEGER):INTEGER; \\
+VAR t: INTEGER; \\
+BEGIN \\
+\hspace*{0.5cm}IF b = 0 THEN RETURN a; END; \\
+\hspace*{1cm}WHILE b \# 0 DO \\
+\hspace*{1.5cm}t := a MOD b; \\
+\hspace*{1.5cm}a := b; \\
+\hspace*{1.5cm}b := t; \\
+\hspace*{1cm}END; \\
+\hspace*{1cm}RETURN a; \\
+END GCD; \\
+\\
+END Gcd.
+\end{tcolorbox}
+
+让我们用下面的命令在这个文件上运行编译器:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ tinylang Gcm.mod \\
+Tinylang 0.1
+\end{tcolorbox}
+
+除了打印的版本号，没有输出，这是因为只实现了前端部分。但是，如果您更改源代码，使其包含语法错误，则将打印错误消息。\par
+
+下一章中，我们将通过添加代码生成来继续这项任务。\par
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
