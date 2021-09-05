@@ -15,7 +15,7 @@ DIAG(err_sym_declared, Error, "symbol {0} already declared")
 #undef DIAG
 \end{lstlisting}
 
-第一个宏参数ID是枚举标签，第二个参数Level是严重性，第三个参数Msg是消息文本。有了这个定义，我们就可以定义一个DiagnosticsEngine类来发出错误消息。该接口位于include/tinylang/Basic/Diagnostic.h文件中:\par
+第一个宏参数ID是枚举标签，第二个参数Level是严重性，第三个参数Msg是消息文本。有了这个定义，我们就可以定义一个DiagnosticsEngine类来发出错误消息。该接口位于include/tinylang/\allowbreak Basic/Diagnostic.h文件中:\par
 
 \begin{lstlisting}[caption={}]
 #ifndef TINYLANG_BASIC_DIAGNOSTIC_H
