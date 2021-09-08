@@ -1,0 +1,412 @@
+Exception handling in LLVM IR is closely tied to the platform's support. Here, we will look at the most common type of exception handling using libunwind. Its full potential is used by C++, so we will look at an example in C++ first, where the bar() function can throw an int or a double value, as follows:\par
+
+\begin{lstlisting}[caption={}]
+int bar(int x) {
+	if (x == 1) throw 1;
+	if (x == 2) throw 42.0;
+	return x;
+}
+\end{lstlisting}
+
+The foo() function calls bar(), but only handles a thrown int value. It also declares that it only throws int values, as follows:\par
+
+\begin{lstlisting}[caption={}]
+int foo(int x) throw(int) {
+	int y = 0;
+	try {
+		y = bar(x);
+	}
+	catch (int e) {
+		y = e;
+	}
+	return y;
+}
+\end{lstlisting}
+
+Throwing an exception requires two calls into the runtime library. First, memory for the exception is allocated with a call to \underline{~~}cxa\underline{~}allocate\underline{~}exception(). This function takes the number of bytes to allocate as a parameter. The exception payload (the int or the double value in the example) is copied to the allocated memory. The exception is then raised with a call to \underline{~~}cxa\underline{~}throw(). This function takes three arguments: a pointer to the allocated exception; type information about the payload; and a pointer to a destructor, if the exception payload has one. The \underline{~~}cxa\underline{~}throw() function initiates the stack-unwinding process and never returns. In LLVM IR, this is done for the int value, as follows:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\%eh = tail call i8* @\underline{~~}cxa\underline{~}allocate\underline{~}exception(i64 4) \\
+\%payload = bitcast i8* \%eh to i32* \\
+store i32 1, i32* \%payload \\
+tail call void @\underline{~~}cxa\underline{~}throw(i8* \%eh, \\
+\hspace*{3cm}i8* bitcast (i8** @\underline{~}ZTIi to i8*), i8* \\
+\hspace*{3cm}null) \\
+unreachable
+\end{tcolorbox}
+
+\underline{~}ZTIi is the type information describing an int type. For a double type, it would be \underline{~}ZTId. The call to \underline{~~}cxa\underline{~}throw() is marked as a tail call because it is the final call in this function, possibly enabling reuse of the current stack frame.\par
+
+So far, nothing LLVM-specific has been done. This changes in the foo() function, because the call to bar() could possibly raise an exception. If it is an int-type exception, then the control flow must be transferred to the IR code of the catch clause. To accomplish this, an invoke instruction must be used instead of a call instruction, as illustrated in the following code snippet:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\%y = invoke i32 @\underline{~}Z3bari(i32 \%x) to label \%next \\
+\hspace*{6cm}unwind label \%lpad
+\end{tcolorbox}
+
+The difference between both instructions is that invoke has two labels associated. The first label is where execution continues if the called function ended normally, usually with a ret instruction. In the preceding code example, this label is called \%next. If an exception occurs, then execution continues at a so-called landing pad, with a \%lpad label.\par
+
+The landing pad is a basic block that must begin with a landingpad instruction. The landingpad instruction gives LLVM information about the handled exception types. For the foo() functions, it gives the following information:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+lpad: \\
+\%exc = landingpad { i8*, i32 } \\
+\hspace*{3cm}cleanup \\
+\hspace*{3cm}catch i8* bitcast (i8** @\underline{~}ZTIi to i8*) \\
+\hspace*{3cm}filter [1 x i8*] [i8* bitcast (i8** @\underline{~}ZTIi to  \\
+\hspace*{3.5cm}i8*)]
+\end{tcolorbox}
+
+There are three possible types of action here, outlined as follows:\par
+
+\begin{enumerate}
+	\item cleanup: This denotes that code to clean up the current state is present. Usually, this is used to call destructors of local objects. If this marker is present, then the landing pad is always called during stack unwinding.
+	\item catch: This is a list of type-value pairs and denotes the exception types that can be handled. The landing pad is called if the thrown exception type is found in this list. In the case of the foo() function, the value is a pointer to the C++ runtime type information for the int type, similar to the parameter of the \underline{~~}cxa\underline{~}throw() function.
+	\item filter: This specifies an array of exception types. The landing pad is called if the exception type of the current exception is not found in the array. This is used to implement the throw() specification. For the foo() function, the array has only one member—the type information for the int type.
+\end{enumerate}
+
+The result type of the landingpad instruction is a \{ i8*, i32 \} structure. The first element is a pointer to the thrown exception, while the second element is a type selector. Let's extract both elements from the structure, as follows:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\%exc.ptr = extractvalue \{ i8*, i32 \} \%exc, 0 \\
+\%exc.sel = extractvalue \{ i8*, i32 \} \%exc, 1
+\end{tcolorbox}
+
+A type selector is a number that helps us to identify the cause of why the landing pad is called. It has a positive value if the current exception type matches one of the exception types given in the catch part of the landingpad instruction. If the current exception type does not match any of the values given in the filter part, then the value is negative, and it is 0 if the cleanup code should be called.\par
+
+Basically, the type selector is offset into a type information table, constructed from the values given in the catch and filter parts of the landingpad instruction. During optimization, multiple landing pads can be combined into one, which means that the structure of this table is not known at the IR level. To retrieve the type selector for a given type, we need to call the @llvm.eh.typeid.for intrinsic function. We need this to check if the type selector value corresponds to the type information for int, to be able to execute the code in the catch (int e) \{\} block, as follows:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\%tid.int = tail call i32 @llvm.eh.typeid.for( \\
+\hspace*{6cm}i8* bitcast (i8** @\underline{~}ZTIi to  \\
+\hspace*{6cm}i8*)) \\
+\%tst.int = icmp eq i32 \%exc.sel, \%tid.int \\
+br i1 \% tst.int, label \%catchint, label \%filterorcleanup
+\end{tcolorbox}
+
+The handing of an exception is framed by calls to \underline{~~}cxa\underline{~}begin\underline{~}catch() and \underline{~~}cxa\underline{~}end\underline{~}catch(). The \underline{~~}cxa\underline{~}begin\underline{~}catch() function needs one argument: the current exception. That is one of the values returned by the landingpad instruction. It returns a pointer to the exception payload—an int value, in our case. The \underline{~~}cxa\underline{~}end\underline{~}catch() function marks the end of exception handling and deallocates the memory allocated with \underline{~~}cxa\underline{~}allocate\underline{~}exception(). Please note that the runtime behavior is much more complicated if another exception is thrown inside the catch block. The handling of the exception is done like this:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+catchint: \\
+\%payload = tail call i8* @\underline{~~}cxa\underline{~}begin\underline{~}catch(i8* \%exc.ptr) \\
+\%payload.int = bitcast i8* \%payload to i32* \\
+\%retval = load i32, i32* \%payload.int \\
+tail call void @\underline{~~}cxa\underline{~}end\underline{~}catch() \\
+br label \%return
+\end{tcolorbox}
+
+If the type of the current exception does not match the list in the throws() declaration, the unexpected exception handler is called. First, we need to check the type selector again, as follows:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+filterorcleanup: \\
+\%tst.blzero = icmp slt i32 \%exc.sel, 0 \\
+br i1 \%tst.blzero, label \%filter, label \%cleanup
+\end{tcolorbox}
+
+If the value of the type selector is lower than 0 we then call the handler, as follows:
+
+\begin{tcolorbox}[colback=white,colframe=black]
+filter: \\
+tail call void @\underline{~~}cxa\underline{~}call\underline{~}unexpected(i8* \%exc.ptr) \#4 \\
+unreachable
+\end{tcolorbox}
+
+Again, the handler is not expected to come back.\par
+
+There is no cleanup work needed in this case, so all the cleanup code does is resume the execution of the stack unwinder, as follows:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+cleanup: \\
+resume { i8*, i32 } \%exc
+\end{tcolorbox}
+
+One piece is still missing: libunwind drives the stack unwinding, but it is not tied to a single language. Language-dependent handling is done in the personality function. For C++ on Linux, the personality function is called \underline{~~}gxx\underline{~}personality\underline{~}v0(). Depending on the platform or compiler, this name can vary. Each function that needs to take part in stack unwinding has a personality function attached. The personality function analyzes if the function catches an exception, has a non-matching filter list, or needs a cleanup call. It gives this information back to the unwinder, which acts accordingly. In LLVM IR, the pointer to the personality function is given as part of the function definition, as illustrated in the following code snippet:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+define i32 @\underline{~}Z3fooi(i32) personality i8* bitcast \\
+\hspace*{3cm}(i32 (...)* @\underline{~~}gxx\underline{~}personality\underline{~}v0 to \\
+\hspace*{3cm}i8*)
+\end{tcolorbox}
+
+With this, the exception-handling facility is complete\par
+
+To use exception handling in the compiler for your programming language, the simplest strategy is to piggyback onto the existing C++ runtime functions. This has also the advantage that your exceptions are interoperable with C++. A disadvantage is that you tie some of the C++ runtime into the runtime of your language—most notably, memory management. If you want to avoid this, then you need to create your own equivalents of the \underline{~}cxa\underline{~} functions. Still, you will want to use libunwind, which provides the stack-unwinding mechanism.\par
+
+\begin{enumerate}
+\item Let's look at how to create this IR. We created the calc expression compiler in Chapter 3, The Structure of a Compiler. We will now extend the code generator of the expression compiler to raise and handle an exception if a division by 0 is performed. The generated IR will check if the divisor of a division is 0. If true, then an exception will be raised. We will also add a landing pad to the function, which catches the exception, prints Divide by zero! to the console, and ends the calculation. Using exception handling is not really necessary in this simple case, but it allows us to concentrate on the code generation. We add all code to the CodeGenerator.cpp file. We begin by adding required new fields and some helper methods. We need to store the LLVM declaration of the \underline{~~}cxa\underline{~}allocate\underline{~}exception() and \underline{~~}cxa\underline{~}throw() functions, consisting of the function type and the function itself. A GlobalVariable instance is needed to hold the type information. We also need references to the basic blocks holding the landing pad and a basic block containing just an unreachable instruction, as illustrated in the following code snippet:
+\begin{lstlisting}[caption={}]
+GlobalVariable *TypeInfo = nullptr;
+FunctionType *AllocEHFty = nullptr;
+Function *AllocEHFn = nullptr;
+FunctionType *ThrowEHFty = nullptr;
+Function *ThrowEHFn = nullptr;
+BasicBlock *LPadBB = nullptr;
+BasicBlock *UnreachableBB = nullptr;
+\end{lstlisting}
+
+\item We also add a new helper function to create the IR for comparing two values. The createICmpEq() function takes the Left and Right value to compare as parameters. It creates a compare instruction, testing for equality of the values, and a branch instruction to two basic blocks, for the equal and unequal cases. The two basic blocks are returned via references in the TrueDest and FalseDest parameters. A label for the new basic blocks can be given in the TrueLabel and FalseLabel parameters. The code is shown in the following snippet:
+\begin{lstlisting}[caption={}]
+void createICmpEq(Value *Left, Value *Right,
+		BasicBlock *&TrueDest,
+		BasicBlock *&FalseDest,
+		const Twine &TrueLabel = "",
+		const Twine &FalseLabel = "") {
+	Function *Fn =
+		Builder.GetInsertBlock()->getParent();
+	TrueDest = BasicBlock::Create(M->getContext(),
+								  TrueLabel, Fn);
+	FalseDest = BasicBlock::Create(M->getContext(),
+								  FalseLabel, Fn);
+	Value *Cmp = Builder.CreateCmp(CmpInst::ICMP_EQ,
+								  Left, Right);
+	Builder.CreateCondBr(Cmp, TrueDest, FalseDest);
+}
+\end{lstlisting}
+
+\item To use the functions from the runtime, we need to create several function declarations. In LLVM, a function type giving the signature—as well as the function itself—must be constructed. We use the createFunc() method to create both objects. The functions need references to FunctionType and Function pointers, the name of the newly declared function, and the result type. The parameter-type list is optional, and the flag to indicate a variable parameter list is set to false, indicating that there is no variable part in the parameter list. The code can be seen in the following snippet:
+\begin{lstlisting}[caption={}]
+void createFunc(FunctionType *&Fty, Function *&Fn,
+					const Twine &N, Type *Result,
+					ArrayRef<Type *> Params = None,
+					bool IsVarArgs = false) {
+	Fty = FunctionType::get(Result, Params, IsVarArgs);
+	Fn = Function::Create(
+		Fty, GlobalValue::ExternalLinkage, N, M);
+}
+\end{lstlisting}
+\end{enumerate}
+
+With these preparations done, we continue to generate the IR to raise an exception.\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{Raising an exception}
+
+To generate the IR code to raise an exception, we add an addThrow() method. This new method needs to initialize the new fields, and then generates the IR to raise an exception via the \underline{~~}cxa\underline{~}throw function. The payload of the raised exception is of an int type and can be set to an arbitrary value. Here is what we need to code:\par
+
+\begin{enumerate}
+\item The new addThrow() method begins with checking if the TypeInfo field has been initialized. If not, then a global external constant of an i8* type and a \underline{~}ZTIi name is created. This represents the C++ metadata describing the C++ int type. The code is illustrated in the following snippet:
+\begin{lstlisting}[caption={}]
+void addThrow(int PayloadVal) {
+	if (!TypeInfo) {
+		TypeInfo = new GlobalVariable(
+			*M, Int8PtrTy,
+			/*isConstant=*/true,
+			GlobalValue::ExternalLinkage,
+			/*Initializer=*/nullptr, "_ZTIi");
+\end{lstlisting}
+
+\item The initialization continues with creating the IR declaration for \underline{~~}cxa\underline{~}allocate\underline{~}exception() and \underline{~~}cxa\underline{~}throw functions() using our createFunc() helper method, as follows:
+\begin{lstlisting}[caption={}]
+	createFunc(AllocEHFty, AllocEHFn,
+				"__cxa_allocate_exception", 
+				Int8PtrTy,
+				{Int64Ty});
+	createFunc(ThrowEHFty, ThrowEHFn, "__cxa_throw",
+				VoidTy,
+				{Int8PtrTy, Int8PtrTy, Int8PtrTy});
+\end{lstlisting}
+
+\item A function using exception handling needs a personality function, which helps with the stack unwinding. We add the IR code to declare a \underline{~~}gxx\underline{~}personality\underline{~}v0() personality function from the C++ library, and set it as the personality routine of the current function. The current function is not stored as a field but we can use a Builder instance to query the current basic block, which has the function stored as a parent field, as illustrated in the following code snippet:
+\begin{lstlisting}[caption={}]
+	FunctionType *PersFty;
+	Function *PersFn;
+	createFunc(PersFty, PersFn,
+				"__gxx_personality_v0", Int32Ty, None,
+				true);
+	Function *Fn =
+		Builder.GetInsertBlock()->getParent();
+	Fn->setPersonalityFn(PersFn);
+\end{lstlisting}
+
+\item Next, we create and populate the basic block for the landing pad. First, we need to save the pointer to the current basic block. Then, we create a new basic block, set it inside the builder to use as the basic block to insert instructions, and call the addLandingPad() method. This method generates the IR code for handling an exception and is described in the next section, Catching an exception. The following code populates the basic block for the landing pad:
+\begin{lstlisting}[caption={}]
+	BasicBlock *SaveBB = Builder.GetInsertBlock();
+	LPadBB = BasicBlock::Create(M->getContext(),
+								"lpad", Fn);
+	Builder.SetInsertPoint(LPadBB);
+	addLandingPad();
+\end{lstlisting}
+
+\item The initialization part has finished with creating the basic block holding an unreachable instruction. Again, we create a basic block and set it as an insertion point at the builder. Then, we add an unreachable instruction to it. Lastly, we set the insertion point of the builder back to the saved SaveBB instance so that the following IR is added to the right basic block. The code is illustrated in the following snippet:
+\begin{lstlisting}[caption={}]
+	UnreachableBB = BasicBlock::Create(
+		M->getContext(), "unreachable", Fn);
+	Builder.SetInsertPoint(UnreachableBB);
+	Builder.CreateUnreachable();
+	Builder.SetInsertPoint(SaveBB);
+}
+\end{lstlisting}
+
+\item To raise an exception, we need to allocate memory for the exception and the payload via a call to the \underline{~~}cxa\underline{~}allocate\underline{~}exception() function. Our payload is of a C++ int type, which usually has a size of 4 bytes. We create a constant unsigned value for the size, and call the function with it as a parameter. The function type and the function declaration are already initialized, so we only need to create a call instruction, as follows:
+\begin{lstlisting}[caption={}]
+	Constant *PayloadSz =
+		ConstantInt::get(Int64Ty, 4, false);
+	CallInst *EH = Builder.CreateCall(
+		AllocEHFty, AllocEHFn, {PayloadSz});
+\end{lstlisting}
+
+\item Next, we store the PayloadVal value into the allocated memory. To do so, we need to create an LLVM IR constant with a call to the ConstantInt::get() function. The pointer to the allocated memory is of an i8* type, but to store a value of an i32 type we need to create a bitcast instruction to cast the type, as follows:
+\begin{lstlisting}[caption={}]
+	Value *PayloadPtr =
+		Builder.CreateBitCast(EH, Int32PtrTy);
+	Builder.CreateStore(
+		ConstantInt::get(Int32Ty, PayloadVal, true),
+		PayloadPtr);
+\end{lstlisting}
+
+\item Finally, we raise an exception with a call to the \underline{~~}cxa\underline{~}throw function. Because this function actually raises an exception that is also handled in the same function, we need to use an invoke instruction instead of a call instruction. Unlike with a call instruction, an invoke instruction ends a basic block because it has two successor basic blocks. Here, these are the UnreachableBB and LPadBB basic blocks. If the function raises no exception, the control flow is transferred to the UnreachableBB basic block. Due to the design of the \underline{~~}cxa\underline{~}throw() function, this will never happen. The control flow is transferred to the LPadBB basic block to handle the exception. This finishes the implementation of the addThrow() method, as illustrated in the following code snippet:
+\begin{lstlisting}[caption={}]
+	Builder.CreateInvoke(
+		ThrowEHFty, ThrowEHFn, UnreachableBB, LPadBB,
+		{EH, ConstantExpr::getBitCast(TypeInfo, 
+		Int8PtrTy),
+		ConstantPointerNull::get(Int8PtrTy)});
+}
+\end{lstlisting}
+\end{enumerate}
+
+Next, we add the code to generate the IR for handling an exception.\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{Catching an exception}
+
+To generate the IR code to catch an exception, we add an addLandingPad() method. The generated IR extracts the type information from the exception. If it matches the C++ int type, then the exception is handled by printing Divide by zero! to the console and returning from the function. If the type does not match, we simply execute a resume instruction, which transfers control back to the runtime. Because there are no other functions in the call hierarchy to handle this exception, the runtime will terminate the application. These are the steps we need to take to generate the IR to catch an exception:\par
+
+\begin{enumerate}
+\item In the generated IR, we need to call the \underline{~~}cxa\underline{~}begin\underline{~}catch() and \underline{~}cxa\underline{~}end\underline{~}catch() functions from the C++ runtime library. To print an error message, we will generate a call to the puts() function from the C runtime library, and to get the type information from the exception, we must generate a call to the llvm. eh.typeid.for instrinsic. We need FunctionType and Function instances for all of them, and we take advantage of our createFunc() method to create them, as follows:
+\begin{lstlisting}[caption={}]
+void addLandingPad() {
+	FunctionType *TypeIdFty; Function *TypeIdFn;
+	createFunc(TypeIdFty, TypeIdFn,
+				"llvm.eh.typeid.for", Int32Ty,
+				{Int8PtrTy});
+	FunctionType *BeginCatchFty; Function 
+		*BeginCatchFn;
+	createFunc(BeginCatchFty, BeginCatchFn,
+				"__cxa_begin_catch", Int8PtrTy,
+				{Int8PtrTy});
+	FunctionType *EndCatchFty; Function *EndCatchFn;
+	createFunc(EndCatchFty, EndCatchFn,
+				"__cxa_end_catch", VoidTy);
+	FunctionType *PutsFty; Function *PutsFn;
+	createFunc(PutsFty, PutsFn, "puts", Int32Ty,
+				{Int8PtrTy});
+\end{lstlisting}
+
+\item The landingpad instruction is the first instruction we generate. The result type is a structure containing fields of i8* and i32 types. This structure is generated with a call to the StructType::get() function. We handle an exception of a C++ int type, and we must add this as a clause to the landingpad instruction. The clause must be a constant of the i8* type, therefore we need to generate a bitcast instruction to convert the TypeInfo value to this type. We store the value returned from the instruction for later use in an Exc variable, as follows:
+\begin{lstlisting}[caption={}]
+	LandingPadInst *Exc = Builder.CreateLandingPad(
+		StructType::get(Int8PtrTy, Int32Ty), 1, "exc");
+	Exc->addClause(ConstantExpr::getBitCast(TypeInfo, 
+			Int8PtrTy));
+\end{lstlisting}
+
+\item Next, we extract the type selector from the returned value. With a call to the llvm.eh.typeid.for intrinsic, we retrieve the type ID for the TypeInfo field, representing the C++ int type. With this IR, we now have generated the two values we need to compare to decide if we can handle the exception, as illustrated in the following code snippet:
+\begin{lstlisting}[caption={}]
+	Value *Sel = Builder.CreateExtractValue(Exc, {1}, 
+				"exc.sel");
+	CallInst *Id =
+		Builder.CreateCall(TypeIdFty, TypeIdFn,
+							{ConstantExpr::getBitCast(
+								TypeInfo, Int8PtrTy)});
+\end{lstlisting}
+
+\item To generate the IR for the comparison, we call our createICmpEq() function. This function also generates two basic blocks, which we store in the TrueDest and FalseDest variables, as illustrated in the following code snippet:
+\begin{lstlisting}[caption={}]
+	BasicBlock *TrueDest, *FalseDest;
+	createICmpEq(Sel, Id, TrueDest, FalseDest, 
+				"match",
+				"resume");
+\end{lstlisting}
+
+\item If the two values do not match, the control flow continues at the FalseDest basic block. This basic block only contains a resume instruction, to give control back to the C++ runtime. This is illustrated in the following code snippet:
+\begin{lstlisting}[caption={}]
+	Builder.SetInsertPoint(FalseDest);
+	Builder.CreateResume(Exc);
+\end{lstlisting}
+
+\item If the two values are equal, the control flow continues at the TrueDest basic block. We first generate the IR code to extract the pointer to the exception from the return value of the landingpad instruction, stored in the Exc variable. Then, we generate a call to the \underline{~~}cxa\underline{~}begin\underline{~}catch () function, passing the pointer to the exception as a parameter. This indicates the start of the exception being handled to the runtime, as illustrated in the following code snippet:
+\begin{lstlisting}[caption={}]
+	Builder.SetInsertPoint(TrueDest);
+	Value *Ptr =
+		Builder.CreateExtractValue(Exc, {0}, 
+			"exc.ptr");
+	Builder.CreateCall(BeginCatchFty, BeginCatchFn,
+						{Ptr});
+\end{lstlisting}
+
+\item We handle the exception by calling the puts() function, to print a message to the console. For this, we first generate a pointer to the string with a call to the CreateGlobalStringPtr() function, and then pass this pointer as a parameter in the generated call to the puts() function, as follows:
+\begin{lstlisting}[caption={}]
+	Builder.CreateCall(EndCatchFty, EndCatchFn);
+	Builder.CreateRet(Int32Zero);
+}
+\end{lstlisting}
+\end{enumerate}
+
+With the addThrow() and addLandingPad() functions, we can generate the IR to raise an exception and to handle an exception. We still need to add the IR to check if the divisor is 0, which is the topic of the next section.\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{Integrating the exception-handling code into the application}
+
+The IR for the division is generated inside the visit(BinaryOp\&) method. Instead of just generating a sdiv instruction, we first generate the IR to compare the divisor with 0. If the divisor is 0, then the control flow continues in a basic block raising the exception. Otherwise, the control flow continues in a basic block with the sdiv instruction. With the help of the createICmpEq() and addThrow() functions, we can code this very easily, as follows:\par
+
+\begin{lstlisting}[caption={}]
+	case BinaryOp::Div:
+		BasicBlock *TrueDest, *FalseDest;
+		createICmpEq(Right, Int32Zero, TrueDest,
+					 FalseDest, "divbyzero", "notzero");
+		Builder.SetInsertPoint(TrueDest);
+		addThrow(42); // Arbitrary payload value.
+		Builder.SetInsertPoint(FalseDest);
+		V = Builder.CreateSDiv(Left, Right);
+		break;
+\end{lstlisting}
+
+The code-generation part is now complete. To build the application, you change into the build directory and run the ninja tool, as follows:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ ninja
+\end{tcolorbox}
+
+After the build is finished, you can check the generated IR—for example, with the with a: 3/a expression, as follows:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ src/calc "with a: 3/a"
+\end{tcolorbox}
+
+You will see the additional IR needed to raise and catch the exception.\par
+
+The generated IR now depends on the C++ runtime. The easiest way to link against the required libraries is to use the clang++ compiler. Rename the rtcalc.c file with the runtime functions for the expression calculator as rtcalc.cpp, and add extern "C" in front of each function inside the file. Then we can use the llc tool to turn the generated IR into an object file and use the clang++ compiler to create an executable, as follows:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ src/calc "with a: 3/a" | llc -filetype obj -o exp.o \\
+\$ clang++ -o exp exp.o ../rtcalc.cpp
+\end{tcolorbox}
+
+Then, we can run the generated application with different values, as follows:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ ./exp \\
+Enter a value for a: 1 \\
+The result is: 3\\
+\\
+\$ ./exp \\
+Enter a value for a: 0 \\
+Divide by zero!
+\end{tcolorbox}
+
+In the second run the input is 0, and this raises an exception. It works as expected!\par
+
+We have learned how to raise and catch exceptions. The code to generate the IR can be used as a blueprint for other compilers. Of course, the used type information and the number of catch clauses depends on the input to the compiler, but the IR we need to generate still follows the pattern presented in this section.\par
+
+Adding metadata is a way to provide further information to LLVM. In the next section, we add type metadata to support the LLVM optimizer in certain situations.\par
+
+
+
+
+
+
+
+
+
+
