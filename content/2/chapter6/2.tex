@@ -1,0 +1,136 @@
+对于所有的应用程序，基本类型(如INTEGER)是不够用的。例如，要表示矩阵或复数等数学对象，必须基于现有数据类型构造新的数据类型。这些新的数据类型通常称为聚合或复合类型。\par
+
+数组是同一类型元素的序列。在LLVM中，数组总是静态的:元素的数量是常量。整数数组[10]的tinylang类型，或长整数数组[10]的C类型，可以用IR表示为:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+[10 x i64]
+\end{tcolorbox}
+
+结构是不同类型的复合。在编程语言中，通常用命名成员来表示。例如，在tinylang中，结构写为RECORD x, y: REAL; color: INTEGER; END;同样的结构在C中是struct \{float x, y;long color;\};。在LLVM IR中，只列出了类型名:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\{ float, float, i64 \}
+\end{tcolorbox}
+
+要访问成员，需要使用数字索引。与数组一样，第一个元素的索引号是0。\par
+
+此结构的成员根据数据布局字符串中的规范在内存中进行布局。如果有必要，将插入未使用的填充字节。如果需要控制内存布局，那么可以使用打包结构，其中所有元素都是1字节对齐的。语法略有不同:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+<{ float, float, i64 }>
+\end{tcolorbox}
+
+数组和结构被当作一个单元来处理。例如，不能将\%x数组的单个元素以\%x[3]引用。这时因为SSA的形式不能分辨\%x[i]和\%x[j]是否指相同的元素。相反，我们需要特殊的指令来提取和插入单个元素的值到数组中。要读取第二个元素，我们使用以下语句:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\%el2 = extractvalue [10 x i64] \%x, 1
+\end{tcolorbox}
+
+我们也可以更新一个元素，例如：第一个元素:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\%xnew = insertvalue [10 x i64] \%x, i64 \%el2, 0
+\end{tcolorbox}
+
+这两种指令也适用于结构体。例如，要从\%pt寄存器访问color成员，需要编写以下代码:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\%color = extractvalue { float, float, i64 } \%pt, 2
+\end{tcolorbox}
+
+这两个指令都有一个限制:索引必须是常数。对于结构来说，这很容易解释。索引号只是名称的替代，而C等语言没有动态计算结构成员名称的概念。对于数组，只是不能有效地实现。这两种指令在特定的情况下都有意义，当元素的数量很小且已知时，例如：复数可以建模为两个浮点数的数组。传递这个数组是合理的，并且在计算过程中访问数组的哪一部分是很清楚的。\par
+
+对于前端的一般使用，需要求助于指向内存的指针。LLVM中的所有全局值都表示为指针，声明一个全局变量@arr，作为一个包含8个i64元素的数组，等价于长arr[8] C声明:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+@arr = common global [8 x i64] zeroinitializer
+\end{tcolorbox}
+
+要访问数组的第二个元素，必须执行地址计算，以确定索引的地址。然后，可以从该地址加载该值。将其放入@second函数中，如下所示:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+define i64 @second() { \\
+\hspace*{0.5cm}\%1 = getelementptr [8 x i64], [8 x i64]* @arr, i64 0, i64 \\
+\hspace*{0.5cm}1
+\hspace*{0.5cm}\%2 = load i64, i64* \%1 \\
+\hspace*{0.5cm}ret i64 \%2 \\
+}
+\end{tcolorbox}
+
+getelementptr指令是地址计算的主要工具，所以需要对其进行更多的介绍。第一个操作数[8 x i64]是该指令操作的基类型。第二个操作数[8 x i64]* @arr指定基指针。注意这里的细微差别:我们声明了一个包含8个元素的数组，但所有全局值都视为指针，所以我们有一个指向数组的指针。C语法中，我们使用long (*arr)[8]!其结果是，在对元素进行索引之前，首先必须对指针进行解引用，例如：C中的arr[0][1]。第三个操作数i64 0对指针进行解引用，第四个操作数i64 1是元素的下标。计算的结果是索引元素的地址。请注意，本指令没有涉及内存。\par
+
+除了结构之外，索引参数不需要是常量。因此，可以在循环中使用getelementptr指令来检索数组的元素。这里对结构的处理是不同的:只能使用常量，类型必须是i32。\par
+
+有了这些知识，数组很容易集成到第5章的代码生成器中。必须扩展convertType()方法来创建类型，如果Arr变量持有数组的类型指示符，那么可以在方法中添加以下内容:\par
+
+\begin{lstlisting}[caption={}]
+llvm::Type *Component = convertType(Arr->getComponentType());
+uint64_t NumElements = Arr->getNumElem();
+return llvm::ArrayType::get(Component, NumElements);
+\end{lstlisting}
+
+该类型可用于声明全局变量。对于局部变量，需要为数组分配内存。我们在过程的第一个基本块中完成这个操作:\par
+
+\begin{lstlisting}[caption={}]
+for (auto *D : Proc->getDecls()) {
+	if (auto *Var =
+			llvm::dyn_cast<VariableDeclaration>(D)) {
+		llvm::Type *Ty = mapType(Var);
+		if (Ty->isAggregateType()) {
+			llvm::Value *Val = Builder.CreateAlloca(Ty);
+			Defs.Defs.insert(
+				std::pair<Decl *, llvm::Value *>(Var, Val));
+		}
+	}
+}
+\end{lstlisting}
+
+要读写一个元素，必须生成getelemtptr指令。这个指令会添加到emitExpr()(读取值)和emitAssign()(写入值)的方法中。要读取数组元素，首先读取变量的值，然后处理变量的选择器。对于每个索引，计算表达式并存储其值。基于这个列表，计算引用元素的地址并加载值:\par
+
+\begin{lstlisting}[caption={}]
+auto &Selectors = Var->getSelectorList();
+for (auto *I = Selectors.begin(),
+		*E = Selectors.end();
+  	  I != E;) {
+	if (auto *Idx = llvm::dyn_cast<IndexSelector>(*I)) {
+		llvm::SmallVector<llvm::Value *, 4> IdxList;
+		IdxList.push_back(emitExpr(Idx->getIndex()));
+		for (++I; I != E;) {
+			if (auto *Idx2 =
+					llvm::dyn_cast<IndexSelector>(*I)) {
+				IdxList.push_back(emitExpr(Idx2->getIndex()));
+				++I;
+			} else
+			break;
+		}
+		Val = Builder.CreateGEP(Val, IdxList);
+		Val = Builder.CreateLoad(
+			Val->getType()->getPointerElementType(), Val);
+	} else {
+		llvm::report_fatal_error("Unsupported selector");
+	}
+}
+\end{lstlisting}
+
+写入数组元素使用相同的代码，但不生成加载指令。相反，在存储指令中使用指针作为目标。对于记录，可以使用类似的方法。记录成员的选择器包含常量字段索引，名为Idx。你可以通过以下方法将这个常量转换为一个LLVM常量值:\par
+
+\begin{lstlisting}[caption={}]
+llvm::Value *FieldIdx = llvm::ConstantInt::get(Int32Ty, Idx);
+\end{lstlisting}
+
+然后，您可以像使用数组一样使用Builder.CreateGEP()方法中的值。\par
+
+现在您已经掌握了将聚合数据类型转换为LLVM IR的方法。以系统兼容的方式传递这些类型的值需要注意一些细节，在下一节中您将学习如何正确地实现它。\par
+
+
+
+
+
+
+
+
+
+
+
+
+
