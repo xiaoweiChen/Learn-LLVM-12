@@ -1,0 +1,488 @@
+
+
+\hspace*{\fill} \par %插入空行
+\textbf{Understanding the general structure of debug metadata}
+
+To allow source-level debugging, we have to add debug information. Support for debug information in LLVM uses debug metadata to describe the types of the source language and other static information, and an intrinsic to track variable values. The LLVM core libraries generate debug information in DWARF format on Unix systems and in Protein Data Bank (PDB) format for Windows. We take a look at the general structure in the next section.\par
+
+To describe the static structure, LLVM uses metadata in a similar way to the metadata for type-based analysis. The static structure describes the file, the compilation unit, functions, lexical blocks, and the used data types.\par
+
+The main class we use is llvm::DIBuilder, and we need to use the llvm/IR/DIBuilder include file to get the class declaration. This builder class provides an easyto-use interface to create the debug metadata. The metadata is later either added to LLVM objects such as global variables or is used in calls to debug intrinsics. Important metadata that the builder class can create is listed here:\par
+
+\begin{itemize}
+\item lvm::DIFile: This describes a file using the filename and the absolute path of the directory containing the file. You use the createFile() method to create it. A file can contain the main compilation unit or it could contain imported declarations.
+
+\item llvm::DICompileUnit: This is used to describe the current compilation unit. Among other things, you specify the source language, a compiler-specific producer string, whether optimizations are enabled or not, and—of course—the DIFile in which the compilation unit resides. You create it with a call to createCompileUnit().
+
+\item llvm::DISubprogram: This describes a function. Important information is the scope (usually a DICompileUnit or a DISubprogram for a nested function), the name of the function, the mangled name of the function, and the function type. It is created with a call to createFunction().
+
+\item llvm::DILexicalBlock: This describes a lexical block that models the block scoping found in many high-level languages. You create this with a call to createLexicalBlock().
+
+\end{itemize}
+
+LLVM makes no assumptions about the language your compiler translates. As a consequence, it has no information about the data types of the language. To support source-level debugging, especially displaying variable values in a debugger, type information must be added too. Important constructs are listed here:\par
+
+\begin{itemize}
+\item The createBasicType() function, returning a pointer to the llvm::DIBasicType class, creates the metadata to describe a basic type such as INTEGER in tinylang or int in C++. Besides the name of the type, the required parameters are the size in bits and the encoding—for example, whether it is a signed or unsigned type.
+
+\item There are several ways to construct the metadata for composite data types, represented by the llvm::DIComposite class. You use createArrayType(), createStructType(), createUnionType(), and createVectorType() functions to instantiate the metadata for array, struct, union, and vector data types. The functions require the parameter you expect—for example, the base type and the number of subscriptions for an array type, or a list of the field members of a struct type.
+
+\item There are also methods to support enumerations, templates, classes, and so on.
+\end{itemize}
+
+The list of functions shows you that you have to add every detail of the source language to the debug information. Let's assume your instance of the llvm::DIBuilder class is called DBuilder. Assume further that you have some tinylang source in a file called File.mod in the /home/llvmuser folder. Inside the file is a Func():INTEGER function at line 5, which contains a VAR i:INTEGER local declaration at line 7. Let's create the metadata for this, beginning with the information for the file. You need to specify the filename and the absolute path of the folder in which the file resides, as illustrated in the following code snippet:\par
+
+\begin{lstlisting}[caption={}]
+llvm::DIFile *DbgFile = DBuilder.createFile("File.mod",
+											"/home/llvmuser");
+\end{lstlisting}
+
+The file is a module in tinylang and therefore is the compilation unit for LLVM. This carries a lot of information, as can be seen in the following code snippet:\par
+
+\begin{lstlisting}[caption={}]
+bool IsOptimized = false;
+llvm::StringRef CUFlags;
+unsigned ObjCRunTimeVersion = 0;
+llvm::StringRef SplitName;
+llvm::DICompileUnit::DebugEmissionKind EmissionKind =
+llvm::DICompileUnit::DebugEmissionKind::FullDebug;
+llvm::DICompileUnit *DbgCU = DBuilder.createCompileUnit(
+	llvm::dwarf::DW_LANG_Modula2, DbgFile, „tinylang",
+	IsOptimized, CUFlags, ObjCRunTimeVersion, SplitName,
+	EmissionKind);
+\end{lstlisting}
+
+The debugger needs to know the source language. The DWARF standard defines an enumeration with all the common values. A disadvantage is that you cannot simply add a new source language. To do that, you have to create a request through the DWARF committee. Be aware that the debugger and other debug tools also need support for a new language—just adding a new member to the enumeration is not enough.\par
+
+In many cases, it is sufficient to choose a language that is close to your source language. In the case of tinylang this is Modula-2, and we use DW\underline{~}LANG\underline{~}Modula2 for language identification. A compilation unit resides in a file, which is identified by the DbgFile variable we created before. The debug information can carry information about the producer. This can be the name of the compiler and the version information. Here, we just pass a tinylang string. If you do not want to add this information, then you can simply use an empty string as a parameter.\par
+
+The next set of information includes an IsOptimized flag, which should indicate if the compiler has turned optimization on or not. Usually, this flag is derived from the –O command-line switch. You can pass additional parameter settings to the debugger with the CUFlags parameter. This is not used here, and we pass an empty string. We do not use Objective-C, so we pass 0 as the Objective-C runtime version. Normally, debug information is embedded in the object file we are creating. If we want to write the debug information into a separate file, then the SplitName parameter must contain the name of this file; otherwise, just pass an empty string. And lastly, you can define the level of debug information that should be emitted. The default setting is full debug information, indicated by the use of the FullDebug enum value. You can also choose the LineTablesOnly value if you want to emit only line numbers, or the NoDebug value for no debug information at all. For the latter, it is better to not create debug information in the first place.\par
+
+Our minimalistic source uses only the INTEGER data type, which is a signed 32-bit value. Creating the metadata for this type is straightforward, as can be seen in the following code snippet:\par
+
+\begin{lstlisting}[caption={}]
+llvm::DIBasicType *DbgIntTy =
+						DBuilder.createBasicType("INTEGER", 32,
+									llvm::dwarf::DW_ATE_signed);
+\end{lstlisting}
+
+To create the debug metadata for the function, we have to create a type for the signature first, and then the metadata for the function itself. This is similar to the creation of IR for a function. The signature of the function is an array with all the types of the parameters in source order and the return type of the function as the first element at index 0. Usually, this array is constructed dynamically. In our case, we can also construct the metadata statically. This is useful for internal functions—for example, for module initializing. Typically, the parameters of these functions are always known, and the compiler writer can hardcode them. The code is shown in the following snippet:\par
+
+\begin{lstlisting}[caption={}]
+llvm::Metadata *DbgSigTy = {DbgIntTy};
+llvm::DITypeRefArray DbgParamsTy =
+						DBuilder.getOrCreateTypeArray(DbgSigTy);
+llvm::DISubroutineType *DbgFuncTy =
+						DBuilder.createSubroutineType(DbgParamsTy);
+\end{lstlisting}
+
+Our function has an INTEGER return type and no further parameters, so the DbgSigTy array contains only the pointer to the metadata for this type. This static array is turned into a type array, which is then used to create the type for the function.\par
+
+The function itself requires more data, as follows:\par
+
+\begin{lstlisting}[caption={}]
+unsigned LineNo = 5;
+unsigned ScopeLine = 5;
+llvm::DISubprogram *DbgFunc = DBuilder.createFunction(
+	DbgCU, "Func", "_t4File4Func", DbgFile, LineNo,
+	DbgFuncTy, ScopeLine, 
+	llvm::DISubprogram::FlagPrivate,
+	llvm::DISubprogram::SPFlagLocalToUnit);
+\end{lstlisting}
+
+A function belongs to a compilation unit, in our case stored in the DbgCU variable. We need to specify the name of the function in the source file, which is Func, and the mangled name is stored in the object file. This information helps the debugger to locate the machine code of the function later on. The mangled name, based on the rules of tinylang, is \underline{~}t4File4Func. We also have to specify the file that contains the function.\par
+
+This may sound surprising at first, but think of the include mechanism in C and C++: a function can be stored in a different file, which is then included with #include in the main compilation unit. Here, this is not the case, and we use the same file as the one the compilation unit uses. Next, the line number of the function and the function type are passed. The line number of the function may not be the line number where the lexical scope of the function begins. In this case, you can specify a different ScopeLine. A function also has protection, which we specify here with the FlagPrivate value to indicate a private function. Other possible values are FlagPublic and FlagProtected, for public and protected functions.\par
+
+Besides the protection level, there are other flags that can be specified here. For example, FlagVirtual indicates a virtual function, and FlagNoReturn indicates that the function does not return to the caller. You can find a complete list of possible values in the llvm/include/llvm/IR/DebugInfoFlags.def LLVM include file. And lastly, flags specific to a function can be specified. The most used one is the SPFlagLocalToUnit value, which indicates that the function is local to this compilation unit. Also often used is the MainSubprogram value, indicating that this function is the main function of the application. You can also find all possible values in the LLVM include file mentioned previously.\par
+
+So far, we only created the metadata referring to static data. Variables are dynamic in nature, and we explore how to attach the static metadata to the IR code for accessing variables in the next section.\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{Tracking variables and their values}
+
+To be useful, the type metadata described in the last section needs to be associated with the variables of the source program. For a global variable, this is pretty easy. The createGlobalVariableExpression() function of the llvm::DIBuilder class creates the metadata to describe a global variable. This includes the name of the variable in the source, the mangled name, the source file, and so on. A global variable in LLVM IR is represented by an instance of the GlobalVariable class. This class has an addDebugInfo() method, which associates the metadata node returned from createGlobalVariableExpression() with the global variable.\par
+
+For local variables, we need to take another approach. LLVM IR does not know a class representing a local variable; it knows only about values. The solution the LLVM community developed is to insert calls to intrinsic functions into the IR code of a function. An intrinsic function is a function that LLVM knows about and therefore can do some magic with it. In most cases, intrinsic functions do not result in a subroutine call at the machine level. Here, the function call is a convenient vehicle to associate the metadata with a value.\par
+
+The most important intrinsic functions for debug metadata are llvm.dbg.declare and llvm.dbg.value. The former is called once to declare the address of a local variable, while the latter is called whenever a local variable is set to a new value.\par
+
+\begin{tcolorbox}[colback=blue!5!white,colframe=blue!75!black, title=Future LLVM versions will replace llvm.dbg.declare with the llvm.dbg.addr intrinsic]
+The llvm.dbg.declare intrinsic function makes a very strong assumption: the address of the variable described in the call to the intrinsic is valid throughout the lifetime of the function. This assumption makes it very hard to preserve debug metadata during optimization because the real storage address can change. To solve this, a new intrinsic called llvm.dbg.addr was designed. This intrinsic takes the same parameters as llvm.dbg.declare, but it has less strict semantics. It still describes the address of a local variable, and a frontend should generate exactly one call to it.\par
+
+During optimization, passes can replace this intrinsic with (possibly multiple) calls to llvm.dbg.value and/or llvm.dbg.addr in order to preserve the debug information.\par
+
+The llvm.dbg.declare intrinsic will be deprecated and later removed 
+when work on llvm.dbg.addr is finished.
+\end{tcolorbox}
+
+How does it work? The LLVM IR representation and the programmatic creation via the llvm::DIBuilder class differ a bit, so we look at both. Continuing our example from the previous section, we allocate local storage for the i variable inside the Func function with the alloca instruction, as follows:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+@i = alloca i32
+\end{tcolorbox}
+
+After that, we add a call to the llvm.dbg.declare intrinsic, like this:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+call void @llvm.dbg.declare(metadata i32* \%i, \\
+\hspace*{3cm}metadata !1, metadata \\
+\hspace*{3cm}!DIExpression())
+\end{tcolorbox}
+
+The first parameter is the address to the local variable. The second parameter is the metadata describing the local variable, created by a call to either createAutoVariable() for a local variable or createParameterVariable() for a parameter of the llvm::DIBuilder class. The third parameter describes an address expression, which I explain later.\par
+
+Let's implement the IR creation. You allocate the storage for the @i local variable with a call to the CreateAlloca() method of the llvm::IRBuilder<> class, as follows:\par
+
+\begin{lstlisting}[caption={}]
+llvm::Type *IntTy = llvm::Type::getInt32Ty(LLVMCtx);
+llvm::Value *Val = Builder.CreateAlloca(IntTy, nullptr, "i");
+\end{lstlisting}
+
+The LLVMCtx variable is the used context class, and Builder is the used instance of the llvm::IRBuilder<> class.\par
+
+A local variable also needs to be described by metadata, as follows:\par
+
+\begin{lstlisting}[caption={}]
+llvm::DILocalVariable *DbgLocalVar =
+	DBuilder.createAutoVariable(DbgFunc, "i", DbgFile,
+								7, DbgIntTy);
+\end{lstlisting}
+
+Using the values from the previous section, we specify that the variable is part of the DbgFunc function, has the name i, is defined in the file named by DbgFile at line 7, and has a DbgIntTy type.\par
+
+Finally, we associate the debug metadata with the address of the variable using the llvm.dbg.declare intrinsic. Using llvm::DIBuilder shields you from all of the details of adding a call. The code is shown in the following snippet:\par
+
+\begin{lstlisting}[caption={}]
+llvm::DILocation *DbgLoc =
+	llvm::DILocation::get(LLVMCtx, 7, 5, 
+					      DbgFunc);
+DBuilder.insertDeclare(Val, DbgLocalVar,
+						DBuilder.createExpression(), DbgLoc,
+						Val.getParent());
+\end{lstlisting}
+
+Again, we have to specify a source location for the variable. An instance of llvm::DILocation is a container to hold the line and column of a location associated with a scope. The insertDeclare() method adds a call to the intrinsic function to the LLVM IR. As parameters it requires the address of the variable, stored in Val, and the debug metadata for the variable, stored in DbgValVar. We also pass an empty address expression and the debug location created before. As with a normal instruction, we need to specify into which basic block the call is inserted. If we specify a basic block, then the call is inserted at the end. Alternatively, we can specify an instruction, and the call is inserted before that instruction. We have the pointer to the alloca instruction, which is the last one that we inserted into the underlying basic block. So, we use this basic block, and the call gets appended after the alloca instruction.\par
+
+If a value of a local variable changes, then a call to llvm.dbg.value must be added to the IR. You use the insertValue() method of llvm::DIBuilder to do so. This works similarly for llvm.dbg.addr. The difference is that instead of the address of the variable, now the new value is specified.\par
+
+When we implemented the IR generation for functions, we used an advanced algorithm that mainly used values and avoided allocating storage for local variables. For adding debug information, this only means that we use llvm.dbg.value much more often than you see in Clang-generated IR.\par
+
+What can we do if the variable does not have dedicated storage space but is part of a larger aggregate type? One situation where this can arise is with the use of nested functions. To implement access to the stack frame of the caller, you collect all used variables in a structure and pass a pointer to this record to the called function. Inside the called function, you can refer to the variables of the caller as if they were local to the function. What is different is that these variables are now part of an aggregate.\par
+
+In the call to llvm.dbg.declare, you use an empty expression if the debug metadata describes the whole memory the first parameter is pointing to. If it instead describes only a part of the memory, then you need to add an expression indicating which part of the memory the metadata applies to. In the case of the nested frame, you need to calculate the offset into the frame. You need access to a DataLayout instance, which you can get from the LLVM module into which you are creating the IR code. If the llvm::Module instance is named Mod, the variable holding the nested frame structure is named Frame, being of type llvm::StructType, and you access the third member of the frame. This then gives you the offset of the member, as illustrated in the following code snippet:\par
+
+\begin{lstlisting}[caption={}]
+const llvm::DataLayout &DL = Mod->getDataLayout();
+uint64_t Ofs = DL.getStructLayout(Frame)
+				->getElementOffset(3);
+\end{lstlisting}
+
+The expression is created from a sequence of operations. To access the third member of 
+the frame, the debugger needs to add the offset to the base pointer. You need to create an 
+array and this information—for example, in this way:
+
+\begin{lstlisting}[caption={}]
+llvm::SmallVector<int64_t, 2> AddrOps;
+AddrOps.push_back(llvm::dwarf::DW_OP_plus_uconst);
+AddrOps.push_back(Offset);
+\end{lstlisting}
+
+From this array, you can create an expression that you then pass to llvm.dbg.declare instead of the empty expression, as follows:\par
+
+\begin{lstlisting}[caption={}]
+llvm::DIExpression *Expr = DBuilder.createExpression(AddrOps);
+\end{lstlisting}
+
+You are not limited to this offset operation. DWARF knows many different operators, and you can create fairly complex expressions. You can find a complete list of operators in the llvm/include/llvm/BinaryFormat/Dwarf.def LLVM include file.\par
+
+You are now able to create debug information for variables. To enable the debugger to follow the control flow in the source, you also need to provide line-number information, which is the topic of the next section.\par
+
+
+\hspace*{\fill} \par %插入空行
+\textbf{Adding line numbers}
+
+A debugger allows a programmer to step line by line through an application. For this, the debugger needs to know which machine instructions belong to which line in the source code. LLVM allows a source location to be added to each instruction. In the previous section, we created location information of the llvm::DILocation type. A debug location has more information than just the line, column, and scope. If needed, the scope into which this line is inlined can be specified. It is also possible to indicate that this debug location belongs to implicit code—that is, code that the frontend has generated but that is not in the source code.\par
+
+Before it can be attached to an instruction, we must wrap the debug location in an llvm::DebugLoc object. To do so, you simply pass the location information obtained from the llvm::DILocation class to the llvm::DebugLoc constructor. With this wrapping, it is possible for LLVM to track the location information. While the location in the source obviously does not change, the generated machine code for a source-level statement or expression can be dropped during optimization. Encapsulation helps to deal with these possible changes.\par
+
+Adding line-number information mostly boils down to retrieving the line-number information from the AST and adding it to the generated instructions. The llvm::Instruction class has the setDebugLoc() method, which attaches the location information to the instruction.\par
+
+In the next section, we add the generation of debug information to our tinylang compiler.\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{Adding debug support to tinylang}
+
+We encapsulate the generation of debug metadata in the new CGDebugInfo class. We put the declaration into the tinylang/CodeGen/CGDebugInfo.h header file and the definition into the tinylang/CodeGen/CGDebugInfo.cpp file.\par
+
+The CGDebugInfo class has five important members. We need a reference to the code generator for the module, CGM, because we need to convert types from AST representation to LLVM types. Of course, we also need an instance of the llvm::DIBuilder class, called DBuilder, as in the previous sections. A pointer to the instance of the compile unit is also needed, and we store it in a member called CU.\par
+
+To avoid repeated creation of the debug metadata for types, we also add a map to cache this information. The member is called TypeCache. And lastly, we need a way to manage the scope information, for which we create a stack based on the llvm::SmallVector<> class, called ScopeStack. Thus we have the following code:\par
+
+\begin{lstlisting}[caption={}]
+CGModule &CGM;
+llvm::DIBuilder DBuilder;
+llvm::DICompileUnit *CU;
+llvm::DenseMap<TypeDeclaration *, llvm::DIType *>
+	TypeCache;
+llvm::SmallVector<llvm::DIScope *, 4> ScopeStack;
+\end{lstlisting}
+
+The following methods of the CGDebugInfo class all make use of these members:\par
+
+\begin{enumerate}
+\item First, we need to create the compile unit, which we do in the constructor. We also create a file containing the compile unit here. Later, we can refer to the file through the CU member. The code for the constructor is shown in the following snippet:
+\begin{lstlisting}[caption={}]
+CGDebugInfo::CGDebugInfo(CGModule &CGM)
+	: CGM(CGM), DBuilder(*CGM.getModule()) {
+	llvm::SmallString<128> Path(
+		CGM.getASTCtx().getFilename());
+	llvm::sys::fs::make_absolute(Path);
+	
+	llvm::DIFile *File = DBuilder.createFile(
+		llvm::sys::path::filename(Path),
+		llvm::sys::path::parent_path(Path));
+		
+	bool IsOptimized = false;
+	unsigned ObjCRunTimeVersion = 0;
+	llvm::DICompileUnit::DebugEmissionKind EmissionKind =
+		llvm::DICompileUnit::DebugEmissionKind::FullDebug;
+	CU = DBuilder.createCompileUnit(
+		llvm::dwarf::DW_LANG_Modula2, File, "tinylang",
+	IsOptimized, StringRef(), ObjCRunTimeVersion,
+	StringRef(), EmissionKind);
+}
+\end{lstlisting}
+
+\item Very often, we need to provide a line number. This can be derived from the source manager location, which is available is most AST nodes. The source manager can convert this into a line number, as follows:
+\begin{lstlisting}[caption={}]
+unsigned CGDebugInfo::getLineNumber(SMLoc Loc) {
+	return CGM.getASTCtx().getSourceMgr().FindLineNumber(
+		Loc);
+}
+\end{lstlisting}
+
+\item Information about a scope is held on a stack. We need methods to open and close a scope and to retrieve the current scope. The compilation unit is the global scope, which we add automatically, as follows:
+\begin{lstlisting}[caption={}]
+llvm::DIScope *CGDebugInfo::getScope() {
+	if (ScopeStack.empty())
+		openScope(CU->getFile());
+	return ScopeStack.back();
+}
+
+void CGDebugInfo::openScope(llvm::DIScope *Scope) {
+	ScopeStack.push_back(Scope);
+}
+
+void CGDebugInfo::closeScope() {
+	ScopeStack.pop_back();
+}
+\end{lstlisting}
+
+\item We create a method for each category of the type we need to transform. The getPervasiveType() method creates the debug metadata for basic types. Note in the following code snippet the use of the encoding parameter, declaring the INTEGER type as a signed type and the BOOLEAN type encoded as a Boolean type:
+\begin{lstlisting}[caption={}]
+llvm::DIType *
+CGDebugInfo::getPervasiveType(TypeDeclaration *Ty) {
+	if (Ty->getName() == "INTEGER") {
+		return DBuilder.createBasicType(
+		Ty->getName(), 64, llvm::dwarf::DW_ATE_signed);
+	}
+	if (Ty->getName() == "BOOLEAN") {
+		return DBuilder.createBasicType(
+			Ty->getName(), 1, 
+				llvm::dwarf::DW_ATE_boolean);
+	}
+	llvm::report_fatal_error(
+		"Unsupported pervasive type");
+}
+\end{lstlisting}
+
+\item If the type name is simply renamed, then we map this to a type definition. Here, we need to make the first use of the scope and line-number information, as follows:
+\begin{lstlisting}[caption={}]
+llvm::DIType *
+CGDebugInfo::getAliasType(AliasTypeDeclaration *Ty) {
+	return DBuilder.createTypedef(
+		getType(Ty->getType()), Ty->getName(),
+		CU->getFile(), getLineNumber(Ty->getLocation()),
+		getScope());
+}
+\end{lstlisting}
+
+\item Creating the debug information for an array requires specification about the size and the alignment. We retrieve this data from the DataLayout class. We also need to specify the index range of the array. We can do this with the following code:
+\begin{lstlisting}[caption={}]
+llvm::DIType *
+CGDebugInfo::getArrayType(ArrayTypeDeclaration *Ty) {
+	auto *ATy =
+		llvm::cast<llvm::ArrayType>(CGM.convertType(Ty));
+	const llvm::DataLayout &DL =
+		CGM.getModule()->getDataLayout();
+		
+	uint64_t NumElements = Ty->getUpperIndex();
+	llvm::SmallVector<llvm::Metadata *, 4> Subscripts;
+	Subscripts.push_back(
+		DBuilder.getOrCreateSubrange(0, NumElements));
+	return DBuilder.createArrayType(
+		DL.getTypeSizeInBits(ATy) * 8,
+		DL.getABITypeAlignment(ATy),
+		getType(Ty->getType()),
+		DBuilder.getOrCreateArray(Subscripts));
+}
+\end{lstlisting}
+
+\item Using all these single methods, we create a central method to create the metadata for a type. This metadata is also responsible for caching the data. The code can be seen in the following snippet:
+\begin{lstlisting}[caption={}]
+llvm::DIType *
+CGDebugInfo::getType(TypeDeclaration *Ty) {
+	if (llvm::DIType *T = TypeCache[Ty])
+		return T;
+	
+	if (llvm::isa<PervasiveTypeDeclaration>(Ty))
+		return TypeCache[Ty] = getPervasiveType(Ty);
+	else if (auto *AliasTy =
+					llvm::dyn_cast<AliasTypeDeclaration>(Ty))
+		return TypeCache[Ty] = getAliasType(AliasTy);
+	else if (auto *ArrayTy =
+					llvm::dyn_cast<ArrayTypeDeclaration>(Ty))
+		return TypeCache[Ty] = getArrayType(ArrayTy);
+	else if (auto *RecordTy =
+					llvm ::dyn_cast<RecordTypeDeclaration>(
+						Ty))
+		return TypeCache[Ty] = getRecordType(RecordTy);
+	llvm::report_fatal_error("Unsupported type");
+	return nullptr;
+}
+\end{lstlisting}
+
+\item We also need to add a method to emit metadata for global variables, as follows:
+\begin{lstlisting}[caption={}]
+void CGDebugInfo::emitGlobalVariable(
+		VariableDeclaration *Decl,
+		llvm::GlobalVariable *V) {
+	llvm::DIGlobalVariableExpression *GV =	
+		DBuilder.createGlobalVariableExpression(
+			getScope(), Decl->getName(), V->getName(),
+			CU->getFile(),
+			getLineNumber(Decl->getLocation()),
+			getType(Decl->getType()), false);
+	V->addDebugInfo(GV);
+}
+\end{lstlisting}
+
+\item To emit the debug information for procedures, we first need to create the metadata for the procedure type. For this, we need a list of the types of the parameter, with the return type being the first entry. If the procedure has no return type, then we use an unspecified type called void, as in C. If a parameter is a reference, then we need to add the reference type; otherwise, we add the type to the list. The code is illustrated in the following snippet:
+\begin{lstlisting}[caption={}]
+llvm::DISubroutineType *
+CGDebugInfo::getType(ProcedureDeclaration *P) {
+	llvm::SmallVector<llvm::Metadata *, 4> Types;
+	const llvm::DataLayout &DL =
+		CGM.getModule()->getDataLayout();
+	// Return type at index 0
+	if (P->getRetType())
+		Types.push_back(getType(P->getRetType()));
+	else
+		Types.push_back(
+			DBuilder.createUnspecifiedType("void"));
+	for (const auto *FP : P->getFormalParams()) {
+		llvm::DIType *PT = getType(FP->getType());
+		if (FP->isVar()) {
+			llvm::Type *PTy = CGM.convertType(FP->getType());
+			PT = DBuilder.createReferenceType(
+				llvm::dwarf::DW_TAG_reference_type, PT,
+				DL.getTypeSizeInBits(PTy) * 8,
+				DL.getABITypeAlignment(PTy));
+		}
+		Types.push_back(PT);
+	}
+	return DBuilder.createSubroutineType(
+		DBuilder.getOrCreateTypeArray(Types));
+}
+\end{lstlisting}
+
+\item For the procedure itself, we can now create the debug information using the procedure type created in the last step. A procedure also opens a new scope, so we push the procedure onto the scope stack. We also associate the LLVM function object with the new debug information, as follows:
+\begin{lstlisting}[caption={}]
+void CGDebugInfo::emitProcedure(
+		ProcedureDeclaration *Decl, llvm::Function *Fn) {
+	llvm::DISubroutineType *SubT = getType(Decl);
+	llvm::DISubprogram *Sub = DBuilder.createFunction(
+		getScope(), Decl->getName(), Fn->getName(),
+		CU->getFile(), getLineNumber(Decl->getLocation()),
+		SubT, getLineNumber(Decl->getLocation()),
+		llvm::DINode::FlagPrototyped,
+		llvm::DISubprogram::SPFlagDefinition);
+	openScope(Sub);
+	Fn->setSubprogram(Sub);
+}
+\end{lstlisting}
+
+\item When the end of a procedure is reached, we must inform the builder to finalize the construction of debug information for this procedure. We also need to remove the procedure from the scope stack. We can do this with the following code:
+\begin{lstlisting}[caption={}]
+void CGDebugInfo::emitProcedureEnd(
+		ProcedureDeclaration *Decl, llvm::Function *Fn) {
+	if (Fn && Fn->getSubprogram())
+		DBuilder.finalizeSubprogram(Fn->getSubprogram());
+	closeScope();
+}
+\end{lstlisting}
+
+\item Lastly, when we are finished with adding the debug information, we need to add the finalize() method onto the builder. The generated debug information is then validated. This is an important step during development as it helps you to find wrongly generated metadata. The code can be seen in the following snippet:
+\begin{lstlisting}[caption={}]
+void CGDebugInfo::finalize() { DBuilder.finalize(); }
+\end{lstlisting}
+
+\end{enumerate}
+
+Debug information should only be generated if the user requested it. We will need a new command-line switch for this. We will add this to the file of the CGModule class, and we will also use it inside this class, as follows:\par
+
+\begin{lstlisting}[caption={}]
+static llvm::cl::opt<bool>
+	Debug("g", llvm::cl::desc("Generate debug information"),
+		llvm::cl::init(false));
+\end{lstlisting}
+
+The CGModule class holds an instance of the std::unique\underline{~}ptr<CGDebugInfo> class. The pointer is initialized in the constructor, regarding the setting of the command-line switch, as follows:\par
+
+\begin{lstlisting}[caption={}]
+	if (Debug)
+		DebugInfo.reset(new CGDebugInfo(*this));
+\end{lstlisting}
+
+In the getter method we return the pointer, like this:\par
+
+\begin{lstlisting}[caption={}]
+CGDebugInfo *getDbgInfo() {
+	return DebugInfo.get();
+}
+\end{lstlisting}
+
+A common pattern when generating the debug metadata is to retrieve the pointer and check if it is valid. For example, after we have created a global variable, we add the debug information in this way:\par
+
+\begin{lstlisting}[caption={}]
+VariableDeclaration *Var = …;
+llvm::GlobalVariable *V = …;
+if (CGDebugInfo *Dbg = getDbgInfo())
+	Dbg->emitGlobalVariable(Var, V);
+\end{lstlisting}
+
+In order to add line-number information, we need to add a getDebugLoc() conversion method into the CGDebugInfo class, which turns the location information from the AST into the debug metadata, as follows:\par
+
+\begin{lstlisting}[caption={}]
+llvm::DebugLoc CGDebugInfo::getDebugLoc(SMLoc Loc) {
+	std::pair<unsigned, unsigned> LineAndCol =
+		CGM.getASTCtx().getSourceMgr().getLineAndColumn(Loc);
+	llvm::DILocation *DILoc = llvm::DILocation::get(
+		CGM.getLLVMCtx(), LineAndCol.first, LineAndCol.second,
+		getCU());
+	return llvm::DebugLoc(DILoc);
+}
+\end{lstlisting}
+
+A utility function in the CGModule class can then be called to add the line-number information to an instruction, as follows:\par
+
+\begin{lstlisting}[caption={}]
+void CGModule::applyLocation(llvm::Instruction *Inst,
+							 llvm::SMLoc Loc) {
+	if (CGDebugInfo *Dbg = getDbgInfo())
+		Inst->setDebugLoc(Dbg->getDebugLoc(Loc));
+}
+\end{lstlisting}
+
+In this way, you can add the debug information for your own compiler.\par
