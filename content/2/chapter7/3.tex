@@ -1,0 +1,246 @@
+Two pointers may point to the same memory cell, and they then alias each other. Memory is not typed in the LLVM model, which makes it difficult for the optimizer to decide if two pointers alias each other or not. If the compiler can prove that two pointers do not alias each other, then more optimizations are possible. In the next section, we will have a closer look at the problem and investigate how adding additional metadata will help, before we implement this approach.\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{Understanding the need for additional metadata}
+
+To demonstrate the problem, let's look at the following function:\par
+
+\begin{lstlisting}[caption={}]
+void doSomething(int *p, float *q) {
+	*p = 42;
+	*q = 3.1425;
+}
+\end{lstlisting}
+
+The optimizer cannot decide if the p and q pointers point to the same memory cell or not. During optimization this is an important analysis, called an alias analysis. If p and q point to the same memory cell, then they are aliases. If the optimizer can prove that both pointers never alias each other, this enables additional optimization opportunities. For example, in the soSomething() function, the stores can be reordered without altering the result in this case.\par
+
+It depends on the definition of the source language as to whether a variable of one type can be an alias of another variable of a different type. Please note that languages may also contain expressions that break the type-based alias assumption—for example, typecasts between unrelated types.\par
+
+The solution chosen by the LLVM developers is to add metadata to load and store instructions. The metadata has two purposes, outlined as follows:\par
+
+\begin{itemize}
+	\item First, it defines the type hierarchy based on which type may alias another type
+	\item Secondly, it describes the memory access in a load or store instruction
+\end{itemize}
+
+Let's have a look at the type hierarchy in C. Each type of hierarchy starts with a root node, either named or anonymous. LLVM assumes that root nodes with the same name describe the same type of hierarchy. You can use different type hierarchies in the same LLVM modules, and LLVM makes the safe assumption that these types may alias. Beneath the root node, there are nodes for scalar types. Nodes for aggregate types are not attached to the root node, but they refer to scalar types and other aggregate types. Clang defines the hierarchy for C as follows:\par
+
+\begin{itemize}
+	\item The root node is called Simple C/C++ TBAA
+	\item Beneath the root node is the node for char types. This is a special type in C because all pointers can be converted to a pointer to char.
+	\item Beneath the char node are nodes for the other scalar types and a type for all pointers, called any pointer.
+\end{itemize}
+
+Aggregate types are defined as a sequence of member types and offsets.\par
+
+These metadata definitions are used in access tags attached to the load and store instructions. An access tag is made up of three parts: a base type, an access type, and an offset. Depending on the base type, there are two possible ways the access tag describes memory access, outlined here:\par
+
+\begin{enumerate}
+	\item If the base type is an aggregate type, then the access tag describes the memory access of a struct member, having the access type and being located at a given offset
+	\item If the base type is a scalar type, then the access type must be the same as the base type and the offset must be 0.
+\end{enumerate}
+
+With these definitions, we can now define a relation on the access tags, which is used to evaluate if two pointers may alias each other or not. The immediate parent of a tuple (base type, offset) is determined by the base type and the offset, as follows:\par
+
+\begin{itemize}
+	\item If the base type is a scalar type and the offset is 0, then the immediate parent is (parent type, 0), with parent type being the type of the parent node as defined in the type hierarchy. If the offset is not 0, then the immediate parent is undefined.
+	\item If the base type is an aggregate type, then the immediate parent of tuple (base type, offset) is the tuple (new type, new offset), with the new type being the type of the member at the offset. The new offset is the offset of the new type, adjusted to its new start.
+\end{itemize}
+
+The transitive closure of this relation is the parent relation. Two-memory access types—for example, (base type 1, access type 1, offset 1) and (base type 2, access type 2, offset 2) —may alias if (base type 1, offset 1) and (base type 2, offset 2) or vice versa are related in the parent relation.\par
+
+Let's illustrate this in an example, as follows:\par
+
+\begin{lstlisting}[caption={}]
+struct Point { float x, y; }
+void func(struct Point *p, float *x, int *i, char *c) {
+	p->x = 0; p->y = 0; *x = 0.0; *i = 0; *c = 0; 
+}
+\end{lstlisting}
+
+Using the preceding memory-access tag definition for scalar types, the access tag for parameter i is (int, int, 0), and for parameter c it is (char, char, 0). In the type hierarchy, the parent of the node for the int type is the char node, therefore the immediate parent of (int, 0) is (char, 0), and both pointers can alias. The same is true for parameter x and parameter c. But parameter x and i are not related, and hence they do not alias each other. The access for the y member of struct Point is (Point, float, 4), with 4 being the offset of the y member in the struct. The immediate parent of (Point, 4) is (float, 0), therefore access to p->y and x may alias, and—with the same reasoning—also with parameter c.\par
+
+To create the metadata, we use the llvm::MDBuilder class, which is declared in the llvm/IR/MDBuilder.h header file. The data itself is stored in instances of the llvm::MDNode and llvm::MDString classes. Using the builder class shields us from the internal details of the construction.\par
+
+A root node is created with a call to the createTBAARoot() method, which expects the name of the type hierarchy as a parameter and returns the root node. An anonymous unique root node can be created with the createAnonymousTBAARoot() method.\par
+
+A scalar type is added to the hierarchy with the createTBAAScalarTypeNode() method, which takes the name of the type and the parent node as a parameter. Adding a type node for an aggregate type is slightly more complex. The createTBAAStructTypeNode() method takes the name of the type and a list of the fields as parameters. The fields are given as a std::pair<llvm::MDNode*, uint64\underline{~}t> instance. The first element indicates the type of the member and the second element indicates the offset in the struct type.\par
+
+An access tag is created with the createTBAAStructTagNode() method, which takes the base type, the access type, and the offset as parameters.\par
+
+Lastly, the metadata must be attached to a load or store instruction. The llvm::Instruction class has a setMetadata() method, which is used to add various metadata. The first parameter must be llvm::LLVMContext::MD\underline{~}tbaa and the second must be the access tag.\par
+
+Equipped with this knowledge, we will add metadata for type-based alias analysis(TBAA) to tinylang in the next section.\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{Adding TBAA metadata to tinylang}
+
+To support TBAA, we add a new CGTBAA class. This class is responsible for generating the metadata nodes. We make it a member of the CGModule class, calling it TBAA. Every load and store instruction could be possibly annotated, and we place a new function for this purpose in the CGModule class too. The function tries to create the tag-access information. If this is successful, the metadata is attached to the instruction. This design also allows us to turn off the metadata generation if we do not need it—for example, in builds with the optimization turned off. The code is illustrated in the following snippet:\par
+
+\begin{lstlisting}[caption={}]
+void CGModule::decorateInst(llvm::Instruction *Inst,
+							TypeDenoter *TyDe) {
+	if (auto *N = TBAA.getAccessTagInfo(TyDe))
+		Inst->setMetadata(llvm::LLVMContext::MD_tbaa, N);
+}
+\end{lstlisting}
+
+We put the declaration of the new CGTBAA class into the include/tinylang/CodeGen/CGTBAA.h header file and put the definition into the lib/CodeGen/CGTBAA.cpp file. Besides the abstract syntax tree (AST) definitions, the header file needs to include the files defining the metadata nodes and builder, as illustrated in the following code snippet:\par
+
+\begin{lstlisting}[caption={}]
+#include "tinylang/AST/AST.h"
+#include "llvm/IR/MDBuilder.h"
+#include "llvm/IR/Metadata.h"
+\end{lstlisting}
+
+The CGTBAA class needs to store some data members. So, let's see how to do this step by step, as follows:\par
+
+\begin{enumerate}
+\item First of all, we need to cache the root of the type hierarchy, like this:
+\begin{lstlisting}[caption={}]
+class CGTBAA {
+	llvm::MDNode *Root;
+\end{lstlisting}
+
+\item To construct the metadata nodes, we need an instance of the MDBuilder class, as follows:
+\begin{lstlisting}[caption={}]
+ 	llvm::MDBuilder MDHelper;
+\end{lstlisting}
+
+\item Lastly, we store the metadata generated for a type to reuse, as follows:
+\begin{lstlisting}[caption={}]
+	llvm::DenseMap<TypeDenoter *, llvm::MDNode *> 
+		MetadataCache;
+// …
+};
+\end{lstlisting}
+\end{enumerate}
+
+After defining the variables required for the construction, we now add the methods required to create the metadata, as follows:\par
+
+
+\begin{enumerate}
+\item The constructor initializes the data members, like this:
+\begin{lstlisting}[caption={}]
+CGTBAA::CGTBAA(llvm::LLVMContext &Ctx)
+	  : MDHelper(llvm::MDBuilder(Ctx)), Root(nullptr) {}
+\end{lstlisting}
+
+\item We lazily instantiate the root of the type hierarchy, which we name Simple tinylang TBAA, as illustrated in the following code snippet:
+\begin{lstlisting}[caption={}]
+llvm::MDNode *CGTBAA::getRoot() {
+	if (!Root)
+		Root = MDHelper.createTBAARoot("Simple tinylang 
+										TBAA");
+	return Root;
+}
+\end{lstlisting}
+
+\item For a scalar type, we create a metadata node with the help of the MDBuilder class based on the name of the type. The new metadata node is stored in the cache, as illustrated in the following code snippet:
+\begin{lstlisting}[caption={}]
+llvm::MDNode *
+CGTBAA::createScalarTypeNode(TypeDeclaration *Ty,
+							 StringRef Name,
+							 llvm::MDNode *Parent) {
+	llvm::MDNode *N =
+		MDHelper.createTBAAScalarTypeNode(Name, Parent);
+	return MetadataCache[Ty] = N;
+}
+\end{lstlisting}
+
+\item The method to create the metadata for a record is more complicated, as we have to enumerate all the fields of the record. The code is shown in the following snippet:
+\begin{lstlisting}[caption={}]
+llvm::MDNode *CGTBAA::createStructTypeNode(
+	TypeDeclaration *Ty, StringRef Name,
+	llvm::ArrayRef<std::pair<llvm::MDNode *, 
+		uint64_t>>
+		Fields) {
+	llvm::MDNode *N =
+		MDHelper.createTBAAStructTypeNode(Name, Fields);
+	return MetadataCache[Ty] = N;
+}
+\end{lstlisting}
+
+\item To return the metadata for a tinylang type, we need to create the type hierarchy. Because the type system of tinylang is very restricted, we can use a simple approach. Each scalar type is mapped to a unique type attached to the root node, and we map all pointers to a single type. Structured types then refer to these nodes. If we cannot map a type we then return nullptr, as follows:
+\begin{lstlisting}[caption={}]
+llvm::MDNode *CGTBAA::getTypeInfo(TypeDeclaration *Ty) {
+	if (llvm::MDNode *N = MetadataCache[Ty])
+		return N;
+	
+	if (auto *Pervasive =
+			llvm::dyn_cast<PervasiveTypeDeclaration>(Ty)) {
+		StringRef Name = Pervasive->getName();
+		return createScalarTypeNode(Pervasive, Name, 
+			getRoot());
+	}
+	if (auto *Pointer =
+			llvm::dyn_cast<PointerTypeDeclaration>(Ty)) {
+		StringRef Name = "any pointer";
+		return createScalarTypeNode(Pointer, Name, 
+			getRoot());
+	}
+	if (auto *Record =
+			llvm::dyn_cast<RecordTypeDeclaration>(Ty)) {
+		llvm::SmallVector<std::pair<llvm::MDNode *, 
+			uint64_t>,
+					4>
+			Fields;
+		auto *Rec =
+			llvm::cast<llvm::StructType>(
+				CGM.convertType(Record));
+		const llvm::StructLayout *Layout =
+			CGM.getModule()->getDataLayout()
+				.getStructLayout(Rec);
+			
+		unsigned Idx = 0;
+		for (const auto &F : Record->getFields()) {
+			uint64_t Offset = Layout->getElementOffset(Idx);
+			Fields.emplace_back(getTypeInfo(F.getType()), 
+				Offset);
+			++Idx;
+		}
+		StringRef Name = CGM.mangleName(Record);
+		return createStructTypeNode(Record, Name, Fields);
+	}
+	return nullptr;
+}
+\end{lstlisting}
+
+\item A general method to get the metadata is getAccessTagInfo(). As we only need to look for a pointer type, we check for it. Otherwise, we return a nullptr, as illustrated in the following code snippet:
+\begin{lstlisting}[caption={}]
+llvm::MDNode *CGTBAA::getAccessTagInfo(TypeDenoter *TyDe) 
+{
+	if (auto *Pointer = llvm::dyn_cast<PointerType>(TyDe)) 
+	{
+		return getTypeInfo(Pointer->getTyDen());
+	}
+	return nullptr;
+}
+\end{lstlisting}
+\end{enumerate}
+
+To enable the generation of TBAA metadata, we now simply need to attach the metadata to the load and store instructions we generate. For example, in CGProcedure::writeVariable(), a store to a global variable, use a store instruction, as follows:\par
+
+\begin{lstlisting}[caption={}]
+Builder.CreateStore(Val, CGM.getGlobal(D));
+\end{lstlisting}
+
+To decorate the instruction, we need to replace the preceding line with the following lines:\par
+
+\begin{lstlisting}[caption={}]
+auto *Inst = Builder.CreateStore(Val,
+								 CGM.getGlobal(Decl));
+CGM.decorateInst(Inst, V->getTypeDenoter());
+\end{lstlisting}
+
+With these changes in place, we have finished the generation of TBAA metadata.\par
+
+In the next section, we look at a very similar topic: the generation of debug metadata.\par
+
+
+
+
+
+
+
+
