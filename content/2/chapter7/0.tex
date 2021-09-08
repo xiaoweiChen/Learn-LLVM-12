@@ -1,0 +1,19 @@
+With the intermediate representation (IR) generation introduced in the previous chapters, you can already implement most of the functionality required in a compiler. In this chapter, we will look at some advanced topics that often arise in terms of real-world compilers. For example, many modern languages make use of exception handling, and we look at how to translate this to low-level virtual machine (LLVM) IR.\par
+
+To support the LLVM optimizer in producing better code in certain situations, we add  additional type metadata to the IR code, and attaching debug metadata enables the compiler's user to take advantage of source-level debug tools.\par
+
+In this chapter, you will learn about the following topics:\par
+
+\begin{itemize}
+	\item In Throwing and catching exceptions, you will learn how to implement exception handling in your compiler
+	\item In Generating metadata for type-based alias analysis, you attach additional metadata to LLVM IR, which helps LLVM to better optimize the code. 
+	\item In Adding debug metadata, you implement the support classes needed to add debug 	information to the generated IR code.
+\end{itemize}
+
+By the end of the chapter, you will acquire knowledge about exception handling and about metadata for type-based alias analysis and debug information.\par
+
+
+
+
+
+
