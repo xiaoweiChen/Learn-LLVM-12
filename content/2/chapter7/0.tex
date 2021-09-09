@@ -1,16 +1,16 @@
-With the intermediate representation (IR) generation introduced in the previous chapters, you can already implement most of the functionality required in a compiler. In this chapter, we will look at some advanced topics that often arise in terms of real-world compilers. For example, many modern languages make use of exception handling, and we look at how to translate this to low-level virtual machine (LLVM) IR.\par
+通过前面章节介绍的中间表示(IR)生成，您已经可以实现编译器中所需的大部分功能。本章中，我们将讨论一些实际编译器中出现的主题，例如：许多现代语言都使用的异常处理，我们将研究如何将其转换为底层(LLVM)IR。\par
 
-To support the LLVM optimizer in producing better code in certain situations, we add  additional type metadata to the IR code, and attaching debug metadata enables the compiler's user to take advantage of source-level debug tools.\par
+为了支持LLVM优化器在某些情况下生成更好的代码，我们向IR代码添加了额外的类型元数据，并附加调试元数据，使编译器的用户能够利用源代码级调试工具。\par
 
-In this chapter, you will learn about the following topics:\par
+本章中，您将学习以下内容:\par
 
 \begin{itemize}
-	\item In Throwing and catching exceptions, you will learn how to implement exception handling in your compiler
-	\item In Generating metadata for type-based alias analysis, you attach additional metadata to LLVM IR, which helps LLVM to better optimize the code. 
-	\item In Adding debug metadata, you implement the support classes needed to add debug 	information to the generated IR code.
+	\item 在抛出和捕获异常中，您将学习如何在编译器中实现异常处理
+	\item 在为基于类型的别名分析生成元数据中，将添加额外的元数据到LLVM IR，这有助于LLVM更好地优化代码。
+	\item 添加调试元数据，实现向生成的IR代码添加调试信息所需的类。
 \end{itemize}
 
-By the end of the chapter, you will acquire knowledge about exception handling and about metadata for type-based alias analysis and debug information.\par
+在本章的最后，将了解关于异常处理和基于类型别名分析，以及调试信息的元数据的知识。\par
 
 
 
