@@ -1,0 +1,26 @@
+LLVM uses a series of Passes to optimize the intermediate representation (IR). A Pass performs an operation on a unit of IR, either a function or a module. The operation can be a transformation, which changes the IR in a defined way, or an analysis, which collects information such as dependencies. A series of Passes is called the Pass pipeline. The Pass manager executes the Pass pipeline on the IR that our compiler produces. Therefore, it is important that we know what the Pass manager does and how to construct a Pass pipeline. The semantics of a programming language might require the development of new Passes, and we must add these Passes to the pipeline.\par
+
+In this chapter, we will cover the following topics:\par
+
+\begin{itemize}
+	\item Introducing the LLVM Pass manager
+	\item Implementing a Pass using the new Pass manager
+	\item Adapting a Pass for use with the old Pass manager
+	\item Adding an optimization pipeline to your compiler
+\end{itemize}
+
+By the end of the chapter, you will know how to develop a new Pass and how to add it to a Pass pipeline. You will have also acquired the knowledge required to set up the Pass pipeline in your own compiler.\par
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,323 @@
+
+A Pass can perform arbitrary complex transformations on the LLVM IR. To illustrate the mechanics of adding a new Pass, our new Pass only counts the number of IR instructions and basic blocks. We name the Pass countir. Adding the Pass to the LLVM source tree or as a standalone Pass differs slightly, so we will do both in the following sections. Let's begin by adding a new Pass to the LLVM source tree.\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{Adding a Pass to the LLVM source tree}
+
+Let's start by adding the new Pass to the LLVM source. This is the right approach if we later want to publish the new Pass in the LLVM tree.\par
+
+The source of Passes that perform transformations on the LLVM IR is located in the llvm-project/llvm/lib/Transforms folder, and the header files are in the llvm-project/llvm/include/llvm/Transforms folder. Because there are so many Passes, they are sorted into subfolders after the category they fit in.\par
+
+For our new Pass, we create a new folder, called CountIR, in both locations. First, let's implement the CountIR.h header file:\par
+
+\begin{enumerate}
+\item As usual, we need to make sure that the file can be included multiple times. Additionally, we need to include the Pass manager definition:
+\begin{lstlisting}[caption={}]
+#ifndef LLVM_TRANSFORMS_COUNTIR_COUNTIR_H
+#define LLVM_TRANSFORMS_COUNTIR_COUNTIR_H
+
+#include "llvm/IR/PassManager.h"
+\end{lstlisting}
+
+\item Because we are inside the LLVM source, we put our new CountIR class into the llvm namespace. The class inherits from the PassInfoMixin template. This template only adds some boilerplate code, such as a name() method. It is not used the determine the type of Pass:
+\begin{lstlisting}[caption={}]
+namespace llvm {
+class CountIRPass : public PassInfoMixin<CountIRPass> {
+\end{lstlisting}
+
+\item At runtime, the run() method of the task will be called. The signature of the run() method determines the type of Pass. Here, the first argument is a reference to the Function type, so this is a function Pass:
+\begin{lstlisting}[caption={}]
+public:
+	PreservedAnalyses run(Function &F,
+						  FunctionAnalysisManager &AM);
+\end{lstlisting}
+	
+\item Finally, we need to close the class, the namespace, and the header guard:
+\begin{lstlisting}[caption={}]
+};
+} // namespace llvm
+#endif
+\end{lstlisting}
+Of course, the definition of our new Pass is so simple because we have only performed a trivial task.\par
+
+Let's continue with the implementation of the Pass inside the CountIIR.cpp file. LLVM supports the collection of statistical information about a Pass if compiled in debug mode. For our Pass, we will make use of this infrastructure.\par
+
+\item We begin the source by including our own header file and the required LLVM header files:
+\begin{lstlisting}[caption={}]
+#include "llvm/Transforms/CountIR/CountIR.h"
+#include "llvm/ADT/Statistic.h"
+#include "llvm/Support/Debug.h"
+\end{lstlisting}
+
+\item To shorten the source, we tell the compiler that we are using the llvm namespace:
+\begin{lstlisting}[caption={}]
+using namespace llvm;
+\end{lstlisting}
+
+\item The built-in debug infrastructure of LLVM requires that we define a debug type, which is a string. This string is later shown in the printed statistic:
+\begin{lstlisting}[caption={}]
+#define DEBUG_TYPE "countir"
+\end{lstlisting}
+
+\item We define two counter variables with the STATISTIC macro. The first parameter is the name of the counter variable, and the second parameter is the text that will be printed in the statistic:
+\begin{lstlisting}[caption={}]
+STATISTIC(NumOfInst, "Number of instructions.");
+STATISTIC(NumOfBB, "Number of basic blocks.");
+\end{lstlisting}
+
+\item Inside the run() method, we loop through all of the basic blocks of the function and increment the corresponding counter. We do the same for all instructions of a basic block. To prevent a compiler from warning us about unused variables, we insert a no-op use of the I variable. Because we only count and do not alter the IR, we tell the caller that we have preserved all existing analyses:
+\begin{lstlisting}[caption={}]
+PreservedAnalyses
+CountIRPass::run(Function &F,
+				 FunctionAnalysisManager &AM) {
+	for (BasicBlock &BB : F) {
+		++NumOfBB;
+		for (Instruction &I : BB) {
+			(void)I;
+			++NumOfInst;
+		}
+	}
+	return PreservedAnalyses::all();
+}
+\end{lstlisting}
+
+\end{enumerate}
+
+So far, we have implemented the functionality of our new Pass. We will reuse this implementation later for an out-of-tree Pass. For the solution inside the LLVM tree, we must change several files in LLVM to announce the existence of the new Pass:\par
+
+\begin{enumerate}
+\item First, we need to add a CMakeLists.txt file to the source folder. This file contains the build instructions for a new LLVM library name, LLVMCountIR. The new library needs to link against the LLVM Support component because we use the debug and statistic infrastructure, and against the LLVM Core component, which contains the definition of the LLVM IR:
+\begin{tcolorbox}[colback=white,colframe=black]
+add\underline{~}llvm\underline{~}component\underline{~}library(LLVMCountIR \\
+\hspace*{0.5cm}CountIR.cpp \\
+\hspace*{0.5cm}LINK\underline{~}COMPONENTS Core Support )
+\end{tcolorbox}
+
+\item In order to make this new library part of the build, we need to add the folder into the CMakeLists.txt file of the parent folder, which is the llvm-project/llvm/lib/Transforms/CMakeList.txt file. Then, add the following line:
+\begin{tcolorbox}[colback=white,colframe=black]
+add\underline{~}subdirectory(CountIR)
+\end{tcolorbox}
+
+\item The PassBuilder class needs to know about our new Pass. To do this, we add the following line into the include section of the llvm-project/llvm/lib/Passes/PassBuilder.cpp file:
+\begin{lstlisting}[caption={}]
+#include "llvm/Transforms/CountIR/CountIR.h
+\end{lstlisting}
+
+\item As the last step, we need to update the Pass registry, which is in thellvmproject/llvm/lib/Passes/PassRegistry.def file. Look for the section in which function Passes are defined, for example, by searching for the FUNCTION\underline{~}PASS macro. Inside this section, you add the following line:
+\begin{lstlisting}[caption={}]
+FUNCTION_PASS("countir", CountIRPass())
+\end{lstlisting}
+
+\item We have now made all the necessary changes. Follow the build instructions from Chapter 1, Installing LLVM, in the Building with CMake section, to recompile LLVM. To test the new Pass, we store the following IR code inside the demo.ll file in our build folder. The code has two functions and, in sum, three instructions and two basic blocks:
+\begin{tcolorbox}[colback=white,colframe=black]
+define internal i32 @func() \{ \\
+\hspace*{0.5cm}ret i32 0 \\
+\} \\
+\\
+define dso\underline{~}local i32 @main() \{ \\
+\hspace*{0.5cm}	\%1 = call i32 @func() \\
+\hspace*{0.5cm}	ret i32 \%1 \\
+\}
+\end{tcolorbox}
+
+\item We can use the new Pass with the opt utility. To run the new Pass, we will utilize the \verb|--|passes="countir" option. To get the statistical output, we need to add the \verb|--|stats option. Because we do not need the resulting bitcode, we also specify the \verb|--|disable-output option:
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ bin/opt \verb|--|disable-output \verb|--|passes="countir" \verb|--|stats  \\
+demo.ll \\
+\verb|===------------------------------------------------------| \\
+\verb|--===| \\
+... Statistics Collected ... \\
+\verb|===------------------------------------------------------| \\
+\verb|--===| \\
+2 countir - Number of basic blocks. \\
+3 countir - Number of instructions.
+\end{tcolorbox}
+
+\item We run our news Pass, and the output matches our expectations. We have successfully extended LLVM!
+
+\end{enumerate}
+
+Running a single Pass helps with debugging. With the –-passes option, you cannot only name a single Pass but describe a whole pipeline. For example, the default pipeline for optimization level 2 is named default<O2>. You can run the countir Pass before the default pipeline with the –-passes="module(countir),default<O2>" argument. The Pass names in such a pipeline description must be of the same type. The default pipeline is a module Pass and our countir Pass is a function Pass. To create a module pipeline from both, first, we must create a module Pass containing the countir Pass. That is done with module(countir). You can add more function Passes to this module Pass by specifying them in a comma-separated list. In the same way, the module Passes can be combined. To study the effects of this, you can use the inline and countir Passes: running them in a different order, or as a module Pass, will give you a different statistical output.\par
+
+Adding a new Pass to the LLVM source tree makes sense if you plan to publish your Pass as a part of LLVM. If you do not plan to do this, or if you want to distribute your Pass independently of LLVM, then you can create a Pass plugin. In the next section, we will view the steps to do this.\par
+
+
+\hspace*{\fill} \par %插入空行
+\textbf{Adding a new Pass as a plugin}
+
+To provide a new Pass as a plugin, we will create a new project that uses LLVM:\par
+
+\begin{enumerate}
+\item Let's begin by creating a new folder, called countirpass, in our source folder. The 
+folder will have the following structure and files:
+\begin{tcolorbox}[colback=white,colframe=black]
+|\verb|--| CMakeLists.txt \\
+|\verb|--| include \\
+|\hspace{1cm}|\verb|--| CountIR.h \\
+|\verb|--| lib \\
+\hspace*{0.8cm}|\verb|--| CMakeLists.txt \\
+\hspace*{0.8cm}|\verb|--| CountIR.cpp
+\end{tcolorbox}
+
+\item Note that we have reused the functionality from the previous section, with some small adaptions. The CountIR.h header file is now in a different location, so we change the name of the symbol that is used as a guard. We also do not use the llvm namespace, because we are now outside the LLVM source. As a result of this change, the header file becomes the following:
+\begin{lstlisting}[caption={}]
+#ifndef COUNTIR_H
+#define COUNTIR_H
+
+#include "llvm/IR/PassManager.h"
+
+class CountIRPass
+	: public llvm::PassInfoMixin<CountIRPass> {
+public:
+	llvm::PreservedAnalyses
+	run(llvm::Function &F,
+		llvm::FunctionAnalysisManager &AM);
+};
+
+#endif
+\end{lstlisting}
+
+\item We can copy the CountIR.cpp implementation file from the previous section. Small changes are needed here, too. Because the path of our header file has changed, we need to replace the include directive with the following:
+\begin{lstlisting}[caption={}]
+#include "CountIR.h"
+\end{lstlisting}
+
+\item We also need to register the new Pass at the Pass builder. This happens when the plugin is loaded. The Pass plugin manager calls the special function, llvmGetPassPluginInfo(), which performs the registration. For this implementation, we require two additional include files:
+\begin{lstlisting}[caption={}]
+#include "llvm/Passes/PassBuilder.h"
+#include "llvm/Passes/PassPlugin.h"
+\end{lstlisting}
+The user specifies the Passes to run on the command line with the \verb|–-|passes option. The PassBuilder class extracts the Pass names from the string. In order to create an instance of the named Pass, the PassBuilder class maintains a list of callbacks. Essentially, the callbacks are called with the Pass name and a Pass manager. If the callback knows the Pass name, then it adds an instance of this Pass to the Pass manager. For our Pass, we need to provide such a callback function:
+\begin{lstlisting}[caption={}]
+bool PipelineParsingCB(
+		StringRef Name, FunctionPassManager &FPM,
+		ArrayRef<PassBuilder::PipelineElement>) {
+	if (Name == "countir") {
+		FPM.addPass(CountIRPass());
+		return true;
+	}
+	return false;
+}
+\end{lstlisting}
+
+\item Of course, we need to register this function as the PassBuilder instance. After the plugin is loaded, a registration callback is called for exactly this purpose. Our registration function is as follows:
+\begin{lstlisting}[caption={}]
+void RegisterCB(PassBuilder &PB) {
+	PB.registerPipelineParsingCallback(PipelineParsingCB);
+}
+\end{lstlisting}
+
+\item Finally, each plugin needs to provide the mentioned llvmGetPassPluginInfo() function. This function returns a structure with four elements: the LLVM plugin API version used by our plugin, a name, the version number of the plugin, and the registration callback. The plugin API requires that the function uses the extern "C" convention. This is to avoid problems with C++ name mangling. The function is very simple:
+\begin{lstlisting}[caption={}]
+extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_
+WEAK
+llvmGetPassPluginInfo() {
+	return {LLVM_PLUGIN_API_VERSION, "CountIR", "v0.1",
+		RegisterCB};
+}
+\end{lstlisting}
+The implementation of one separate function for each callback helps us to understand what is going on. If your plugin provides several Passes, then you can extend the RegisterCB callback function to register all of the Passes. Often, you can find a very compact approach. The following llvmGetPassPluginInfo() function combines PipelineParsingCB(), RegisterCB(), and llvmGetPassPluginInfo() from earlier into a single function. It does so by making use of lambda functions:
+\begin{lstlisting}[caption={}]
+extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_
+WEAK
+llvmGetPassPluginInfo() {
+	return {LLVM_PLUGIN_API_VERSION, "CountIR", "v0.1",
+		[](PassBuilder &PB) {
+			PB.registerPipelineParsingCallback(
+			[](StringRef Name, FunctionPassManager 
+					&FPM,
+			ArrayRef<PassBuilder::PipelineElement>) 
+			{
+				if (Name == "countir") {
+					FPM.addPass(CountIRPass());
+					return true;
+				}
+				return false;
+			});
+	}};
+}
+\end{lstlisting}
+
+\item Now, we only need to add the build files. The lib/CMakeLists.txt file contains just one command to compile the source file. The LLVM-specific command, add\underline{~}llvm\underline{~}library(), ensures that the same compiler flags that were used to build LLVM are utilized:
+\begin{tcolorbox}[colback=white,colframe=black]
+add\underline{~}llvm\underline{~}library(CountIR MODULE CountIR.cpp)
+\end{tcolorbox}
+The top-level CMakeLists.txt file is more complex.
+
+\item As usual, we set the required CMake version and the project name. Additionally, we set the LLVM\underline{~}EXPORTED\underline{~}SYMBOL\underline{~}FILE variable to ON. This is necessary to make the plugin work on Windows:
+\begin{tcolorbox}[colback=white,colframe=black]
+cmake\underline{~}minimum\underline{~}required(VERSION 3.4.3) \\
+project(countirpass)\\
+\\
+set(LLVM\underline{~}EXPORTED\underline{~}SYMBOL\underline{~}FILE ON)
+\end{tcolorbox}
+
+\item Next, we look for the LLVM installation. We also print information about the found version to the console:
+\begin{tcolorbox}[colback=white,colframe=black]
+find\underline{~}package(LLVM REQUIRED CONFIG) \\
+message(STATUS "Found LLVM \$\{LLVM\underline{~}PACKAGE\underline{~}VERSION\}") \\
+message(STATUS "Using LLVMConfig.cmake in: \$\{LLVM\underline{~}DIR\}")
+\end{tcolorbox}
+
+\item Now, we can add the cmake folder from LLVM to the search path. We include the LLVM-specific files, ChooseMSVCCRT and AddLLVM, which provide additional commands:
+\begin{tcolorbox}[colback=white,colframe=black]
+list(APPEND CMAKE\underline{~}MODULE\underline{~}PATH \$\{LLVM\underline{~}DIR\}) \\
+include(ChooseMSVCCRT) \\
+include(AddLLVM)
+\end{tcolorbox}
+
+\item The compiler needs to know about the required definitions and the LLVM paths:
+\begin{tcolorbox}[colback=white,colframe=black]
+include\underline{~}directories("\$\{LLVM\underline{~}INCLUDE\underline{~}DIR\}") \\
+add\underline{~}definitions("\$\{LLVM\underline{~}DEFINITIONS\}") \\
+link\underline{~}directories("\$\{LLVM\underline{~}LIBRARY\underline{~}DIR\}")
+\end{tcolorbox}
+
+\item Finally, we add our own include and source folders:
+\begin{tcolorbox}[colback=white,colframe=black]
+include\underline{~}directories(BEFORE include) \\
+add\underline{~}subdirectory(lib)
+\end{tcolorbox}
+
+\item Having implemented all of the required files, we can now create the build folder beside the countirpass folder. First, change to the build directory and create the build files:
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ cmake –G Ninja ../countirpass
+\end{tcolorbox}
+
+\item Then, you can compile the plugin, as follows:
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ ninja
+\end{tcolorbox}
+
+\item You use the plugin with the opt utility, which is the modular LLVM optimizer and analyzer. Among other things, the opt utility produces an optimized version of the input file. To use the plugin with it, you need to specify an additional parameter to load the plugin:
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ opt \verb|--|load-pass-plugin=lib/CountIR.so \\
+\verb|--|passes="countir"$\setminus$ \\
+\hspace*{0.5cm}\verb|--|disable-output \verb|–-|stats demo.ll
+\end{tcolorbox}
+
+\end{enumerate}
+
+The output is the same as the previous version. Congratulations; the Pass plugin works!\par
+
+So far, we have only created a Pass for the new Pass manager. In the next section, we will also extend the Pass for the old Pass manager.\par
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
