@@ -1,0 +1,614 @@
+
+Running LLVM IR directly is the first idea that comes to mind when thinking about a JIT compiler. This is what the lli tool, the LLVM interpreter, and the dynamic compiler do. We will explore the lli tool in the next section, and subsequently implement a similar tool on our own.\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{Exploring the lli tool}
+
+Let's try the lli tool with a very simple example. Store the following source as a hello.ll file. It is the equivalent of a C hello world application. It declares the prototype for the printf() function from the C library. The hellostr constant contains the message to be printed. Inside the main() function, a pointer to the first character of the message is calculated via the getelementptr instruction, and this value is passed to the printf() function. The application always returns 0. The complete source code is as follows:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+declare i32 @printf(i8*, ...) \\
+\\
+@hellostr = private unnamed\underline{~}addr constant [13 x i8] c"Hello  \\
+\hspace*{8cm}world$\setminus$0A$\setminus$00" \\
+\\
+define i32 @main(i32 \%argc, i8** \%argv) \{ \\
+\hspace*{0.5cm}\%res = call i32 (i8*, ...) @printf( \\
+\hspace*{3.5cm}i8* getelementptr inbounds ([13 x i8], \\
+\hspace*{4.5cm}[13 x i8]* @hellostr, i64 0, i64 0)) \\
+\hspace*{0.5cm}ret i32 0
+\}
+\end{tcolorbox}
+
+This LLVM IR file is generic enough that it is valid for all platforms. We can directly execute the IR with the lli tool with the help of the following command:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ lli hello.ll \\
+Hello world
+\end{tcolorbox}
+
+The interesting point here is how the printf() function is found. The IR code is compiled to machine code, and a lookup for the printf symbol is triggered. This symbol is not found in the IR, so the current process is searched for it. The lli tool dynamically links against the C library, and the symbol is found there.\par
+
+Of course, the lli tool does not link against libraries you created. To enable the use of such functions, the lli tool supports the loading of shared libraries and objects. The following C source just prints a friendly message:\par
+
+\begin{lstlisting}[caption={}]
+#include <stdio.h>
+
+void greetings() {
+	puts("Hi!");
+}
+\end{lstlisting}
+
+Stored in the greetings.c file, we use this to explore the loading of objects with the lli tool. Compile this source into a shared library. The –fPIC option instructs clang to generate position-independent code, which is required for shared libraries. With the –shared option given, the compiler creates the greetings.so shared library:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ clang –fPIC –shared –o greetings.so greetings.c
+\end{tcolorbox}
+
+We also compile the file into a greetings.o object file:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ clang –c –o greetings.o greetings.c
+\end{tcolorbox}
+
+We now have two files, the greetings.so shared library and the greetings.o object file, which we will load into the lli tool.\par
+
+We also need an LLVM IR file, which calls the greetings() function. For this, create the main.ll file, which contains a single call to the function:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+declare void @greetings(...) \\
+\\
+define dso\underline{~}local i32 @main(i32 \%argc, i8** \%argv) \{ \\
+\hspace*{0.5cm}call void (...) @greetings() \\
+\hspace*{0.5cm}ret i32 0 \\
+\}
+\end{tcolorbox}
+
+If you try to execute the IR as before, then the lli tool is not able to locate the greetings symbol and will simply crash:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ lli main.ll \\
+PLEASE submit a bug report to https://bugs.llvm.org/ and \\
+include the crash backtrace.
+\end{tcolorbox}
+
+The greetings() function is defined in an external file, and to fix the crash, we have to tell the lli tool which additional file needs to be loaded. In order to use the shared library, you have to use the –load option, which takes the path to the shared library as an argument:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ lli –load ./greetings.so main.ll \\
+Hi!
+\end{tcolorbox}
+
+It is important to specify the path to the shared library, if the directory containing the shared library is not in the search path for the dynamic loader. If omitted, then the library will not be found.\par
+
+Alternatively, we can instruct the lli tool to load the object file with the –extraobject option:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ lli –extra-object greetings.o main.ll \\
+Hi!
+\end{tcolorbox}
+
+Other supported options are –extra-archive, which loads an archive, and –extramodule, which loads another bitcode file. Both options require the path to the file as an argument.\par
+
+You now know how you can use the lli tool to directly execute LLVM IR. In the next section, we will implement our own JIT tool.\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{Implementing our own JIT compiler with LLJIT}
+
+The lli tool is nothing more than a thin wrapper around LLVM APIs. In the first section, we learned that the ORC engine uses a layered approach. The ExecutionSession class represents a running JIT program. Besides other items, this class holds the used JITDylib instances. A JITDylib instance is a symbol table, which maps symbol names to addresses. For example, this can be the symbols defined in an LLVM IR file, or the symbols of a loaded shared library.\par
+
+To execute LLVM IR, we do not need to create a JIT stack on our own. The utility LLJIT class provides this functionality. You can also make use of this class when migrating from the older MCJIT implementation. This class essentially provides the same functionality. We begin the implementation with the initialization of the JIT engine in the next subsection.\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{Initializing the JIT engine for compiling LLVM IR}
+
+We first implement the function that sets up the JIT engine, compiles an LLVM IR module, and executes the main() function in this module. Later, we use this core functionality to build a small JIT tool. This is the jitmain() function:\par
+
+\begin{enumerate}
+\item The function needs the LLVM module with the IR to execute. Also needed is the LLVM context class used for this module, because the context class holds important type information. The goal is to call the main() function, so we also pass the usual argc and argv parameters:
+\begin{lstlisting}[caption={}]
+Error jitmain(std::unique_ptr<Module> M,
+			  std::unique_ptr<LLVMContext> Ctx, int 
+			  argc,
+			  char *argv[]) {
+\end{lstlisting}
+
+\item We use the LLJITBuilder class to create an LLJIT instance. If an error occurs, then we return the error. A possible source for an error is that the platform does not yet support JIT compilation:
+\begin{lstlisting}[caption={}]
+	auto JIT = orc::LLJITBuilder().create();
+	if (!JIT)
+		return JIT.takeError();
+\end{lstlisting}
+
+\item Then we add the module to the main JITDylib instance. If configured, then JIT compilation utilizes multiple threads. Therefore, we need to wrap the module and the context in a ThreadSafeModule instance. If an error occurs, then we return the error:
+\begin{lstlisting}[caption={}]
+	if (auto Err = (*JIT)->addIRModule(
+			orc::ThreadSafeModule(std::move(M),
+								  std::move(Ctx))))
+		return Err;
+\end{lstlisting}
+
+\item Like the lli tool, we also support the symbols from the C library. The DefinitionGenerator class exposes symbols, and the DynamicLibrarySearchGenerator subclass exposes the names found in the shared library. The class provides two factory methods. The Load() method can be used to load a shared library, while the GetForCurrentProcess() method exposes the symbols of the current process. We use the latter function. The symbol names can have a prefix, depending on the platform. We retrieve the data layout and pass the prefix to the GetForCurrentprocess() function. The symbol names are then treated in the right way, and we do not need to care about it. As usual, we return from the function in case an error occurs:
+\begin{lstlisting}[caption={}]
+	const DataLayout &DL = (*JIT)->getDataLayout();
+	auto DLSG = orc::DynamicLibrarySearchGenerator::
+		GetForCurrentProcess(DL.getGlobalPrefix());
+	if (!DLSG)
+		return DLSG.takeError();
+\end{lstlisting}
+
+\item We then add the generator to the main JITDylib instance. In case a symbol needs to be looked up, the symbols from the loaded shared library are also searched:
+\begin{lstlisting}[caption={}]
+	(*JIT)->getMainJITDylib().addGenerator(
+		std::move(*DLSG));
+\end{lstlisting}
+
+\item Next, we look up the main symbol. This symbol must be in the IR module given on the command line. The lookup triggers compilation of that IR module. If other symbols are referenced inside the IR module, then they are resolved using the generator added in the previous step. The result is of the JITEvaluatedSymbol class:
+\begin{lstlisting}[caption={}]
+	auto MainSym = (*JIT)->lookup("main");
+	if (!MainSym)
+		return MainSym.takeError();
+\end{lstlisting}
+
+\item We ask the returned JIT symbol for the address of the function. We cast this address to the prototype of the C main() function:
+\begin{lstlisting}[caption={}]
+auto *Main = (int (*)(
+	int, char **))MainSym->getAddress();
+\end{lstlisting}
+
+\item Now we can call the main() function in the IR module, and pass the argc and argv parameters, which the function expects. We ignore the return value:
+\begin{lstlisting}[caption={}]
+	(void)Main(argc, argv);
+\end{lstlisting}
+
+\item We report success following execution of the function:
+\begin{lstlisting}[caption={}]
+	return Error::success();
+}
+\end{lstlisting}
+
+\end{enumerate}
+
+This demonstrates how easy it is to use JIT compilation. There is a bunch of other possibilities to expose names, besides exposing the symbols for the current process or from a shared library. The StaticLibraryDefinitionGenerator class exposes the symbols found in a static archive, and can be used in the same way as the DynamicLibrarySearchGenerator class. The LLJIT class also has an addObjectFile() method to expose the symbols of an object file. You can also provide your own DefinitionGenerator implementation if the existing implementations do not fit your needs. In the next subsection, you extend the implementation into a JIT compiler.\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{Creating the JIT compiler utility}
+
+The jitmain() function is easily extended into a small tool, which we do next. The source is saved in a JIT.cpp file and is a simple JIT compiler:\par
+
+\begin{enumerate}
+\item We must include several header files. The LLJIT.h header defines the LLJIT class, and the core classes of the ORC API. We include the IRReader.h header because it defines a function to read LLVM IR files. The CommandLine.h header allows us to parse the command-line options in the LLVM style. Finally, the InitLLVM.h header is required for basic initialization of the tool, and the TargetSelect.h header for the initialization of the native target:
+\begin{lstlisting}[caption={}]
+#include "llvm/ExecutionEngine/Orc/LLJIT.h"
+#include "llvm/IRReader/IRReader.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/InitLLVM.h"
+#include "llvm/Support/TargetSelect.h"
+\end{lstlisting}
+
+\item We add the llvm namespace to the current scope:
+\begin{lstlisting}[caption={}]
+using namespace llvm;
+\end{lstlisting}
+
+\item Our JIT tool expects exactly one input file on the command line, which we declare with the cl::opt<> class:
+\begin{lstlisting}[caption={}]
+static cl::opt<std::string>
+	InputFile(cl::Positional, cl::Required,
+		cl::desc("<input-file>"));
+\end{lstlisting}
+
+\item To read the IR file, we call the parseIRFile() function. The file can be the textual IR representation, or a bitcode file. The function returns a pointer to the created module. Error handling is a bit different because a textual IR file can be parsed, which is not necessarily syntactical correct. The SMDiagnostic instance holds the error information in case of a syntax error. The error message is printed, and the application is exited:
+\begin{lstlisting}[caption={}]
+std::unique_ptr<Module>
+loadModule(StringRef Filename, LLVMContext &Ctx,
+			const char *ProgName) {
+	SMDiagnostic Err;
+	std::unique_ptr<Module> Mod =
+		parseIRFile(Filename, Err, Ctx);
+	if (!Mod.get()) {
+		Err.print(ProgName, errs());
+		exit(-1);
+	}
+	return std::move(Mod);
+}
+\end{lstlisting}
+
+\item The jitmain() function is placed here:
+\begin{lstlisting}[caption={}]
+Error jitmain(…) { … }
+\end{lstlisting}
+
+\item Then we add the main() function, which initializes the tool and the native target, 
+and parses the command line:
+\begin{lstlisting}[caption={}]
+int main(int argc, char *argv[]) {
+	InitLLVM X(argc, argv);
+	
+	InitializeNativeTarget();
+	InitializeNativeTargetAsmPrinter();
+	InitializeNativeTargetAsmParser();
+	
+	cl::ParseCommandLineOptions(argc, argv,
+	     						"JIT\n");
+\end{lstlisting}
+
+\item Next, the LLVM context class is initialized:
+\begin{lstlisting}[caption={}]
+	auto Ctx = std::make_unique<LLVMContext>();
+\end{lstlisting}
+
+\item Then we load the IR module named on the command line:
+\begin{lstlisting}[caption={}]
+	std::unique_ptr<Module> M =
+		loadModule(InputFile, *Ctx, argv[0]);
+\end{lstlisting}
+
+\item Then we can call the jitmain() function. To handle errors, we use the ExitOnError utility class. This class prints an error message and exits the application when an error occurred. We also set a banner with the name of the application, which is printed before the error message:
+\begin{lstlisting}[caption={}]
+	ExitOnError ExitOnErr(std::string(argv[0]) + ": ");
+	ExitOnErr(jitmain(std::move(M), std::move(Ctx),
+					  argc, argv));
+\end{lstlisting}
+
+\item If the control flow reaches this point, then the IR was successfully executed. We return 0 to indicate success:
+\begin{lstlisting}[caption={}]
+	return 0;
+}
+\end{lstlisting}
+
+\end{enumerate}
+
+This is already the complete implementation! We only need to add the build description, which is the topic of the next subsection. \par
+
+\hspace*{\fill} \par %插入空行
+\textbf{Adding the CMake build description}
+
+In order to compile this source file, we also need to create a CMakeLists.txt file with the build description, saved besides the JIT.cpp file:\par
+
+\begin{enumerate}
+\item We set the minimal required CMake version to the number required by LLVM and 
+give the project the name jit:
+\begin{tcolorbox}[colback=white,colframe=black]
+cmake\underline{~}minimum\underline{~}required (VERSION 3.13.4) \\
+project ("jit")
+\end{tcolorbox}
+
+\item The LLVM package needs to be loaded, and we add the directory of the CMake modules provided by LLVM to the search path. Then we include the ChooseMSVCCRT module, which makes sure that the same C runtime is used as by LLVM:
+\begin{tcolorbox}[colback=white,colframe=black]
+find\underline{~}package(LLVM REQUIRED CONFIG) \\
+list(APPEND CMAKE\underline{~}MODULE\underline{~}PATH \$\{LLVM\underline{~}DIR\}) \\
+include(ChooseMSVCCRT)
+\end{tcolorbox}
+
+\item We also need to add the definitions and the include path from LLVM. The LLVM components used are mapped to the library names with a function call:
+\begin{tcolorbox}[colback=white,colframe=black]
+add\underline{~}definitions(\$\{LLVM\underline{~}DEFINITIONS\}) \\
+include\underline{~}directories(SYSTEM \$\{LLVM\underline{~}INCLUDE\underline{~}DIRS\}) \\
+llvm\underline{~}map\underline{~}components\underline{~}to\underline{~}libnames(llvm\underline{~}libs Core OrcJIT \\
+\hspace*{6cm}Support  \\
+\hspace*{6cm}native)
+\end{tcolorbox}
+
+\item Lastly, we define the name of the executable, the source files to compile, and the library to link against:
+\begin{tcolorbox}[colback=white,colframe=black]
+add\underline{~}executable(JIT JIT.cpp) \\
+target\underline{~}link\underline{~}libraries(JIT \$\{llvm\underline{~}libs\})
+\end{tcolorbox}
+
+\item That is everything that is required for the JIT tool. Create and change into a build directory, and then run the following command to create and compile the application:
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ cmake –G Ninja <path to source directory> \\
+\$ ninja
+\end{tcolorbox}
+
+\end{enumerate}
+
+This compiles the JIT tool. You can check the functionality with the hello.ll file from the beginning of the chapter:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ JIT hello.ll \\
+Hello world
+\end{tcolorbox}
+
+Creating a JIT compiler is surprisingly easy!\par
+
+The example used LLVM IR as input, but this is not a requirement. The LLJIT class uses the IRCompileLayer class, which is responsible for compiling IR to machine code. You can define your own layer, which accepts the input you need, for example, Java byte code.\par
+
+Using the predefined LLJIT class is handy, but limits our flexibility. In the next section, we will look at how to implement a JIT compiler using the layers provided by the ORC API.\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{Building a JIT compiler class from scratch}
+
+Using the layered approach of ORC, it is very easy to build a JIT compiler customized for the requirements. There is no one-size-fits-all JIT compiler, and the first section of this chapter gave some examples. Let's have a look at how to set up a JIT compiler.\par
+
+The ORC API uses layers, which are stacked together. The lowest level is the object linking layer, represented by the llvm::orc::RTDyldObjectLinkingLayer class. It is responsible for linking in-memory objects and turning them into executable code. The memory required for this task is managed by an instance of the MemoryManager interface. There is a default implementation, but we can also use a custom version if we need to.\par
+
+Above the object linking layer is the compile layer, which is responsible for creating an in-memory object file. The llvm::orc::IRCompileLayer class takes an IR module as input, and compiles it to an object file. The IRCompileLayer class is a subclass of the IRLayer class, which is a generic class for layer implementations accepting LLVM IR.\par
+
+These two layers already form the core of a JIT compiler. They add an LLVM IR module as input, which is compiled and linked in-memory. To add more functionality, we can add more layers on top of these both. For example, the CompileOnDemandLayer class splits a module, so that only the requested functions are compiled. This can be used to implement lazy compilation. The CompileOnDemandLayer class is also a subclass of the IRLayer class. In a very generic way, the IRTransformLayer class, also a subclass of the IRLayer class, allows us to apply a transformation to the module.\par
+
+Another important class is the ExecutionSession class. This class represents a running JIT program. Basically, this means that the class manages the JITDylib symbol tables, provides lookup functionality for symbols, and keeps track of the resource managers used.\par
+
+The generic recipe for a JIT compiler is as follows:\par
+
+\begin{enumerate}
+\item Initialize an instance of the ExecutionSession class.
+\item Initialize the layer, at least consisting of the RTDyldObjectLinkingLayer class and the IRCompileLayer class.
+\item Create the first JITDylib symbol table, usually with main or a similar name.
+\\The usage is very similar to the LLJIT class from the previous section:
+\item Add an IR module to the symbol table.
+\item Look up a symbol, the triggered compilation of the associated function, and possibly the whole module.
+\item Execute the function.
+\end{enumerate}
+
+In the next subsection, we will implement a JIT compiler class based on the generic recipe.\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{Creating a JIT compiler class}
+
+To keep the implementation of the JIT compiler class simple, we put everything into the JIT.h header file. The initialization of the class is a bit more complex. Due to the handling of possible errors, we need a factory method to create some objects upfront before we can call the constructor. The steps to create the class are as follows:\par
+
+\begin{enumerate}
+\item We begin by guarding the header file against multiple inclusion with the JIT\underline{~}H preprocessor definition:
+\begin{lstlisting}[caption={}]
+#ifndef JIT_H
+#define JIT_H
+\end{lstlisting}
+
+\item A bunch of include files is required. Most of them provide a class with the same name as the header file. The Core.h header provides a couple of basic classes, including the ExecutionSession class. The ExecutionUtils.h header provides the DynamicLibrarySearchGenerator class to search libraries for symbols, which we already used in the Implementing our own JIT compiler with LLJIT section. The CompileUtils.h header provides the ConcurrentIRCompiler class:
+\begin{lstlisting}[caption={}]
+#include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/ExecutionEngine/JITSymbol.h"
+#include "llvm/ExecutionEngine/Orc/CompileUtils.h"
+#include "llvm/ExecutionEngine/Orc/Core.h"
+#include "llvm/ExecutionEngine/Orc/ExecutionUtils.h"
+#include "llvm/ExecutionEngine/Orc/IRCompileLayer.h"
+#include "llvm/ExecutionEngine/Orc/IRTransformLayer.h"
+#include "llvm/ExecutionEngine/Orc/JITTargetMachineBuilder.h"
+#include "llvm/ExecutionEngine/Orc/Mangling.h"
+#include "llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h"
+#include "llvm/ExecutionEngine/Orc/TargetProcessControl.h"
+#include "llvm/ExecutionEngine/SectionMemoryManager.h"
+#include "llvm/Passes/PassBuilder.h"
+#include "llvm/Support/Error.h"
+\end{lstlisting}
+
+\item Our new class is the JIT class:
+\begin{lstlisting}[caption={}]
+class JIT {
+\end{lstlisting}
+
+\item The private data members reflect the ORC layers and a helper class. The ExecutionSession, ObjectLinkingLayer, CompileLayer, OptIRLayer, and MainJITDylib instances represent the running JIT program, the layers, and the symbol table, as already described. The TargetProcessControl instance is used for interaction with the JIT target process. This can be the same process, another process on the same machine, or a remote process on a different machine, possible with a different architecture. The DataLayout and MangleAndInterner classes are required to mangle the symbols names in the correct way. The symbol names are internalized, which means that all equal names have the same address. To check whether two symbol names are equal, it is then sufficient to compare the addresses, which is a very fast operation:
+\begin{lstlisting}[caption={}]
+	std::unique_ptr<llvm::orc::TargetProcessControl> 
+		TPC;
+	std::unique_ptr<llvm::orc::ExecutionSession> ES;
+	llvm::DataLayout DL;
+	llvm::orc::MangleAndInterner Mangle;
+	std::unique_ptr<llvm::orc::RTDyldObjectLinkingLayer>
+		ObjectLinkingLayer;
+	std::unique_ptr<llvm::orc::IRCompileLayer>
+		CompileLayer;
+	std::unique_ptr<llvm::orc::IRTransformLayer>
+		OptIRLayer;
+	llvm::orc::JITDylib &MainJITDylib;
+\end{lstlisting}
+
+\item The initialization is split into three parts. In C++, a constructor cannot return an error. The simple and recommended solution is to create a static factory method, which can do the error handling prior to constructing the object. The initialization of the layers is more complex, so we introduce factory methods for them, too.\par
+In the create() factory method, we first create a SymbolStringPool instance, which is used to implement string internalization and is shared by several classes. To take control of the current process, we create a SelfTargetProcessControlinstance. If we want to target a different process, then we need to change this instance.\par
+Then we construct a JITTargetMachineBuilder instance, for which we need to know the target triple of the JIT process. Next, we query the target machine builder for the data layout. This step can fail if the builder is not able to instantiate the target machine based on the triple provided, for example, because support for this target is not compiled into the LLVM libraries:
+\begin{lstlisting}[caption={}]
+public:
+static llvm::Expected<std::unique_ptr<JIT>> create() {
+	auto SSP =
+		std::make_shared<llvm::orc::SymbolStringPool>();
+	auto TPC =
+		llvm::orc::SelfTargetProcessControl::Create(SSP);
+	if (!TPC)
+		return TPC.takeError();
+	llvm::orc::JITTargetMachineBuilder JTMB(
+		(*TPC)->getTargetTriple());
+	auto DL = JTMB.getDefaultDataLayoutForTarget();
+	if (!DL)
+		return DL.takeError();
+\end{lstlisting}
+
+\item At this point, we have handled all the calls that could potentially fail. We are now able to initialize the ExecutionSession instance. Finally, the constructor of the JIT class is called with all instantiated objects, and the result is returned to the caller:
+\begin{lstlisting}[caption={}]
+	auto ES =
+		std::make_unique<llvm::orc::ExecutionSession>(
+			std::move(SSP));
+	
+	return std::make_unique<JIT>(
+		std::move(*TPC), std::move(ES),
+		std::move(*DL),
+		std::move(JTMB));
+}
+\end{lstlisting}
+
+\item The constructor of the JIT class moves the passed parameters to the private data members. The layer objects are constructed with a call to a static factory name with the create prefix. Each layer factory method requires a reference to the ExecutionSession instance, connecting the layer to the running JIT session. Except for the object linking layer, which is at the bottom of the layer stack, each layer also requires a reference to the previous layer, illustrating the stacking order:
+\begin{lstlisting}[caption={}]
+	JIT(std::unique_ptr<llvm::orc::TargetProcessControl>
+			TPCtrl,
+	std::unique_ptr<llvm::orc::ExecutionSession> ExeS,
+	llvm::DataLayout DataL,
+	llvm::orc::JITTargetMachineBuilder JTMB)
+	: TPC(std::move(TPCtrl)), ES(std::move(ExeS)),
+			DL(std::move(DataL)), Mangle(*ES, DL),
+		ObjectLinkingLayer(std::move(
+			createObjectLinkingLayer(*ES, JTMB))),
+		CompileLayer(std::move(createCompileLayer(
+			*ES, *ObjectLinkingLayer,
+			 std::move(JTMB)))),
+		OptIRLayer(std::move(
+			createOptIRLayer(*ES, *CompileLayer))),
+		MainJITDylib(ES->createBareJITDylib("<main>")) {
+\end{lstlisting}
+
+\item In the body of the constructor, we add the generator to search the current process for symbols. The GetForCurrentProcess() method is special, because the return value is wrapped in an Expected<> template, indicating that an Error object can also be returned. But we know that no error can occur – the current process will eventually run! Therefore, we unwrap the result with the cantFail() function, which terminates the application if an error occurred anyway:
+\begin{lstlisting}[caption={}]
+	MainJITDylib.addGenerator(llvm::cantFail(
+		llvm::orc::DynamicLibrarySearchGenerator::
+			GetForCurrentProcess(DL.getGlobalPrefix())));
+}
+\end{lstlisting}
+
+\item To create the object linking layer, we need to provide a memory manager. We stick here to the default SectionMemoryManager class, but we could also provide a different implementation if needed:
+\begin{lstlisting}[caption={}]
+	static std::unique_ptr<
+		llvm::orc::RTDyldObjectLinkingLayer>
+	createObjectLinkingLayer(
+		llvm::orc::ExecutionSession &ES,
+		llvm::orc::JITTargetMachineBuilder &JTMB) {
+		auto GetMemoryManager = []() {
+			return std::make_unique<
+				llvm::SectionMemoryManager>();
+		};
+		auto OLLayer = std::make_unique<
+			llvm::orc::RTDyldObjectLinkingLayer>(
+			ES, GetMemoryManager);
+\end{lstlisting}
+
+\item A slight complication exists for the COFF object file format, which is used on Windows. This file format does not allow functions to be marked as exported. This subsequently leads to failures in checks inside the object linking layer: the flags stored in the symbol are compared with the flags from IR, which leads to a mismatch because of the missing export marker. The solution is to override the flags only for this file format. This finishes construction of the object layer, and the object is returned to the caller:
+\begin{lstlisting}[caption={}]
+		if (JTMB.getTargetTriple().isOSBinFormatCOFF()) {
+			OLLayer
+				->setOverrideObjectFlagsWithResponsibilityFlags(
+					true);
+			OLLayer
+				->setAutoClaimResponsibilityForObjectSymbols(
+					true);
+		}
+		return std::move(OLLayer);
+	}
+\end{lstlisting}
+
+\item To initialize the compiler layer, an IRCompiler instance is needed. The IRCompiler instance is responsible for compiling an IR module into an object file. If our JIT compiler does not use threads, then we can use the SimpleCompiler class, which compiles the IR module using a given target machine. The TargetMachine class is not thread-safe, likewise the SimpleCompiler class, too. To support compilation with multiple threads, we use the ConcurrentIRCompiler class, which creates a new TargetMachine instance for each module to compile. This approach solves the problem with multiple threads:
+\begin{lstlisting}[caption={}]
+	static std::unique_ptr<llvm::orc::IRCompileLayer>
+	createCompileLayer(
+	llvm::orc::ExecutionSession &ES,
+	llvm::orc::RTDyldObjectLinkingLayer &OLLayer,
+	llvm::orc::JITTargetMachineBuilder JTMB) {
+		auto IRCompiler = std::make_unique<
+			llvm::orc::ConcurrentIRCompiler>(
+			std::move(JTMB));
+		auto IRCLayer =
+			std::make_unique<llvm::orc::IRCompileLayer>(
+				ES, OLLayer, std::move(IRCompiler));
+		return std::move(IRCLayer);
+	}
+\end{lstlisting}
+
+\item Instead of compiling the IR module directly to machine code, we install a layer that optimizes the IR first. This is a deliberate design decision: We turn our JIT compiler into an optimizing JIT compiler, which produces faster code that takes longer to produce, meaning a delay for the user. We do not add lazy compilation, so entire modules are compiled when just a symbol is looked up. This can add up to a significant time before the user sees the code executing.
+
+\begin{tcolorbox}[colback=blue!5!white,colframe=blue!75!black, title=Note]
+Please note that introducing lazy compilation is not a proper solution in all circumstances.	
+\end{tcolorbox}
+
+Lazy compilation is realized through moving each function into a module of its own, which is compiled when the function name is looked up. This prevents inter-procedural optimizations such as inlining, because the inliner pass needs access to the body of the function called to inline them. As a result, the user sees a faster startup with lazy compilation, but the code produced is not as optimal as it can be. These design decisions depend on the intended use. Here, we decide for fast code, accepting slower start up times. The optimization layer is realized as a transformation layer. The IRTransformLayer class delegates the transformation to a function, in our case, to the optimizeModule function:
+\begin{lstlisting}[caption={}]
+	static std::unique_ptr<llvm::orc::IRTransformLayer>
+	createOptIRLayer(
+			llvm::orc::ExecutionSession &ES,
+			llvm::orc::IRCompileLayer &CompileLayer) {
+		auto OptIRLayer =
+			std::make_unique<llvm::orc::IRTransformLayer>(
+				ES, CompileLayer,
+				optimizeModule);
+		return std::move(OptIRLayer);
+	}
+\end{lstlisting}
+
+\item The optimizeModule() function is an example of a transformation on an IR module. The function gets the module to transform as parameter, and returns the transformed one. Because the JIT can potentially run with multiple threads, the IR module is wrapped in a ThreadSafeModule instance:
+\begin{lstlisting}[caption={}]
+	static llvm::Expected<llvm::orc::ThreadSafeModule>
+	optimizeModule(
+		llvm::orc::ThreadSafeModule TSM,
+		const llvm::orc::MaterializationResponsibility
+			&R) {
+\end{lstlisting}
+
+\item To optimize the IR, we recall some information from Chapter 8, Optimizing IR, in the Adding an optimization pipeline to your compiler section. We require a PassBuilder instance to create an optimization pipeline. First, we define a couple of analysis managers, and register them afterward at the pass builder. Then we populate a ModulePassManager instance with the default optimization pipeline for the O2 level. This is again a design decision: the O2 level produces fast machine code already, but does this faster still than the O3 level. Afterward, we run the pipeline on the module. Finally, the optimized module is returned to the caller:
+\begin{lstlisting}[caption={}]
+	TSM.withModuleDo([](llvm::Module &M) {
+		bool DebugPM = false;
+		llvm::PassBuilder PB(DebugPM);
+		llvm::LoopAnalysisManager LAM(DebugPM);
+		llvm::FunctionAnalysisManager FAM(DebugPM);
+		llvm::CGSCCAnalysisManager CGAM(DebugPM);
+		llvm::ModuleAnalysisManager MAM(DebugPM);
+		FAM.registerPass(
+			[&] { return PB.buildDefaultAAPipeline(); });
+		PB.registerModuleAnalyses(MAM);
+		PB.registerCGSCCAnalyses(CGAM);
+		PB.registerFunctionAnalyses(FAM);
+		PB.registerLoopAnalyses(LAM);
+		PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
+		llvm::ModulePassManager MPM =
+			PB.buildPerModuleDefaultPipeline(
+				llvm::PassBuilder::OptimizationLevel::O2,
+				DebugPM);
+		MPM.run(M, MAM);
+	});
+
+	return std::move(TSM);
+}
+\end{lstlisting}
+
+\item The client of the JIT class needs a way to add an IR module, which we provide with the addIRModule() function. Remember the layer stack we created: we must add the IR module to the top layer, otherwise we would accidently bypass some layers. This would be a programming error that is not easily spotted: if the OptIRLayer member is replaced by a CompileLayer member, then our JIT class still works, but not as an optimizing JIT because we have bypassed this layer. This is no cause for concern as regards this small implementation, but in a large JIT optimization, we would introduce a function to return the top-level layer:
+\begin{lstlisting}[caption={}]
+	llvm::Error addIRModule(
+		llvm::orc::ThreadSafeModule TSM,
+		llvm::orc::ResourceTrackerSP RT = nullptr) {
+		if (!RT)
+			RT = MainJITDylib.getDefaultResourceTracker();
+		return OptIRLayer->add(RT, std::move(TSM));
+	}
+\end{lstlisting}
+
+\item Likewise, a client of our JIT class needs a way to look up a symbol. We delegate this to the ExecutionSession instance, passing in a reference to the main symbol table and the mangled and internalized name of the requested symbol:
+\begin{lstlisting}[caption={}]
+	llvm::Expected<llvm::JITEvaluatedSymbol>
+	lookup(llvm::StringRef Name) {
+		return ES->lookup({&MainJITDylib},
+							Mangle(Name.str()));
+	}
+\end{lstlisting}
+
+\end{enumerate}
+
+Putting the JIT compiler together was quite easy. Initializing the class is a bit tricky, as it involves a factory method and a constructor call for the JIT class, and factory methods for each layer. This distribution is caused by limitations in C++, although the code itself is simple.\par
+
+In the next subsection, we are using our new JIT compiler class to implement a commandline utility.\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{Using our new JIT compiler class}
+
+The interface of our new JIT compiler class resembles the LLJIT class used in the Implementing our own JIT compiler with LLJIT section. To test our new implementation, we copy the LIT.cpp class from the previous section and make the following changes:\par
+
+\begin{enumerate}
+\item To be able to use our new class, we include the JIT.h header file. This replaces the llvm/ExecutionEngine/Orc/LLJIT.h header file, which is no longer required because we are no longer using the LLJIT class.
+
+\item Inside the jitmain() function, we replace the call to orc::LLJITBuilder().create() with a call to our new JIT::create() method.
+
+\item Again, in the jitmain() function, we remove the code to add the DynamicLibrarySearchGenerator class. Precisely this generator is integrated in the JIT class.
+\end{enumerate}
+
+This is already everything that needs to be changed! We can compile and run the changed application as in the previous section, with the same result. Under the hood, the new class uses a fixed optimization level, so with sufficiently large modules, we can note the differences in startup and runtime.\par
+
+Having a JIT compiler at hand can stimulate new ideas. In the next section, we will look at how we can use the JIT compiler as part of a static compiler to evaluate code at compile time.\par
+
+
+
+
+
+
+
+
+
+
+
+
+

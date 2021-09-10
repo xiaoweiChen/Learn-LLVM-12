@@ -1,0 +1,70 @@
+Compiler writers make a great effort to produce optimal code. A simple, yet effective, optimization is to replace an arithmetic operation on two constants by the result value of this operation. To be able to perform the computation, an interpreter for constant expressions is embedded. And to arrive at the same result, the interpreter has to implement the same rules as the generated machine code! Of course, this can be thesource of subtle errors.\par
+
+A different approach would be to compile the constant expression to IR using the same code generations methods, and then have JIT compile and execute the IR. This idea can even be taken a step further. In mathematics, a function always produces the same result for the same input. For functions in computer languages, this is not true. A good example is the rand() function, which returns a random value for each call. A function in computer languages, which has the same characteristic as a function in mathematics, is called a pure function. During the optimization of expressions, we could JIT-compile and execute pure functions, which only have constant parameters, and replace the call to the function with the result returned from JIT execution. Effectively, we move the execution of the function from runtime to compile time!\par
+
+\begin{tcolorbox}[colback=blue!5!white,colframe=blue!75!black, title=Think about cross-compilation]
+Using a JIT compiler as part of a static compiler is an interesting option. However, if the compiler were to support cross-compilation, then this approach should be well thought-out. The usual candidates causing trouble are floatingpoint types. The precision of the long double type in C often depends on the hardware and the operation system. Some systems use 128-bit floating points, while others only use 64-bit floating points. The 80-bit floating point type is only available on the x86 platform, and usually only used on Windows. Performing the same floating-point operation with different precision can result in huge differences. Evaluation through JIT compilation cannot be used in such cases.
+\end{tcolorbox}
+
+It cannot easily be decided whether a function is pure. The common solution is to apply a heuristic. If a function does not read or write into heap memory, either through pointers or indirectly with the use of aggregate types, and only calls other pure functions, then it is a pure function. The developer can aid the compiler, and mark pure functions, for example, with a special keyword or symbol. In the semantic analysis phase, the compiler can then check for violations.\par
+
+In the next subsection, we will take a closer look at the implications for language semantics when trying to JIT-execute a function at compile time.\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{Identifying the language semantics}
+
+The difficult part is indeed to decide at the language semantics level which parts of the language are suitable for evaluation at compile time. Excluding access to heap memory is very restrictive. In general terms, it rules out string handling, for example. Using heap memory becomes problematic when the allocated memory survives the lifetime of the JIT-executed function. This is a program state, which can influence other results, and is therefore dangerous. On the other hand, if there are matched calls to malloc() and free() functions, then the memory is only used for internal calculation. In this case, the use of heap memory would be safe. But precisely this condition is not easy to proof.\par
+
+At a similar level, an infinite loop inside the JIT-executed function can freeze the compiler. Alan Turing showed in 1936 that no machine can decide whether a function will produce a result or whether it is stuck in an endless loop. Some precautions must be taken to avoid this situation, for example, a runtime limit after which the JIT-executed function is terminated.\par
+
+And last, the more that functionality is allowed, the more thoughts must be put into security, because the compiler now executes code written by someone else. Just imagine that this code downloads and runs files from the internet or tries to erase the hard disk: with too much state allowed for JIT-executed functions, we also need to think about such scenarios.\par
+
+The idea is not new. The D programming language has a feature called compiletime
+function execution. The reference compiler dmd implements this feature by interpretation of the functions at the AST level. The LLVM-based LDC compiler has an experimental feature to use the LLVM JIT engine for it. You can find out more about the language and the compilers at \url{https://dlang.org/}.\par
+
+Ignoring the semantic challenges, the implementation is not that difficult. In the Building a JIT compiler class from scratch section, we developed a JIT compiler with the JIT class. We feed an IR module in the class, and we can look up and execute a function from this module. Looking at the tinylang compiler implementation, we can clearly identify access to constants, because there is a ConstantAccess node in the AST. For example, there is code like the following:\par
+
+\begin{lstlisting}[caption={}]
+if (auto *Const = llvm::dyn_cast<ConstantAccess>(Expr)) {
+	// Do something with the constant.
+}
+\end{lstlisting}
+
+Instead of interpreting the operations in the expression to derive the value of the constant, we can do the following:\par
+
+\begin{enumerate}
+\item Create a new IR module.
+
+\item Create an IR function in the module, returning a value of the expected type.
+
+\item Use the existing emitExpr() function to create the IR for the expression and return the calculated value with the last instruction.
+
+\item JIT-execute the function to calculate the value.
+\end{enumerate}
+
+Is this worth implementing? LLVM performs constant propagation and function inlining as part of the optimization pipeline. A simple expression such as 4 + 5 is already replaced during IR construction with the result. Small functions such as calculation of the greatest common divisor are inlined. If all parameters are constant values, then the inlined code gets replaced by the result of the calculation through constant propagation.\par
+
+Based on this observation, an implementation of this approach is only useful if enough language features are available for execution at compile time. If this is the case, then it is fairly easily implemented using the given sketch.\par
+
+Knowing how to utilize the JIT compiler component of LLVM enables you to use LLVM in whole new ways. Besides implementing a JIT compiler like the Java VM, the JIT compiler can also be embedded in other applications. This allows creative approaches, such as its use inside a static compiler, which you looked at in this section.\par
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
