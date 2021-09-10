@@ -1,0 +1,232 @@
+The CPU you are targeting may have machine instructions not yet supported by LLVM. For example, manufacturers using the MIPS architecture often add special instructions to the core MIPS instruction set. The specification of the RISC-V instruction set explicitly allows manufacturers to add new instructions. Or you are adding a completely new backend, and then you must add the instructions of the CPU. In the next section, we will add assembler support for a single, new machine instruction to an LLVM backend.\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{Adding a new instruction to the assembler and code generation}
+
+New machine instructions are usually tied to a certain CPU feature. Then the new instruction is only recognized if the user has selected the feature using the \verb|--|mattr=option to llc.\par
+
+As an example, we will add a new machine instruction to the MIPS backend. The imaginary, new machine instruction first squares the value of the two input registers \$2 and \$3 and assigns the sum of both squares to the output register \$1:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+sqsumu \$1, \$2, \$3
+\end{tcolorbox}
+
+The name of the instruction is sqsumu, derived from the square and summation operation. The last u in the name indicates that the instruction works on unsigned integers.\par
+
+The CPU feature we are adding first is called sqsum. This will allow us to call llc with the \verb|--|mattr=+sqsum option to enable recognition of the new instruction.\par
+
+Most of the code we will add is in the TableGen files which describe the MIPS backend. All the files are located in the llvm/lib/Target/Mips folder. The top-level file is Mips.td. Look at the file and locate the section in which the various features are defined. Here you add the definition of our new feature:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+def FeatureSQSum \\
+\hspace*{1cm}: SubtargetFeature<"sqsum", "HasSQSum", "true", \\
+\hspace*{6cm}"Use square-sum instruction">;
+\end{tcolorbox}
+
+The SubtargetFeature class takes four template parameters. The first, sqsum, is the name of the feature, for use on the command line. The second parameter, HasSQSum, is the name of the attribute in the Subtarget class representing this feature. The next parameters are the default value and the description of the feature, used for providing help on the command line. TableGen generates the base class for the MipsSubtarget class, defined in MipsSubtarget.h file. In this file, we add the new attribute in the private part of the class, where all the other attributes are defined:\par
+
+\begin{lstlisting}[caption={}]
+// Has square-sum instruction.
+bool HasSQSum = false;
+\end{lstlisting}
+
+In the public part, we also a method to retrieve the value of the attribute. We need this method for the next addition:\par
+
+\begin{lstlisting}[caption={}]
+bool hasSQSum() const { return HasSQSum; }
+\end{lstlisting}
+
+With these additions, we are already able to set the sqsum feature on the command line, albeit without effect.\par
+
+To tie the new instruction to the sqsum feature, we need to define a predicate that indicates whether the feature is selected or not. We add this to the MipsInstrInfo.td file, either in the section where all the other predicates are defined or simply at the end:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+def HasSQSum : Predicate<"Subtarget->hasSQSum()">, \\
+\hspace*{6cm}AssemblerPredicate<(all\underline{~}of FeatureSQSum)>;
+\end{tcolorbox}
+
+The predicate uses the hasSQSum() method defined earlier. Additionally, the AssemblerPredicate template specifies the condition used when generating the source code for the assembler. We simply refer to the previously defined feature.\par
+
+We also need to update the scheduling model. The MIPS target uses both the itinerary and the machine-instruction scheduler. For the itinerary model, an InstrItinClass record is defined for each instruction in the MipsSchedule.td file. Simply add the following line in this file in the section where all the itineraries are defined:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+def II\underline{~}SQSUMU : InstrItinClass;
+\end{tcolorbox}
+
+We also need to give details about the instruction costs. Usually, you find this information in the documentation for the CPU. For our instruction, we optimistically assume that it just takes one cycle in the ALU. This information is added to the MipsGenericItineraries definition in the same file:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+InstrItinData<II\underline{~}SQSUMU, [InstrStage<1, [ALU]>]>
+\end{tcolorbox}
+
+With this, the update to the itinerary-based scheduling model is complete. The MIPS target also defines a generic scheduling model based on the machine-instruction scheduler model in the MipsScheduleGeneric.td file. Because this is a complete model covering all instructions, we also need to add our instruction add. As it is based on multiplication, we simply extend the existing definition for the MULT and MULTu instructions:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+def : InstRW<[GenericWriteMul], (instrs MULT, MULTu, SQSUMu)>;
+\end{tcolorbox}
+
+The MIPS target also defines a scheduling model for the P5600 CPU in the MipsScheduleP5600.td file. Our new instruction is obviously not supported on this target, so we add it to the list of unsupported features:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+list<Predicate> UnsupportedFeatures = [HasSQSum, HasMips3, … 
+\end{tcolorbox}
+
+Now we are ready to add the new instruction at the end of the Mips64InstrInfo.td file. TableGen definitions are always terse, therefore we dissect them. The definition uses some predefined classes from the MIPS target descriptions. Our new instruction is an arithmetic instruction, and by design, it fits the ArithLogicR class. The first parameter, "sqsumu", specifies the assembler mnemonic of the instruction. The next parameter, GPR64Opnd, states that the instructions use 64-bit registers as operands and the following 1 parameter indicates that the operands are commutative. Last, an itinerary is given for the instruction. The ADD\underline{~}FM class is given to specify the binary encoding of the instruction. For a real instruction, the parameters must be chosen according to the documentation. Then follows the ISA\underline{~}MIPS64 predicate, which indicates for which instruction set the instruction is valid. And last, our SQSUM predicate states that the instruction is only valid when our feature is enabled. The complete definition is as follows:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+def SQSUMu : ArithLogicR<"sqsumu", GPR64Opnd, 1, II\underline{~}SQSUMU>, \\
+\hspace*{4cm}ADD\underline{~}FM<0x1c, 0x28>, ISA\underline{~}MIPS64, SQSUM
+\end{tcolorbox}
+
+If you only aim to support the new instruction, then this definition is enough. Be sure to finish the definition with ; in this case. With the addition of a selection DAG pattern, you make the instruction available to the code generator. The instruction uses the two operand registers \$rs and \$rt and the destination register \$rd, all three defined by the ADD\underline{~}FM binary format class. In theory, the pattern to match is then simple: the value of each register is squared using the mul multiplication operator, and then the two products are added using the add operator and assigned to the destination register \$rd. The pattern gets a bit more complicated because, with the MIPS instruction set, the result of a multiplication is stored in a special register pair. To be usable, the result must be moved to a general-purpose register. During legalization of operations, the generic mul operator is replaced with the MIPS-specific MipsMult operation for the multiplication and the MipsMFLO operation to move the lower part of the result into a general-purpose register. We must take this into account when writing the pattern, which looks as follows:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+{
+\hspace*{0.5cm}let Pattern = [(set GPR64Opnd:\$rd, \\
+\hspace*{4cm}(add (MipsMFLO (MipsMult \\
+\hspace*{4.5cm}GPR64Opnd:\$rs, \\
+\\
+\hspace*{4.5cm}GPR64Opnd:\$rs)), \\
+\hspace*{5.5cm}(MipsMFLO (MipsMult \\
+\hspace*{6cm}GPR64Opnd:\$rt, \\
+\\
+\hspace*{6cm}GPR64Opnd:\$rt))) \\
+\hspace*{4.5cm})];\\
+\}
+\end{tcolorbox}
+
+As described in the Instruction selection with the selection DAG section, if this pattern matches the current DAG node, then our new instruction is selected. Because of the SQSUM predicate, this only happens when the sqsum feature is activated. Let's check it with a test!\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{Testing the new instruction}
+
+If you extend LLVM, then it is good practice to verify it with automated tests. Especially if you want to contribute your extension to the LLVM project, then good tests are required.\par
+
+After adding a new machine instruction as we did in the last section, we must check two different aspects:\par
+
+\begin{itemize}
+\item First, we have to verify that the instruction encoding is correct. 
+\item Second, we must make sure that the code generation works as expected
+\end{itemize}
+
+The LLVM projects use LIT, the LLVM Integrated Tester, as the testing tool. Basically, a test case is a file that contains the input, the commands to run, and the checks that should be performed. Adding new tests is as easy as copying a new file into the test directory. To verify the encoding of our new instruction, we use the llvm-mc tool. Besides other tasks, this tool can show the encoding of an instruction. For an ad hoc check, you can run the following command to show the instruction encoding:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ echo "sqsumu $\setminus$\$1,$\setminus$\$2,$\setminus$\$3" | $\setminus$ \\
+\hspace*{0.5cm}llvm-mc \verb|--|triple=mips64-linux-gnu -mattr=+sqsum $\setminus$ \\
+\hspace*{2.5cm}--show-encoding
+\end{tcolorbox}
+
+This already shows part of the input and the command to run in an automated test case. To verify the result, you use the FileCheck tool. The output of llvm-mc is piped into this tool. Additionally, FileCheck reads the test case file. The test case file contains lines marked with the CHECK: keyword, after which the expected output follows. FileCheck tries to match these lines against the data piped into it. If no match is found, then an error is displayed. Place the sqsumu.s test case file with the following content into the llvm/test/MC/Mips directory:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+# RUN: llvm-mc \%s -triple=mips64-linux-gnu -mattr=+sqsum $\setminus$ \\
+# RUN: \verb|--|show-encoding | FileCheck \%s \\
+# CHECK: sqsumu \$1, \$2, \$3 \# encoding: [0x70,0x43,0x08,0x28] \\
+\\
+\hspace*{1cm}sqsumu \$1, \$2, \$3
+\end{tcolorbox}
+
+If you are inside the llvm/test/Mips/MC folder, then you can run the test with the following command, which reports success at the end:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ llvm-lit sqsumu.s \\
+\verb|--| Testing: 1 tests, 1 workers \verb|--| \\
+PASS: LLVM :: MC/Mips/sqsumu.s (1 of 1) \\
+Testing Time: 0.11s \\
+\hspace*{0.5cm}Passed: 1
+\end{tcolorbox}
+
+The LIT tool interprets the RUN: line, replacing \%s with the current filename. The FileCheck tool reads the file, parses the CHECK: lines, and tries to match the input from the pipe. This is a very effective way of testing.\par
+
+If you are in the build directory, you can invoke the LLVM tests with this command:\par
+
+To construct a test case for the code generation, you follow the same strategy. The following sqsum.ll file contains LLVM IR code to calculate the hypotenuse square:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+define i64 @hyposquare(i64 \%a, i64 \%b) \{ \\
+\hspace*{0.5cm}\%asq = mul i64 \%a, \%a \\
+\hspace*{0.5cm}\%bsq = mul i64 \%b, \%b \\
+\hspace*{0.5cm}\%res = add i64 \%asq, \%bsq \\
+\hspace*{0.5cm}ret i64 \%res \\
+\}
+\end{tcolorbox}
+
+To see the generated assembly code, you use the llc tool:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ llc –mtriple=mips64-linux-gnu –mattr=+sqsum < sqsum.ll
+\end{tcolorbox}
+
+Convince yourself that you see our new sqsum instruction in the output. Please also check that the instruction is not generated if you remove the –mattr=+sqsum option.\par
+
+Equipped with this knowledge, you can construct the test case. This time, we use two RUN: lines: one to check that our new instruction is generated, and one to check that it is not. We can do both with one test case file because we can tell the FileCheck tool to look for a different label than CHECK:. Put the test case file sqsum.ll with the following content into the llvm/test/CodeGen/Mips folder:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+; RUN: llc -mtriple=mips64-linux-gnu -mattr=+sqsum < \%s |$\setminus$ \\
+; RUN: FileCheck -check-prefix=SQSUM \%s \\
+; RUN: llc -mtriple=mips64-linux-gnu < \%s |$\setminus$ \\
+; RUN: FileCheck --check-prefix=NOSQSUM \%s \\
+\\
+define i64 @hyposquare(i64 \%a, i64 \%b) \{ \\
+; SQSUM-LABEL: hyposquare: \\
+; SQSUM: sqsumu \$2, \$4, \$5 \\
+; NOSQSUM-LABEL: hyposquare: \\
+; NOSQSUM: dmult \$5, \$5 \\
+; NOSQSUM: mflo \$1 \\
+; NOSQSUM: dmult \$4, \$4 \\
+; NOSQSUM: mflo \$2 \\
+; NOSQSUM: addu \$2, \$2, \$1 \\
+\hspace*{0.5cm}\%asq = mul i64 \%a, \%a \\
+\hspace*{0.5cm}\%bsq = mul i64 \%b, \%b \\
+\hspace*{0.5cm}\%res = add i64 \%asq, \%bsq \\
+\hspace*{0.5cm}ret i64 \%res \\
+}
+\end{tcolorbox}
+
+As with the other test, you can run the test alone in the folder with the following command:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ llvm-lit squm.ll
+\end{tcolorbox}
+
+Alternatively, you can run it from the build directory with the following command:
+
+\begin{tcolorbox}[colback=white,colframe=black]
+	\$  ninja check-llvm-mips-codegen
+\end{tcolorbox}
+
+With these steps, you enhanced the LLVM assembler with a new instruction, enabled the instruction selection to use this new instruction, and verified that the encoding is correct and the code generation works as expected.\par
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

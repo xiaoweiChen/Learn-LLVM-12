@@ -1,0 +1,113 @@
+You saw in the previous section that many passes are run in the target backend. However, most of these passes do not operate on LLVM IR, but on MIR. This is a target-dependent representation of the instructions, and therefore more low-level than LLVM IR. It can still contain references to virtual registers, so it is not yet the pure instruction of the target CPU.\par
+
+To see the optimizations on the IR level, you can, for example, tell llc to dump the IR after each pass. This does not work with the machine passes in the backend, because they do not work on IR. Instead, MIR serves a similar purpose.\par
+
+MIR is a textual representation of the current state of the machine instructions in the current module. It utilizes the YAML format, which allows for serialization and deserialization. The basic idea is that you can stop the pass pipeline at a point and inspect the state in YAML format. You can also modify the YAML file, or create your own, and pass on it, and inspect the result. This allows for easy debugging and testing.\par
+
+Let's have a look at MIR. Run the llc tool with the \verb|--|stop-after=finalize-iseloption and the test input file we used earlier:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ llc -mtriple=mips-linux-gnu $\setminus$ \\
+\hspace*{2cm}-stop-after=finalize-isel < sum.ll
+\end{tcolorbox}
+
+This instructs llc to dump MIR after instruction selection is complete. The shortened output looks like this:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\verb|---| \\
+name: \hspace{3cm}sum \\
+body: \hspace{3cm}| \\
+\hspace*{0.5cm}bb.0 (\%ir-block.0): \\
+\\
+\hspace*{0.5cm}liveins: \$a0, \$a1 \\
+\hspace*{0.5cm}\%1:gpr32 = COPY \$a1 \\
+\hspace*{0.5cm}\%0:gpr32 = COPY \$a0 \\
+\hspace*{0.5cm}\%2:gpr32 = ADDu \%0, \%1 \\
+\hspace*{0.5cm}\$v0 = COPY \%2 \\
+\hspace*{0.5cm}RetRA implicit \$v0 \\
+... 
+\end{tcolorbox}
+
+There are several properties you immediately note. First, there is a mix of virtual registers such as \%0 and real machine registers such as \$a0. The reason for this comes from ABI lowering. To be portable across different compilers and languages, functions adhere to a calling convention, which is part of the application binary interface (ABI). The output is for a Linux system on a MIPS machine. With the calling convention used by the system, the first parameter is passed in register \$a0. Because the MIR output was generated after the instruction selection but before register allocation, you still see the use of virtual registers.\par
+
+Instead of the add instruction from LLVM IR, the machine instruction ADDu is used in the MIR file. You can also see that the virtual registers have a register call attached, in this case, gpr32. There are no 16-bit registers on the MIPS architecture, and therefore 32-bit registers must be used.\par
+
+The bb.0 label refers to the first basic block, and the indented content after the label is part of the basic blocks. The first statement specifies the registers that are live on entry to the basic block. After that, the instructions follow. In this case, only \$a0, and \$a1, both parameters, are live on entry.\par
+
+There are a lot of other details in the MIR file. You can read about them in the LLVM MIR documentation at \url{https://llvm.org/docs/MIRLangRef.html}.\par
+
+One problem you encounter is how to find out the name of a pass, especially if you just need to examine the output after that pass without actively working on it. When using the -debug-pass=Structure option with llc, the options that activate the passes are printed on the top. For example, if you want to stop before the Mips Delay Slot Filler pass, then you need to look at the printed list, and hopefully find the -mipsdelay-slot-filler option, which also gives you the name of the pass.\par
+
+The main application of the MIR file format is to aid in testing machine passes in the target backend. Using llc with the \verb|--|stop-after option, you get the MIR after the specified pass. Usually, you will use this as the base for your intended test case. The first thing you note is that the MIR output is very verbose. For example, many fields are empty. To reduce this clutter, you can add the -simplify-mir option to the llc command line.\par
+
+You save and change the MIR as needed for your test case. The llc tool can run a single pass, and this is a perfect match for testing with the MIR file. Let's assume you like to test the MIPS Delay Slot Filler pass. The delay slot is a special property of RISC architectures such as MIPS or SPARC: the next instruction after a jump is always executed. Therefore, the compiler must make sure that there is a suitable instruction after each jump, and this pass performs this duty.\par
+
+We generate the MIR before running the pass:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ llc -mtriple=mips-linux-gnu $\setminus$ \\
+\hspace*{2cm}-stop-before=mips-delay-slot-filler -simplify-mir $\setminus$ \\
+\hspace*{2cm}< sum.ll >delay.mir
+\end{tcolorbox}
+
+The output is much smaller because we used the -simplify-mir option. The body of the function is now the following:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+body: \hspace{3cm} | \\
+\hspace*{0.5cm}bb.0 (\%ir-block.0): \\
+\hspace*{1cm}liveins: \$a0, \$a1 \\
+\\
+\hspace*{1cm}renamable \$v0 = ADDu killed renamable \$a0, \\
+\hspace*{6cm}killed renamable \$a1 \\
+\hspace*{1cm}PseudoReturn undef \$ra, implicit \$v0
+\end{tcolorbox}
+
+Most notably, you will see the ADDu instruction, followed by apseudo instruction for the return.\par
+
+With the delay.ll file as input, we now run the delay slot filler pass:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ llc -mtriple=mips-linux-gnu $\setminus$ \\
+\hspace*{2cm}-run-pass=mips-delay-slot-filler -o - delay.mir
+\end{tcolorbox}
+
+Now compare the function in the output with the earlier one:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+body: \hspace{3cm} | \\
+\hspace*{0.5cm}bb.0 (\%ir-block.0): \\
+\hspace*{1cm}PseudoReturn undef \$ra, implicit \$v0 \{ \\
+\hspace*{1.5cm}renamable \$v0 = ADDu killed renamable \$a0, \\
+\hspace*{6cm}killed renamable \$a1
+\end{tcolorbox}
+
+You see that ADDu and the pseudo instruction for the return have changed order, and the ADDu instruction is now nested inside the return: the pass identified the ADDu instruction as suitable for the delay slot.\par
+
+In case the delay slot concept is new to you, you will also want to have a look at the generated assembly, which you easily generate with llc:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ llc -mtriple=mips-linux-gnu  < sum.ll
+\end{tcolorbox}
+
+The output contains a lot of details, but with the help of the bb.0 name of the basic block, you can easily locate the generated assembly code for it:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\# \%bb.0: \\
+\hspace*{2cm}jr\hspace{1cm} \$ra \\
+\hspace*{2cm}jaddu\hspace{0.5cm} \$2, \$4, \$5
+\end{tcolorbox}
+
+Indeed, the order of the instructions changed!\par
+
+Equipped with this knowledge, we take a look at the heart of the target backend and examine how machine instruction selection is performed in LLVM.\par
+
+
+
+
+
+
+
+
+
+
+

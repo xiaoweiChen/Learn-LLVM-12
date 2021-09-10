@@ -1,0 +1,46 @@
+After the LLVM IR is optimized, the selected LLVM target is used to generate the machine code from it. Among others, the following tasks are performed in the target backend:\par
+
+\begin{enumerate}
+\item The directed acyclic graph (DAG) used for instruction selection, usually referred to as the SelectionDAG, is constructed.
+\item Machine instructions corresponding to the IR code are selected.
+\item The selected machine instructions are ordered in an optimal sequence.
+\item Virtual registers are replaced with machine registers.
+\item Prologue and epilogue code is added to functions.
+\item Basic blocks are ordered in an optimal sequence.
+\item Target-specific passes are run.
+\item Object code or assembly is emitted.
+\end{enumerate}
+
+All these steps are implemented as machine function passes, derived from the MachineFunctionPass class. This is a subclass of the FunctionPass class, one of the base classes used by the old pass manager. As of LLVM 12, the conversion of machine function passes to the new pass manager is still a work in progress.
+\par
+
+During all these steps, an LLVM instruction undergoes a transformation. At the code level, an LLVM IR instruction is represented by an instance of the Instruction class. During the instruction selection phase, it is transformed into a MachineInstr instance.This is a representation much nearer to the actual machine level. It already contains the instructions that are valid for the target, but still operates on virtual registers (up to register allocation) and also can contain certain pseudo instructions. The passes after the instruction selection refine this, and in the end, an instance of MCInstr is created, which is a representation of the real machine instruction. The MCInstr instance can be written into an object file or printed as assembly code.\par
+
+To explore the backend passes, you can create a small IR file with the following content:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+define i16 @sum(i16 \%a, i16 \%b) \{ \\
+\hspace*{0.5cm}\%res = add i16 \%a, 3 \\
+\hspace*{0.5cm}ret i16 \%res \\
+\}
+\end{tcolorbox}
+
+Save this code as sum.ll. Compile it for the MIPS architecture using llc, the LLVM static compiler. This tool compiles LLVM IR into assembly text or an object file. The target platform compile for can be overridden on the command line with the –mtriple option. Invoke the llc tool with the –debug-pass=Structure option:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ llc -mtriple=mips-linux-gnu -debug-pass=Structure < sum.ll
+\end{tcolorbox}
+
+Besides the generated assembly code, you will see a long list of machine passes to run. Among them, the MIPS DAG->DAG Pattern Instruction Selection pass performs the instruction selection, the Mips Delay Slot Filler is a target-specific pass, and the last pass before cleanup, Mips Assembly Printer, is responsible for printing the assembly code. Of all of these passes, the instruction selection pass is the most interesting one, and we look at it in detail in the next section.\par
+
+
+
+
+
+
+
+
+
+
+
+

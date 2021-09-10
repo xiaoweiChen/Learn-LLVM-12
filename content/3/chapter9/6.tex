@@ -1,0 +1,9 @@
+In this chapter, you learned how the backend of an LLVM target is structured. You used the MIR to examine the state after a pass and you used machine IR to run a single pass. With this knowledge, you can investigate problems in backend passes.\par
+
+You learned how instruction selection with the help of the selection DAG is implemented in LLVM, and you also were introduced to alternative methods for instruction selection with FastISel and GlobalISel, which helps in deciding which algorithm to choose if your platform offers all of them.\par
+
+You extended LLVM to support a new machine instruction in the assembler and in the instruction selection, helping you to add support for currently unsupported CPU features. To validate the extension, you developed automated test cases for it.\par
+
+In the next chapter, we examine another unique feature of LLVM: generating and executing code in one step, also known as Just-In-Time (JIT) compilation.\par
+
+\newpage

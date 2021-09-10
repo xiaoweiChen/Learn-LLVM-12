@@ -1,0 +1,28 @@
+The LLVM IR used so far still needs to be turned into machine instructions. This is called instruction selection, often abbreviated to ISel. Instruction selection is an important part of the target backend, and LLVM has three different approaches for selecting instructions: the selection DAG, fast instruction selection, and global instruction selection.\par
+
+In this chapter, you will learn the following topics:\par
+
+\begin{itemize}
+\item Understanding the LLVM target backend structure, which introduces you to the task performed by the target backend, and you examine the machine passes to run.
+\item Using the machine IR (MIR) to test and debug the backend, which helps you to output MIR after a specified pass and run a pass on the MIR file.
+\item How instruction selection works, in which you learn about the different ways LLVM performs instruction selection.
+\item Supporting new machine instructions, in which you add a new machine instruction and make it available to the instruction selection.
+\end{itemize}
+
+By the end of the chapter, you will know how the target backends are structured and how instruction selection works. You will also acquire the knowledge to add currently unsupported machine instructions to the assembler and the instruction selection, and how to test your addition.\par
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
