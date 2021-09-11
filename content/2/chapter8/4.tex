@@ -1,17 +1,17 @@
 
-The future belongs to the new Pass manager, and it makes no sense to develop a new Pass for the old Pass manager exclusively. However, during the ongoing transition phase, it would be useful if a Pass could work with both Pass managers, as most of the Passes in LLVM already do.\par
+未来是属于新的Pass管理器，专为旧Pass管理器开发一个新的Pass没有什么意义。然而，在正在进行的转换阶段，如果Pass可以与两个Pass管理器一起工作，就很有用，因为LLVM中的大多数Pass已经这样做了。\par
 
-The old Pass manager requires a Pass that has been derived from certain base classes. For example, a function Pass must derive from the FunctionPass base class. There are more differences, too. The method run by the Pass manager is named runOnFunction(), and an ID for the Pass must also be provided. The strategy we follow here is to create a separate class that we can use with the old Pass manager and refactor the source code in a way that the functionality can be used with both Pass managers.\par
+旧Pass管理器需要从某些基类派生的Pass，例如：Pass函数必须派生自FunctionPass基类。还有更多的差异，Pass管理器运行的方法名为runOnFunction()，还必须提供Pass的ID。在这里遵循的策略是创建一个单独的类，可以在旧Pass管理器中使用，并以一种可以在两个Pass管理器中使用的功能的方式重构源码。\par
 
-We use the Pass plugin as a base. In the include/CountIR.h header file, we add a new class definition, as follows:\par
+我们使用Pass插件作为基础。在include/CountIR.h头文件中，我们添加了一个新的类定义，如下所示:\par
 
 \begin{enumerate}
-	\item The new class needs to derive from the FunctionPass class, so we include an additional header to get the class definition:
+	\item 这个新类需要从FunctionPass类派生，所以包含了一个额外的头文件来获取类定义:
 	\begin{lstlisting}[caption={}]
 		#include "llvm/Pass.h"
 	\end{lstlisting}
 	
-	\item We name the new class CountIRLegacyPass. The class needs an ID for the internal LLVM machinery, and we initialize the parent class with it:
+	\item 我们将这个新类命名为CountIRLegacyPass。类需要一个ID作为内部LLVM机制，用它初始化父类:
 	\begin{lstlisting}[caption={}]
 		class CountIRLegacyPass : public llvm::FunctionPass {
 			public:
@@ -19,7 +19,7 @@ We use the Pass plugin as a base. In the include/CountIR.h header file, we add a
 			CountIRLegacyPass() : llvm::FunctionPass(ID) {}
 		\end{lstlisting}
 		
-		\item In order to implement the Pass functionality, two functions must be overridden. The runOnFunction() method is called for every LLVM IR function and implements our counting functionality. The getAnalysisUsage() method is used to announce that all of the analysis results are saved:
+		\item 为了实现Pass功能，必须重写两个函数。每个LLVM IR函数都会调用runOnFunction()方法，并实现计数功能。getAnalysisUsage()方法用来声明所有的分析结果都保存了:
 		\begin{lstlisting}[caption={}]
 			bool runOnFunction(llvm::Function &F) override;
 			void getAnalysisUsage(llvm::AnalysisUsage &AU) const 
@@ -27,7 +27,7 @@ We use the Pass plugin as a base. In the include/CountIR.h header file, we add a
 		};
 	\end{lstlisting}
 	
-	\item With the changes to the header file now complete, we can enhance the implementation inside the lib/CountIR.cpp file. To reuse the counting functionality, we move the source code into a new function:
+	\item 对头文件的更改完成后，可以增强lib/CountIR.cpp文件中的实现。为了重用计数功能，我们将源代码移动到一个新函数中:
 	\begin{lstlisting}[caption={}]
 		void runCounting(Function &F) {
 			for (BasicBlock &BB : F) {
@@ -40,8 +40,7 @@ We use the Pass plugin as a base. In the include/CountIR.h header file, we add a
 		}
 	\end{lstlisting}
 	
-	\item The method for the new Pass manager needs to be updated in order to use the 
-	new function:
+	\item 为了使用新函数，新Pass管理器的方法需要更新:
 	\begin{lstlisting}[caption={}]
 		PreservedAnalyses
 		CountIRPass::run(Function &F, FunctionAnalysisManager 
@@ -51,7 +50,7 @@ We use the Pass plugin as a base. In the include/CountIR.h header file, we add a
 		}
 	\end{lstlisting}
 	
-	\item In the same way, we implement the method for the old Pass manager. With the false return value, we indicate that the IR did not change:
+	\item 以同样的方式，我们为旧Pass管理器实现方法。使用false返回值，表示IR没有改变:
 	\begin{lstlisting}[caption={}]
 		bool CountIRLegacyPass::runOnFunction(Function &F) {
 			runCounting(F);
@@ -59,7 +58,7 @@ We use the Pass plugin as a base. In the include/CountIR.h header file, we add a
 		}
 	\end{lstlisting}
 	
-	\item To preserve the existing analysis results, the getAnalysisUsage() method must be implemented in the following way. This is similar to the PreservedAnalyses::all() return value in the new Pass manager. If you do not implement this method, then all analysis results are thrown away by default:
+	\item 为了保留现有的分析结果，必须以以下方式实现getAnalysisUsage()方法。这类似于新Pass管理器中的PreservedAnalyses::all()返回值。如果不实现这个方法，那么默认情况下所有的分析结果都会丢弃:
 	\begin{lstlisting}[caption={}]
 		void CountIRLegacyPass::getAnalysisUsage(
 		AnalysisUsage &AU) const {
@@ -67,35 +66,35 @@ We use the Pass plugin as a base. In the include/CountIR.h header file, we add a
 		}
 	\end{lstlisting}
 	
-	\item The ID field can be initialized with an arbitrary value because LLVM uses the address of the field. The common value is 0, so we use it too:
+	\item ID字段可以用任意值初始化，因为LLVM使用该字段的地址。公共值是0，所以我们也使用它:
 	\begin{lstlisting}[caption={}]
 		char CountIRLegacyPass::ID = 0;
 	\end{lstlisting}
 	
-	\item Only the Pass registration is missing now. To register the new Pass, we need to provide a static instance of the RegisterPass<> template. The first argument is the name of the command-line option to invoke the new Pass. The second argument is the name of the Pass, which is used, among other things, as information for the user when invoking the -help option:
+	\item 现在只有Pass注册没有了。要注册新的Pass，需要提供RegisterPass<>模板的静态实例。第一个参数是调用新Pass的命令行选项的名称。第二个参数是Pass的名称，是在使用-help选项时为用户提供信息使用。
 	\begin{lstlisting}[caption={}]
 		static RegisterPass<CountIRLegacyPass>
 		X("countir", "CountIR Pass");
 	\end{lstlisting}
 	
-	\item These changes are enough to allow us to invoke our new Pass under the old Pass manager and the new Pass manager. To test the addition, change back into the build folder and compile the Pass:
+	\item 这些更改足以让我们在旧Pass管理器和新Pass管理器下使用新的Pass。要测试添加的内容，请回到构建文件夹并编译Pass:
 	\begin{tcolorbox}[colback=white,colframe=black]
 		\$ ninja
 	\end{tcolorbox}
 	
-	\item To load the plugin for use with the old Pass manager, we need to use the \verb|--|load option. Our new Pass is invoked with the \verb|--|countir option:
+	\item 为了在旧Pass管理器中加载插件，需要使用\verb|--|load选项。新Pass是可以通过\verb|--|countir选项调用:
 	\begin{tcolorbox}[colback=white,colframe=black]
 		\$ opt \verb|--|load-pass-plugin=lib/CountIR.so \verb|--|countir \verb|–-|stats$\setminus$ \\
 		\hspace*{0.5cm}\verb|--|disable-output demo.ll
 	\end{tcolorbox}
 	
 	\begin{tcolorbox}[colback=blue!5!white,colframe=blue!75!black, title=Tip]
-		Please also check, in the command line from the previous section, that the invocation of our Pass with the new Pass manager still works fine!
+		还请在前一节的命令行中检查，使用新Pass管理器调用我们的Pass仍然可以正常工作!
 	\end{tcolorbox}
 	
 \end{enumerate}
 
-Being able to run our new Pass with an LLVM-provided tool is nice, but ultimately, we want to run it inside our compiler. In the next section, we will explore how to set up an optimization pipeline and how to customize it.\par
+能够使用llvm提供的工具运行新Pass非常香，但最终，我们希望在我们的编译器中运行它。在下一节中，我们将探讨如何设置优化和如何自定义流水。\par
 
 
 

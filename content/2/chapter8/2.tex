@@ -1,34 +1,34 @@
-The LLVM core libraries optimize the IR your compiler creates and turn it into object code. This giant task is broken down into separate steps, called Passes. These Passes need to be executed in the right order, which is the objective of the Pass manager.\par
+LLVM核心库优化编译器创建的IR，并将其转换为目标代码。这个巨大的任务可以分解成几个单独的步骤，称为Pass。这些Pass需要按照正确的顺序执行，这是Pass管理器的目标。\par
 
-But why not hardcode the order of the Passes? Well, the user of your compiler usually expects that your compiler provides a different level of optimization. Developers prefer a faster compilation speed over-optimization during development time. The final application should run as fast as possible, and your compiler should be able to perform sophisticated optimizations, with longer compilation times accepted. A different level of optimization means a different number of optimization Passes that need to be executed. And, as a compiler writer, you might want to provide your own Passes to take advantage of your knowledge of the source language. For example, you might want to replace wellknown library functions with inline IR or, if possible, with the computed result of that function. For C, such a Pass is part of the LLVM core libraries, but for other languages, you will need to provide it yourself. And introducing your own Passes, you might need to reorder or add some Passes. For example, if you know that the operation of your Pass leaves some IR code unreachable, then you should also run the dead code removal Pass after your own Pass. The Pass manager helps you to organize these requirements.\par
+但为什么不硬编码Pass的顺序呢?编译器的用户通常期望编译器提供不同级别的优化。开发人员在开发期间进行优化，喜欢更快的编译速度。最终的应用程序应该尽可能快地运行，编译器应该能够执行复杂的优化，并接受更长的编译时间。不同的优化级别意味着需要执行的优化通过的数量不同。而且，作为编译器作者，您可能希望提供自己的Pass，可以充分展现您对源语言的知识。例如，您可能想用内联IR或(如果可能的话)用该函数的计算结果替换已知的库函数。对于C语言，这样的Pass是LLVM核心库的一部分，但是对于其他语言，您需要单独提供。在介绍自己的Pass时，您可能需要重新排序或添加一些Pass。例如，如果知道您的Pass的操作使某些IR代码不可访问，那么您应该运行完自己的Pass之后删除Pass。Pass管理器可以帮助您进行管理。\par
 
-A Pass is often categorized according to the scope in which it works:\par
-
-\begin{itemize}
-	\item A function Pass takes a single function as input and performs its work on this function only.
-	\item A module Pass takes a whole module as input. Such a Pass performs its work on the 	given module and can be used for intraprocedural operations inside this module.
-	\item A call graph Pass traverses the functions of a call graph in bottom-up order.
-\end{itemize}
-
-Besides the IR code, a Pass might also consume, produce, or invalidate some analysis results. There are a lot of different analyses performed; for example, alias analysis or the construction of a dominator tree. The dominator tree helps move invariant code out of a loop, so a Pass performing such a transformation can only run after the dominator tree has been created. Another Pass might perform a transformation that could invalidate the existing dominator tree.\par
-
-Under the hood, the Pass manager ensures the following:\par
+Pass通常根据作用范围进行分类:\par
 
 \begin{itemize}
-	\item Analysis results are shared among Passes. This requires you to keep track of which Pass requires which analysis, and of the state of each analysis. The goal is to avoid needless recomputation of analyses and to free up the memory held by the analysis results as soon as possible.
-	\item The Passes are executed in a pipeline fashion. For example, if several function Passes should be executed in sequence, then the Pass manager runs each of these function Passes on the first function. It will then run all function Passes on the second function, and so on. The underlying idea here is to improve the cache behavior, as the compiler performs transformations on only a limited set of data (that is, one IR function) and then moves on to the next limited set of data.
+\item Pass函数接受单个函数作为输入，并仅对该函数执行。
+\item Pass模块接受整个模块作为输入。这样的Pass在给定的模块上执行，并可用于该模块中的过程内操作。
+\item 调用Pass图以自底向上的顺序遍历调用图的函数。
 \end{itemize}
 
-There are two Pass managers in LLVM, as follows: \par
+除了IR代码之外，Pass还可能消耗、生成或使一些分析结果无效。有很多不同的分析，例如：别名分析或支配树的构造。支配树帮助将不变代码移出循环，因此执行这种转换的Pass只能在创建支配树之后运行。另一个Pass可能执行可能使现有支配树无效的转换。\par
+
+在编译器内部，Pass管理器要有以下功能:\par
 
 \begin{itemize}
-	\item The old (or legacy) Pass manager 
-	\item The new Pass manager
+\item 分析结果由各Pass共享。这需要您指定跟踪哪个Pass需要哪个分析，以及每个分析的状态。其目标是避免不必要的分析重新计算，并尽快释放分析结果所占用的内存。
+\item Pass以流水线方式执行，例如：如果需要依次执行几个Pass函数，那么Pass管理器将在第一个函数上运行这些函数中的每个Pass。然后，将在第二个函数上运行所有的Pass函数，以此类推。这里的基本思想是改进缓存行为，因为编译器只对有限的数据集(即一个IR函数)执行转换，然后转向下一个(有限的)数据集。
 \end{itemize}
 
-The future belongs to the new Pass manager, but the transition is not yet complete. A number of crucial Passes, such as object code emission, have not yet been migrated to the new Pass manager, so it is important to understand both Pass managers.\par
+LLVM中有两个Passg管理器: \par
 
-The old Pass manager requires a Pass to inherit from a base class, for example, from the llvm::FunctionPass class for a function Pass. In contrast, the new Pass manager relies on a concept-based approach, requiring inheritance from the special llvm::PassInfo<> mixin class only. The dependence between Passes was not expressed explicitly with the old Pass manager. In the new Pass manager, it needs to be explicitly coded. The new Pass manager also features a different approach to handling analysis and allows the specification of an optimization pipeline through a textual representation on the command line. Some LLVM users reported a reduction of compile of up to 10\% just by switching from the old to the new Pass manager, which is a very convincing argument for using the new Pass manager.\par
+\begin{itemize}
+	\item 旧的(或遗留的)Pass管理器
+	\item 新Pass管理器
+\end{itemize}
 
-First, we will implement a Pass for the new Pass manager and explore how to add it to the optimization pipeline. Later, we will take a look at how to use a Pass with the old Pass manager, too.\par
+未来是属于新的Pass管理器的，但目前过渡尚未完成。许多关键的Pass(例如目标代码发射)还没有迁移到新Pass管理器，因此理解这两个Pass管理器还挺重要的。\par
+
+旧的Pass管理器要求Pass从基类继承，例如，Pass函数从llvm::FunctionPass类继承。相比之下，新的Pass管理器基于概念的方法，只需要从特殊的llvm::PassInfo<>语言特性(mixin)类继承。旧的Pass管理器没有明确表示Pass之间的依赖关系，而新的Pass管理器中，依赖关系需要显式编码。新的Pass管理器还具有处理分析的不同方法，并允许通过命令行上的文本表示规范优化流水。一些LLVM用户报告说，仅仅从旧的Pass管理器切换到新的Pass管理器，编译量就减少了10\%，这是使用新Pass管理器的一个非常有力的理由。\par
+
+首先，我们将为新的Pass管理器实现一个Pass，并探索如何将它添加到优化流水中。稍后，我们还将看看如何使用旧的Pass管理器。\par
 

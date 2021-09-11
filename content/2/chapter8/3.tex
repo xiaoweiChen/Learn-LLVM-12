@@ -1,17 +1,17 @@
 
-A Pass can perform arbitrary complex transformations on the LLVM IR. To illustrate the mechanics of adding a new Pass, our new Pass only counts the number of IR instructions and basic blocks. We name the Pass countir. Adding the Pass to the LLVM source tree or as a standalone Pass differs slightly, so we will do both in the following sections. Let's begin by adding a new Pass to the LLVM source tree.\par
+Pass可以在LLVM IR上执行任意的转换。为了说明添加新Pass的机制，我们的新Pass只计算IR指令和基本块的数量，我们将这个Pass命名为countir。将Pass添加到LLVM源树或作为一个独立的Pass略有不同，因此我们将在以下部分中进行这两种操作。让我们从向LLVM源树添加一个新的Pass开始。\par
 
 \hspace*{\fill} \par %插入空行
-\textbf{Adding a Pass to the LLVM source tree}
+\textbf{向LLVM源树添加一个Pass}
 
-Let's start by adding the new Pass to the LLVM source. This is the right approach if we later want to publish the new Pass in the LLVM tree.\par
+我们从将新的Pass添加到LLVM源开始。如果稍后想要在LLVM树中发布新的Pass，这是一种正确的方法。\par
 
-The source of Passes that perform transformations on the LLVM IR is located in the llvm-project/llvm/lib/Transforms folder, and the header files are in the llvm-project/llvm/include/llvm/Transforms folder. Because there are so many Passes, they are sorted into subfolders after the category they fit in.\par
+在LLVM IR上执行转换的Pass的源代码位于llvm-project/llvm/lib/Transforms文件夹，而头文件位于llvm-project/llvm/include/llvm/Transforms文件夹。因为有这么多的Pass，他们已分类到对应类别的子文件夹。\par
 
-For our new Pass, we create a new folder, called CountIR, in both locations. First, let's implement the CountIR.h header file:\par
+对于我们的新Pass，我们在两个位置都创建了一个名为CountIR的新文件夹。首先，让我们实现CountIR.h头文件:\par
 
 \begin{enumerate}
-	\item As usual, we need to make sure that the file can be included multiple times. Additionally, we need to include the Pass manager definition:
+	\item 像往常一样，需要确保文件可以多次包含。另外，我们需要包含Pass管理器定义:
 	\begin{lstlisting}[caption={}]
 		#ifndef LLVM_TRANSFORMS_COUNTIR_COUNTIR_H
 		#define LLVM_TRANSFORMS_COUNTIR_COUNTIR_H
@@ -19,53 +19,53 @@ For our new Pass, we create a new folder, called CountIR, in both locations. Fir
 		#include "llvm/IR/PassManager.h"
 	\end{lstlisting}
 	
-	\item Because we are inside the LLVM source, we put our new CountIR class into the llvm namespace. The class inherits from the PassInfoMixin template. This template only adds some boilerplate code, such as a name() method. It is not used the determine the type of Pass:
+	\item 因为在LLVM源代码中，所以可以将新的CountIR类放入LLVM命名空间中。该类继承自PassInfoMixin模板。这个模板只添加了一些样板代码，比如name()方法。不过，它不用于确定Pass的类型:
 	\begin{lstlisting}[caption={}]
 		namespace llvm {
 			class CountIRPass : public PassInfoMixin<CountIRPass> {
 			\end{lstlisting}
 			
-			\item At runtime, the run() method of the task will be called. The signature of the run() method determines the type of Pass. Here, the first argument is a reference to the Function type, so this is a function Pass:
+			\item 在运行时，任务将调用的run()方法。run()方法的签名决定了Pass的类型。这里，第一个参数是函数类型的引用，所以这是一个Pass函数:
 			\begin{lstlisting}[caption={}]
 				public:
 				PreservedAnalyses run(Function &F,
 				FunctionAnalysisManager &AM);
 			\end{lstlisting}
 			
-			\item Finally, we need to close the class, the namespace, and the header guard:
+			\item 最后，我们需要关合类、命名空间和头文件的宏:
 			\begin{lstlisting}[caption={}]
 			};
 		} // namespace llvm
 		#endif
 	\end{lstlisting}
-	Of course, the definition of our new Pass is so simple because we have only performed a trivial task.\par
+	当然，新Pass的定义非常简单，只执行了一项简单的任务。\par
 	
-	Let's continue with the implementation of the Pass inside the CountIIR.cpp file. LLVM supports the collection of statistical information about a Pass if compiled in debug mode. For our Pass, we will make use of this infrastructure.\par
+	让我们继续在CountIIR.cpp文件中实现Pass。如果在调试模式下编译，LLVM支持收集关于Pass的统计信息。对于我们的Pass，会使用这个基础设施。\par
 	
-	\item We begin the source by including our own header file and the required LLVM header files:
+	\item 通过包含我们自己的头文件和所需的LLVM头文件来开始编写源代码:
 	\begin{lstlisting}[caption={}]
 		#include "llvm/Transforms/CountIR/CountIR.h"
 		#include "llvm/ADT/Statistic.h"
 		#include "llvm/Support/Debug.h"
 	\end{lstlisting}
 	
-	\item To shorten the source, we tell the compiler that we are using the llvm namespace:
+	\item 为了缩短源代码，我们告诉编译器我们使用的是llvm名称空间:
 	\begin{lstlisting}[caption={}]
 		using namespace llvm;
 	\end{lstlisting}
 	
-	\item The built-in debug infrastructure of LLVM requires that we define a debug type, which is a string. This string is later shown in the printed statistic:
+	\item LLVM的内置调试基础设施要求我们定义一个调试类型，它是一个字符串。这个字符串稍后会显示在打印的统计信息中:
 	\begin{lstlisting}[caption={}]
 		#define DEBUG_TYPE "countir"
 	\end{lstlisting}
 	
-	\item We define two counter variables with the STATISTIC macro. The first parameter is the name of the counter variable, and the second parameter is the text that will be printed in the statistic:
+	\item 我们用STATISTIC宏定义两个计数器变量。第一个参数是计数器变量的名称，第二个参数是将在统计中打印的文本:
 	\begin{lstlisting}[caption={}]
 		STATISTIC(NumOfInst, "Number of instructions.");
 		STATISTIC(NumOfBB, "Number of basic blocks.");
 	\end{lstlisting}
 	
-	\item Inside the run() method, we loop through all of the basic blocks of the function and increment the corresponding counter. We do the same for all instructions of a basic block. To prevent a compiler from warning us about unused variables, we insert a no-op use of the I variable. Because we only count and do not alter the IR, we tell the caller that we have preserved all existing analyses:
+	\item 在run()方法中，我们循环遍历函数的所有基本块，并递增相应的计数器。我们对基本块的所有指令都做同样的操作。为了防止编译器对未使用的变量发出警告，我们插入了I变量做空操作。因为我们只计算IR而不更改IR，所以我们告诉调用者，我们保留了所有的分析:
 	\begin{lstlisting}[caption={}]
 		PreservedAnalyses
 		CountIRPass::run(Function &F,
@@ -83,32 +83,32 @@ For our new Pass, we create a new folder, called CountIR, in both locations. Fir
 	
 \end{enumerate}
 
-So far, we have implemented the functionality of our new Pass. We will reuse this implementation later for an out-of-tree Pass. For the solution inside the LLVM tree, we must change several files in LLVM to announce the existence of the new Pass:\par
+到目前为止，已经实现了新Pass的功能。稍后将对out-of-tree Pass重用此实现。对于LLVM树中的解决方案，我们必须更改LLVM中的几个文件来声明新的Pass:\par
 
 \begin{enumerate}
-	\item First, we need to add a CMakeLists.txt file to the source folder. This file contains the build instructions for a new LLVM library name, LLVMCountIR. The new library needs to link against the LLVM Support component because we use the debug and statistic infrastructure, and against the LLVM Core component, which contains the definition of the LLVM IR:
+	\item 首先，需要将CMakeLists.txt文件添加到源文件夹。这个文件包含一个新的LLVM库名称LLVMCountIR的构建说明。新库需要链接到LLVM Support组件，因为我们使用了调试和统计基础设施，还需要链接到LLVM Core组件，其中包含LLVM IR的定义:
 	\begin{tcolorbox}[colback=white,colframe=black]
 		add\underline{~}llvm\underline{~}component\underline{~}library(LLVMCountIR \\
 		\hspace*{0.5cm}CountIR.cpp \\
 		\hspace*{0.5cm}LINK\underline{~}COMPONENTS Core Support )
 	\end{tcolorbox}
 	
-	\item In order to make this new library part of the build, we need to add the folder into the CMakeLists.txt file of the parent folder, which is the llvm-project/llvm/lib/Transforms/CMakeList.txt file. Then, add the following line:
+	\item 为了使这个新的库成为构建的一部分，我们需要将这个文件夹添加到父文件夹的CMakeList.txt文件中，即llvm-project/llvm/lib/Transforms/CMakeList.txt文件。然后，添加以下行:
 	\begin{tcolorbox}[colback=white,colframe=black]
 		add\underline{~}subdirectory(CountIR)
 	\end{tcolorbox}
 	
-	\item The PassBuilder class needs to know about our new Pass. To do this, we add the following line into the include section of the llvm-project/llvm/lib/Passes/PassBuilder.cpp file:
+	\item PassBuilder类需要知道我们的新Pass。为此，在llvm-project/llvm/lib/Passes/PassBuilder.cpp文件的include部分添加以下代码:
 	\begin{lstlisting}[caption={}]
 		#include "llvm/Transforms/CountIR/CountIR.h
 	\end{lstlisting}
 	
-	\item As the last step, we need to update the Pass registry, which is in thellvmproject/llvm/lib/Passes/PassRegistry.def file. Look for the section in which function Passes are defined, for example, by searching for the FUNCTION\underline{~}PASS macro. Inside this section, you add the following line:
+	\item 最后一步，我们需要更新Pass注册表，它位于ellvmproject/llvm/lib/Passes/PassRegistry.def文件中。查找定义Pass函数的部分，例如：通过搜索function \underline{~}PASS宏。在本节中，需要添加以下行:
 	\begin{lstlisting}[caption={}]
 		FUNCTION_PASS("countir", CountIRPass())
 	\end{lstlisting}
 	
-	\item We have now made all the necessary changes. Follow the build instructions from Chapter 1, Installing LLVM, in the Building with CMake section, to recompile LLVM. To test the new Pass, we store the following IR code inside the demo.ll file in our build folder. The code has two functions and, in sum, three instructions and two basic blocks:
+	\item 我们现在已经做了所有必要的改变。按照第1章的构建说明，使用CMake重新编译LLVM。为了测试新的Pass，我们在演示中存储以下IR代码。Ll文件在构建文件夹中。代码有两个函数，三个指令和两个基本块:
 	\begin{tcolorbox}[colback=white,colframe=black]
 		define internal i32 @func() \{ \\
 		\hspace*{0.5cm}ret i32 0 \\
@@ -120,7 +120,7 @@ So far, we have implemented the functionality of our new Pass. We will reuse thi
 		\}
 	\end{tcolorbox}
 	
-	\item We can use the new Pass with the opt utility. To run the new Pass, we will utilize the \verb|--|passes="countir" option. To get the statistical output, we need to add the \verb|--|stats option. Because we do not need the resulting bitcode, we also specify the \verb|--|disable-output option:
+	\item 我们可以通过opt实用程序使用新的Pass。要运行新的Pass，我们要使用\verb|--|passes="countir"选项。要获得统计输出，我们需要添加\verb|--|stats选项。 Because 因为我们不需要生成的比特码，所以我们也指定了 \verb|--|disable-output选项:
 	\begin{tcolorbox}[colback=white,colframe=black]
 		\$ bin/opt \verb|--|disable-output \verb|--|passes="countir" \verb|--|stats  \\
 		demo.ll \\
@@ -133,23 +133,22 @@ So far, we have implemented the functionality of our new Pass. We will reuse thi
 		3 countir - Number of instructions.
 	\end{tcolorbox}
 	
-	\item We run our news Pass, and the output matches our expectations. We have successfully extended LLVM!
+	\item 我们运行我们的新Pass，其输出符合期望。我们已经成功扩展了LLVM!
 	
 \end{enumerate}
 
-Running a single Pass helps with debugging. With the –-passes option, you cannot only name a single Pass but describe a whole pipeline. For example, the default pipeline for optimization level 2 is named default<O2>. You can run the countir Pass before the default pipeline with the –-passes="module(countir),default<O2>" argument. The Pass names in such a pipeline description must be of the same type. The default pipeline is a module Pass and our countir Pass is a function Pass. To create a module pipeline from both, first, we must create a module Pass containing the countir Pass. That is done with module(countir). You can add more function Passes to this module Pass by specifying them in a comma-separated list. In the same way, the module Passes can be combined. To study the effects of this, you can use the inline and countir Passes: running them in a different order, or as a module Pass, will give you a different statistical output.\par
+运行单个Pass有助于调试。使用\verb|--|passes选项，不仅可以命名单个Pass，还可以描述整个流水。例如，优化级别2的默认管道名为default<O2>。可以使用\verb|--|passes="module(countir),default<O2>"参数在默认管道之前运行countir Pass。这样的流水描述中的Pass名称必须是相同类型的。默认的流水是一个模块Pass，我们的countir Pass是一个Pass函数。要从两者创建模块管道，首先，必须创建一个包含countir Pass的Pass模块。通过模块(countir)可以完成。通过在逗号分隔的列表中指定函数，可以向模块Pass中添加更多的Pass函数。以同样的方式，可以组合Pass模块。想要研究效果的话，可以使用内联和countir Pass:以不同的顺序运行它们，或者作为Pass模块，结果会是不同的统计输出。。\par
 
-Adding a new Pass to the LLVM source tree makes sense if you plan to publish your Pass as a part of LLVM. If you do not plan to do this, or if you want to distribute your Pass independently of LLVM, then you can create a Pass plugin. In the next section, we will view the steps to do this.\par
+如果您计划将Pass作为LLVM的一部分发布，那么向LLVM源树中添加一个新的Pass是有意义的。如果不打算这样做，或者想独立于LLVM分发Pass，那么可以创建一个Pass插件。在下一节中，我们将查看执行此操作的步骤。\par
 
 
 \hspace*{\fill} \par %插入空行
-\textbf{Adding a new Pass as a plugin}
+\textbf{添加一个新的Pass作为插件}
 
-To provide a new Pass as a plugin, we will create a new project that uses LLVM:\par
+为了提供一个新的Pass作为插件，我们将创建一个使用LLVM的新项目:\par
 
 \begin{enumerate}
-	\item Let's begin by creating a new folder, called countirpass, in our source folder. The 
-	folder will have the following structure and files:
+	\item 我们首先在源文件夹中创建一个名为countirpass的文件夹。该文件夹将具有以下结构和文件:
 	\begin{tcolorbox}[colback=white,colframe=black]
 		|\verb|--| CMakeLists.txt \\
 		|\verb|--| include \\
@@ -159,7 +158,7 @@ To provide a new Pass as a plugin, we will create a new project that uses LLVM:\
 		\hspace*{0.8cm}|\verb|--| CountIR.cpp
 	\end{tcolorbox}
 	
-	\item Note that we have reused the functionality from the previous section, with some small adaptions. The CountIR.h header file is now in a different location, so we change the name of the symbol that is used as a guard. We also do not use the llvm namespace, because we are now outside the LLVM source. As a result of this change, the header file becomes the following:
+	\item 注意，我们重用了前一节中的功能，并进行了一些调整。CountIR.h头文件现在位于不同的位置，因此我们更改了用作保护宏的名称。我们也不使用llvm名称空间，因为我们现在在llvm源之外。头文件如下所示:
 	\begin{lstlisting}[caption={}]
 		#ifndef COUNTIR_H
 		#define COUNTIR_H
@@ -177,17 +176,17 @@ To provide a new Pass as a plugin, we will create a new project that uses LLVM:\
 		#endif
 	\end{lstlisting}
 	
-	\item We can copy the CountIR.cpp implementation file from the previous section. Small changes are needed here, too. Because the path of our header file has changed, we need to replace the include directive with the following:
+	\item 我们可以复制上一节中的CountIR.cpp实现文件。这里也需要一些小的变动。因为头文件的路径已经改变了，需要用下面的代码替换include指令:
 	\begin{lstlisting}[caption={}]
 		#include "CountIR.h"
 	\end{lstlisting}
 	
-	\item We also need to register the new Pass at the Pass builder. This happens when the plugin is loaded. The Pass plugin manager calls the special function, llvmGetPassPluginInfo(), which performs the registration. For this implementation, we require two additional include files:
+	\item 我们还需要在Pass构建器中注册新的Pass。当加载插件时就会发生这种情况。Pass插件管理器调用特殊函数llvmGetPassPluginInfo()，该函数会执行注册。对于这个实现，我们需要额外的包含两个文件:
 	\begin{lstlisting}[caption={}]
 		#include "llvm/Passes/PassBuilder.h"
 		#include "llvm/Passes/PassPlugin.h"
 	\end{lstlisting}
-	The user specifies the Passes to run on the command line with the \verb|–-|passes option. The PassBuilder class extracts the Pass names from the string. In order to create an instance of the named Pass, the PassBuilder class maintains a list of callbacks. Essentially, the callbacks are called with the Pass name and a Pass manager. If the callback knows the Pass name, then it adds an instance of this Pass to the Pass manager. For our Pass, we need to provide such a callback function:
+	用户使用verb|–-|passes选项指定要在命令行上运行的Pass。PassBuilder类从字符串中提取Pass名称。为了创建一个名为Pass的实例，PassBuilder类维护一个回调列表。本质上，调用回调时使用Pass名称和Pass管理器。如果回调知道Pass名称，那么将此Pass的一个实例添加到Pass管理器中。对于Pass，我们需要提供这样一个回调函数:
 	\begin{lstlisting}[caption={}]
 		bool PipelineParsingCB(
 		StringRef Name, FunctionPassManager &FPM,
@@ -200,14 +199,14 @@ To provide a new Pass as a plugin, we will create a new project that uses LLVM:\
 		}
 	\end{lstlisting}
 	
-	\item Of course, we need to register this function as the PassBuilder instance. After the plugin is loaded, a registration callback is called for exactly this purpose. Our registration function is as follows:
+	\item 当然，我们需要将这个函数注册为PassBuilder实例。加载插件后，注册回调函数就是为了这个目的。我们的注册功能如下:
 	\begin{lstlisting}[caption={}]
 		void RegisterCB(PassBuilder &PB) {
 			PB.registerPipelineParsingCallback(PipelineParsingCB);
 		}
 	\end{lstlisting}
 	
-	\item Finally, each plugin needs to provide the mentioned llvmGetPassPluginInfo() function. This function returns a structure with four elements: the LLVM plugin API version used by our plugin, a name, the version number of the plugin, and the registration callback. The plugin API requires that the function uses the extern "C" convention. This is to avoid problems with C++ name mangling. The function is very simple:
+	\item 最后，每个插件都需要提供前面提到的llvmGetPassPluginInfo()函数。这个函数返回一个包含四个元素的结构:我们的插件使用的LLVM插件API版本、一个名称、插件的版本号和注册回调。插件API要求函数使用extern“C”。这是为了避免C++名称混乱的问题。功能非常简单:
 	\begin{lstlisting}[caption={}]
 		extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_
 		WEAK
@@ -216,7 +215,7 @@ To provide a new Pass as a plugin, we will create a new project that uses LLVM:\
 				RegisterCB};
 		}
 	\end{lstlisting}
-	The implementation of one separate function for each callback helps us to understand what is going on. If your plugin provides several Passes, then you can extend the RegisterCB callback function to register all of the Passes. Often, you can find a very compact approach. The following llvmGetPassPluginInfo() function combines PipelineParsingCB(), RegisterCB(), and llvmGetPassPluginInfo() from earlier into a single function. It does so by making use of lambda functions:
+	为每个回调函数实现一个单独的函数有助于我们理解发生了什么。如果你的插件提供了几个Pass，那么可以扩展RegisterCB回调函数来注册所有Pass。通常，您可以找到一种非常紧凑的方法。下面的llvmGetPassPluginInfo()函数将前面的PipelineParsingCB()、RegisterCB()和llvmGetPassPluginInfo()组合成一个函数，并通过Lambda函数来实现:
 	\begin{lstlisting}[caption={}]
 		extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_
 		WEAK
@@ -238,13 +237,13 @@ To provide a new Pass as a plugin, we will create a new project that uses LLVM:\
 		}
 	\end{lstlisting}
 	
-	\item Now, we only need to add the build files. The lib/CMakeLists.txt file contains just one command to compile the source file. The LLVM-specific command, add\underline{~}llvm\underline{~}library(), ensures that the same compiler flags that were used to build LLVM are utilized:
+	\item 现在，只需要添加构建文件。这个lib/CMakeLists.txt文件只包含一个编译源文件的命令。特定于llvm的命令add\underline{~}llvm\underline{~}library()确保使用了与构建llvm时相同的编译器标志:
 	\begin{tcolorbox}[colback=white,colframe=black]
 		add\underline{~}llvm\underline{~}library(CountIR MODULE CountIR.cpp)
 	\end{tcolorbox}
-	The top-level CMakeLists.txt file is more complex.
+	顶层CMakeLists.txt文件更复杂。
 	
-	\item As usual, we set the required CMake version and the project name. Additionally, we set the LLVM\underline{~}EXPORTED\underline{~}SYMBOL\underline{~}FILE variable to ON. This is necessary to make the plugin work on Windows:
+	\item 通常，我们设置了所需的CMake版本和项目名称。另外，将LLVM\underline{~}EXPORTED\underline{~}SYMBOL\underline{~}FILE变量设置为ON。这是插件在Windows上工作的必要条件:
 	\begin{tcolorbox}[colback=white,colframe=black]
 		cmake\underline{~}minimum\underline{~}required(VERSION 3.4.3) \\
 		project(countirpass)\\
@@ -252,44 +251,44 @@ To provide a new Pass as a plugin, we will create a new project that uses LLVM:\
 		set(LLVM\underline{~}EXPORTED\underline{~}SYMBOL\underline{~}FILE ON)
 	\end{tcolorbox}
 	
-	\item Next, we look for the LLVM installation. We also print information about the found version to the console:
+	\item 接下来，安装LLVM。我们还要找到的版本信息，并打印到控制台:
 	\begin{tcolorbox}[colback=white,colframe=black]
 		find\underline{~}package(LLVM REQUIRED CONFIG) \\
 		message(STATUS "Found LLVM \$\{LLVM\underline{~}PACKAGE\underline{~}VERSION\}") \\
 		message(STATUS "Using LLVMConfig.cmake in: \$\{LLVM\underline{~}DIR\}")
 	\end{tcolorbox}
 	
-	\item Now, we can add the cmake folder from LLVM to the search path. We include the LLVM-specific files, ChooseMSVCCRT and AddLLVM, which provide additional commands:
+	\item 现在，可以将LLVM中的cmake文件夹添加到搜索路径中。包括了特定于llvm的文件ChooseMSVCCRT和AddLLVM，并提供了额外的命令:
 	\begin{tcolorbox}[colback=white,colframe=black]
 		list(APPEND CMAKE\underline{~}MODULE\underline{~}PATH \$\{LLVM\underline{~}DIR\}) \\
 		include(ChooseMSVCCRT) \\
 		include(AddLLVM)
 	\end{tcolorbox}
 	
-	\item The compiler needs to know about the required definitions and the LLVM paths:
+	\item 编译器需要知道所需的定义和LLVM的路径:
 	\begin{tcolorbox}[colback=white,colframe=black]
 		include\underline{~}directories("\$\{LLVM\underline{~}INCLUDE\underline{~}DIR\}") \\
 		add\underline{~}definitions("\$\{LLVM\underline{~}DEFINITIONS\}") \\
 		link\underline{~}directories("\$\{LLVM\underline{~}LIBRARY\underline{~}DIR\}")
 	\end{tcolorbox}
 	
-	\item Finally, we add our own include and source folders:
+	\item 最后，我们添加自己的include和source文件夹:
 	\begin{tcolorbox}[colback=white,colframe=black]
 		include\underline{~}directories(BEFORE include) \\
 		add\underline{~}subdirectory(lib)
 	\end{tcolorbox}
 	
-	\item Having implemented all of the required files, we can now create the build folder beside the countirpass folder. First, change to the build directory and create the build files:
+	\item 实现了所有必需的文件之后，我们现在可以在countirpass文件夹旁创建build文件夹了。首先，切换到构建目录并创建构建文件:
 	\begin{tcolorbox}[colback=white,colframe=black]
 		\$ cmake –G Ninja ../countirpass
 	\end{tcolorbox}
 	
-	\item Then, you can compile the plugin, as follows:
+	\item 然后，可以编译插件:
 	\begin{tcolorbox}[colback=white,colframe=black]
 		\$ ninja
 	\end{tcolorbox}
 	
-	\item You use the plugin with the opt utility, which is the modular LLVM optimizer and analyzer. Among other things, the opt utility produces an optimized version of the input file. To use the plugin with it, you need to specify an additional parameter to load the plugin:
+	\item 您使用插件与opt工具，这是模块化的LLVM优化器和分析器。其中，opt生成输入文件的优化版本。使用插件时，需要指定一个参数来加载插件:
 	\begin{tcolorbox}[colback=white,colframe=black]
 		\$ opt \verb|--|load-pass-plugin=lib/CountIR.so \\
 		\verb|--|passes="countir"$\setminus$ \\
@@ -298,9 +297,9 @@ To provide a new Pass as a plugin, we will create a new project that uses LLVM:\
 	
 \end{enumerate}
 
-The output is the same as the previous version. Congratulations; the Pass plugin works!\par
+输出与以前的版本相同。恭喜你，Pass插件工作了!\par
 
-So far, we have only created a Pass for the new Pass manager. In the next section, we will also extend the Pass for the old Pass manager.\par
+到目前为止，我们只为新的Pass管理器创建了一个Pass。在下一节中，我们还将扩展旧Pass管理器中的Pass。\par
 
 
 

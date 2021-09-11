@@ -1,15 +1,15 @@
-LLVM uses a series of Passes to optimize the intermediate representation (IR). A Pass performs an operation on a unit of IR, either a function or a module. The operation can be a transformation, which changes the IR in a defined way, or an analysis, which collects information such as dependencies. A series of Passes is called the Pass pipeline. The Pass manager executes the Pass pipeline on the IR that our compiler produces. Therefore, it is important that we know what the Pass manager does and how to construct a Pass pipeline. The semantics of a programming language might require the development of new Passes, and we must add these Passes to the pipeline.\par
+LLVM使用一系列Pass来优化中间表示(IR),通对IR的单元(函数或模块)执行操作。操作可以是转换(以定义的方式更改IR)，也可以是分析(收集依赖关系等信息)。一系列的Pass称为Pass流水线。Pass管理器在编译器生成的IR上执行Pass管道。因此，了解Pass管理器做什么以及如何构建Pass管道很重要。编程语言的语义可能需要开发新的Pass，所以必须将这些Pass添加到管道中。\par
 
-In this chapter, we will cover the following topics:\par
+本章中，我们将涵盖以下内容:\par
 
 \begin{itemize}
-	\item Introducing the LLVM Pass manager
-	\item Implementing a Pass using the new Pass manager
-	\item Adapting a Pass for use with the old Pass manager
-	\item Adding an optimization pipeline to your compiler
+	\item 介绍LLVM Pass管理器
+	\item 使用新的Pass管理器实现一个Pass
+	\item 使用旧的Pass管理器中使用Pass
+	\item 向编译器添加优化流水线
 \end{itemize}
 
-By the end of the chapter, you will know how to develop a new Pass and how to add it to a Pass pipeline. You will have also acquired the knowledge required to set up the Pass pipeline in your own compiler.\par
+本章结束时，将了解如何开发一个新的Pass，以及如何将它添加到Pass流水线中。还将了解如何在自己的编译器中设置Pass管道。\par
 
 
 
