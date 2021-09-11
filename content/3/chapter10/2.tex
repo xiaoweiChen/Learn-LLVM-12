@@ -1,7 +1,7 @@
 So far, we have only looked at ahead of time (AOT) compilers. These compilers compile the whole application. Only once the compilation is finished can the application run. If the compilation is performed at the runtime of the application, then the compiler is a JIT compiler. A JIT compiler has interesting use cases:\par
 
 \begin{itemize}
-\item Implementation of a virtual machine: A programming language can be translated to byte code with an AOT compiler. At runtime, a JIT compiler is used to compile the byte code to machine code. The advantage of this approach is that the byte code is hardware-independent, and thanks to the JIT compiler, there is no performance penalty compared to an AOT compiler. Java and C# use this model today, but the idea is really old: the USCD Pascal compiler from 1977 already used a similar approach.
+\item Implementation of a virtual machine: A programming language can be translated to byte code with an AOT compiler. At runtime, a JIT compiler is used to compile the byte code to machine code. The advantage of this approach is that the byte code is hardware-independent, and thanks to the JIT compiler, there is no performance penalty compared to an AOT compiler. Java and C\# use this model today, but the idea is really old: the USCD Pascal compiler from 1977 already used a similar approach.
 
 \item Expression evaluation: A spreadsheet application can compile often-executed expressions with a JIT compiler. This can speed up the financial simulations, for example. The LLVM debugger LLDB uses the approach to evaluate a source expression at debug time.
 

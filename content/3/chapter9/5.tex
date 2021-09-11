@@ -81,7 +81,7 @@ def SQSUMu : ArithLogicR<"sqsumu", GPR64Opnd, 1, II\underline{~}SQSUMU>, \\
 If you only aim to support the new instruction, then this definition is enough. Be sure to finish the definition with ; in this case. With the addition of a selection DAG pattern, you make the instruction available to the code generator. The instruction uses the two operand registers \$rs and \$rt and the destination register \$rd, all three defined by the ADD\underline{~}FM binary format class. In theory, the pattern to match is then simple: the value of each register is squared using the mul multiplication operator, and then the two products are added using the add operator and assigned to the destination register \$rd. The pattern gets a bit more complicated because, with the MIPS instruction set, the result of a multiplication is stored in a special register pair. To be usable, the result must be moved to a general-purpose register. During legalization of operations, the generic mul operator is replaced with the MIPS-specific MipsMult operation for the multiplication and the MipsMFLO operation to move the lower part of the result into a general-purpose register. We must take this into account when writing the pattern, which looks as follows:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
-{
+\{
 \hspace*{0.5cm}let Pattern = [(set GPR64Opnd:\$rd, \\
 \hspace*{4cm}(add (MipsMFLO (MipsMult \\
 \hspace*{4.5cm}GPR64Opnd:\$rs, \\
@@ -120,9 +120,9 @@ The LLVM projects use LIT, the LLVM Integrated Tester, as the testing tool. Basi
 This already shows part of the input and the command to run in an automated test case. To verify the result, you use the FileCheck tool. The output of llvm-mc is piped into this tool. Additionally, FileCheck reads the test case file. The test case file contains lines marked with the CHECK: keyword, after which the expected output follows. FileCheck tries to match these lines against the data piped into it. If no match is found, then an error is displayed. Place the sqsumu.s test case file with the following content into the llvm/test/MC/Mips directory:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
-# RUN: llvm-mc \%s -triple=mips64-linux-gnu -mattr=+sqsum $\setminus$ \\
-# RUN: \verb|--|show-encoding | FileCheck \%s \\
-# CHECK: sqsumu \$1, \$2, \$3 \# encoding: [0x70,0x43,0x08,0x28] \\
+\# RUN: llvm-mc \%s -triple=mips64-linux-gnu -mattr=+sqsum $\setminus$ \\
+\# RUN: \verb|--|show-encoding | FileCheck \%s \\
+\# CHECK: sqsumu \$1, \$2, \$3 \# encoding: [0x70,0x43,0x08,0x28] \\
 \\
 \hspace*{1cm}sqsumu \$1, \$2, \$3
 \end{tcolorbox}
@@ -181,7 +181,7 @@ define i64 @hyposquare(i64 \%a, i64 \%b) \{ \\
 \hspace*{0.5cm}\%bsq = mul i64 \%b, \%b \\
 \hspace*{0.5cm}\%res = add i64 \%asq, \%bsq \\
 \hspace*{0.5cm}ret i64 \%res \\
-}
+\}
 \end{tcolorbox}
 
 As with the other test, you can run the test alone in the folder with the following command:\par

@@ -1,43 +1,42 @@
 
+为了允许源代码级调试，我们必须添加调试信息。LLVM中对调试信息的支持使用调试元数据来描述源语言的类型和其他静态信息，以及跟踪变量值的内在特性。LLVM核心库在Unix系统上以DWARF格式生成调试信息，在Windows系统上以PDB(Protein Data Bank)格式生成调试信息。我们将在下一节中查看其总体结构。\par
 
 \hspace*{\fill} \par %插入空行
-\textbf{Understanding the general structure of debug metadata}
+\textbf{了解调试元数据的结构}
 
-To allow source-level debugging, we have to add debug information. Support for debug information in LLVM uses debug metadata to describe the types of the source language and other static information, and an intrinsic to track variable values. The LLVM core libraries generate debug information in DWARF format on Unix systems and in Protein Data Bank (PDB) format for Windows. We take a look at the general structure in the next section.\par
+为了描述静态结构，LLVM以类似于用于基于类型的分析的元数据的方式使用元数据。静态结构描述文件、编译单元、函数、词法块和使用的数据类型。\par
 
-To describe the static structure, LLVM uses metadata in a similar way to the metadata for type-based analysis. The static structure describes the file, the compilation unit, functions, lexical blocks, and the used data types.\par
-
-The main class we use is llvm::DIBuilder, and we need to use the llvm/IR/DIBuilder include file to get the class declaration. This builder class provides an easyto-use interface to create the debug metadata. The metadata is later either added to LLVM objects such as global variables or is used in calls to debug intrinsics. Important metadata that the builder class can create is listed here:\par
+我们使用的类是llvm::DIBuilder，我们需要使用llvm/IR/DIBuilder中的文件来获得类声明。这个构建器类，提供了易于使用的接口来创建可调试的元数据。元数据要么添加到LLVM对象(如全局变量)中，要么在调试时使用调试指令。这里列出了构建器类可以创建的元数据:\par
 
 \begin{itemize}
-\item lvm::DIFile: This describes a file using the filename and the absolute path of the directory containing the file. You use the createFile() method to create it. A file can contain the main compilation unit or it could contain imported declarations.
+\item lvm::DIFile: 使用文件名和包含该文件的目录的绝对路径来描述一个文件，可以使用createFile()方法来创建。一个文件可以包含主编译单元，也可以包含导入的声明。
 
-\item llvm::DICompileUnit: This is used to describe the current compilation unit. Among other things, you specify the source language, a compiler-specific producer string, whether optimizations are enabled or not, and—of course—the DIFile in which the compilation unit resides. You create it with a call to createCompileUnit().
+\item llvm::DICompileUnit: 这用于描述当前的编译单元。除此之外，还需要指定源语言、特定于编译器的生成器字符串、是否启用了优化，当然还有编译单元所在的DIFile。您可以通过调用createCompileUnit()来创建。
 
-\item llvm::DISubprogram: This describes a function. Important information is the scope (usually a DICompileUnit or a DISubprogram for a nested function), the name of the function, the mangled name of the function, and the function type. It is created with a call to createFunction().
+\item llvm::DISubprogram: 描述一个函数。其中重要的信息有：作用域(通常是嵌套函数的DICom\allowbreak pileUnit或DISubprogram)、函数名、修饰过的函数名和函数类型。它通过调用createFunction()来创建。
 
-\item llvm::DILexicalBlock: This describes a lexical block that models the block scoping found in many high-level languages. You create this with a call to createLexicalBlock().
+\item llvm::DILexicalBlock: 描述了如何在语言中对块作用域进行建模的词汇块。可以通过调用createLexicalBlock()来创建。
 
 \end{itemize}
 
-LLVM makes no assumptions about the language your compiler translates. As a consequence, it has no information about the data types of the language. To support source-level debugging, especially displaying variable values in a debugger, type information must be added too. Important constructs are listed here:\par
+LLVM对编译器翻译的语言没有任何假设。因此，没有关于该语言的数据类型的信息。要支持源代码级调试，还要在调试器中显示变量值，就必须添加类型信息。这里列出了重要的结构:\par
 
 \begin{itemize}
-\item The createBasicType() function, returning a pointer to the llvm::DIBasicType class, creates the metadata to describe a basic type such as INTEGER in tinylang or int in C++. Besides the name of the type, the required parameters are the size in bits and the encoding—for example, whether it is a signed or unsigned type.
+\item createBasicType()函数返回一个指向llvm::DIBasicType类的指针，创建元数据来描述基本类型，如tinylang中的INTEGER或C++中的int。除了类型的名称之外，所需参数是以位为单位大小和编码的。例如，有符号类型还是无符号类型。
 
-\item There are several ways to construct the metadata for composite data types, represented by the llvm::DIComposite class. You use createArrayType(), createStructType(), createUnionType(), and createVectorType() functions to instantiate the metadata for array, struct, union, and vector data types. The functions require the parameter you expect—for example, the base type and the number of subscriptions for an array type, or a list of the field members of a struct type.
+\item 有几种方法可以构造复合数据类型的元数据，用llvm::DIComposite类表示。可以使用createArr\allowbreak ayType()、createStructType()、createUnionType()和createVectorType()函数实例化数组、结构、联合和向量数据类型的元数据。这些函数需要相应的参数—例如，数组类型的基类型和订阅数，或者结构类型的字段成员列表。
 
-\item There are also methods to support enumerations, templates, classes, and so on.
+\item 还有一些方法支持枚举、模板、类等。
 \end{itemize}
 
-The list of functions shows you that you have to add every detail of the source language to the debug information. Let's assume your instance of the llvm::DIBuilder class is called DBuilder. Assume further that you have some tinylang source in a file called File.mod in the /home/llvmuser folder. Inside the file is a Func():INTEGER function at line 5, which contains a VAR i:INTEGER local declaration at line 7. Let's create the metadata for this, beginning with the information for the file. You need to specify the filename and the absolute path of the folder in which the file resides, as illustrated in the following code snippet:\par
+函数列表展示了必须将源语言的每个细节添加到调试信息中。假设llvm::DIBuilder类的实例名为DBuilder。进一步假设有一些tinylang源文件，一个名为File.mod的文件在/home/llvmuser文件夹下。文件中第5行是一个Func():INTEGER函数，在第7行包含一个VAR i:INTEGER局部声明。我们为它创建元数据，从文件的信息开始。这里需要指定文件所在文件夹的文件名和绝对路径，如下面的代码片段所示:\par
 
 \begin{lstlisting}[caption={}]
 llvm::DIFile *DbgFile = DBuilder.createFile("File.mod",
 											"/home/llvmuser");
 \end{lstlisting}
 
-The file is a module in tinylang and therefore is the compilation unit for LLVM. This carries a lot of information, as can be seen in the following code snippet:\par
+该文件是tinylang中的一个模块，因此是LLVM的编译单元。这包含了很多信息:\par
 
 \begin{lstlisting}[caption={}]
 bool IsOptimized = false;
@@ -52,13 +51,13 @@ llvm::DICompileUnit *DbgCU = DBuilder.createCompileUnit(
 	EmissionKind);
 \end{lstlisting}
 
-The debugger needs to know the source language. The DWARF standard defines an enumeration with all the common values. A disadvantage is that you cannot simply add a new source language. To do that, you have to create a request through the DWARF committee. Be aware that the debugger and other debug tools also need support for a new language—just adding a new member to the enumeration is not enough.\par
+调试器需要知道源语言。DWARF标准定义了一个包含所有公共值的枚举，就是不能简单地添加新的源语言中。为此，必须通过DWARF代理创建一个请求。请注意，调试器和其他调试工具也需要对新语言的支持，所以仅仅向枚举添加一个新成员是不够的。\par
 
-In many cases, it is sufficient to choose a language that is close to your source language. In the case of tinylang this is Modula-2, and we use DW\underline{~}LANG\underline{~}Modula2 for language identification. A compilation unit resides in a file, which is identified by the DbgFile variable we created before. The debug information can carry information about the producer. This can be the name of the compiler and the version information. Here, we just pass a tinylang string. If you do not want to add this information, then you can simply use an empty string as a parameter.\par
+许多情况下，选择一种与源语言相近的语言就够了。tinylang中，我们选择了Modula-2，使用DW\underline{~}LANG\underline{~}Modula2来进行语言识别。编译单元存放在一个文件中，该文件由之前创建的DbgFile变量标识，调试信息可以携带关于生成器的信息。这可以是编译器的名称和版本信息。这里，只是传递一个tinylang字符串。如果不想添加此信息，那么可以简单地使用空字符串作为参数。\par
 
-The next set of information includes an IsOptimized flag, which should indicate if the compiler has turned optimization on or not. Usually, this flag is derived from the –O command-line switch. You can pass additional parameter settings to the debugger with the CUFlags parameter. This is not used here, and we pass an empty string. We do not use Objective-C, so we pass 0 as the Objective-C runtime version. Normally, debug information is embedded in the object file we are creating. If we want to write the debug information into a separate file, then the SplitName parameter must contain the name of this file; otherwise, just pass an empty string. And lastly, you can define the level of debug information that should be emitted. The default setting is full debug information, indicated by the use of the FullDebug enum value. You can also choose the LineTablesOnly value if you want to emit only line numbers, or the NoDebug value for no debug information at all. For the latter, it is better to not create debug information in the first place.\par
+下一组信息包括IsOptimized标志，它指示编译器是否打开了优化。通常，这个标志派生自-O选项，可以使用CUFlags参数将附加参数设置传递给调试器。这里不使用这个，我们传递一个空字符串。这里不使用Objective-C，所以传递0作为Objective-C的运行时版本。通常，调试信息嵌入到我们创建的对象文件中。如果我们想要将调试信息写入一个单独的文件，那么SplitName参数必须包含该文件的名称;否则，只需传递一个空字符串。最后，可以定义应该发出的调试信息的级别。默认设置是完整的调试信息，通过使用FullDebug枚举值来表示。如果只想知道行号信息，还可以选择LineTablesOnly值，或者选择NoDebug值来表示根本没有调试信息。对于后者，最好一开始就不创建调试信息。\par
 
-Our minimalistic source uses only the INTEGER data type, which is a signed 32-bit value. Creating the metadata for this type is straightforward, as can be seen in the following code snippet:\par
+我们的最小源代码只使用INTEGER数据类型，是一个有符号的32位值。为这种类型创建元数据很简单:\par
 
 \begin{lstlisting}[caption={}]
 llvm::DIBasicType *DbgIntTy =
@@ -66,7 +65,7 @@ llvm::DIBasicType *DbgIntTy =
 									llvm::dwarf::DW_ATE_signed);
 \end{lstlisting}
 
-To create the debug metadata for the function, we have to create a type for the signature first, and then the metadata for the function itself. This is similar to the creation of IR for a function. The signature of the function is an array with all the types of the parameters in source order and the return type of the function as the first element at index 0. Usually, this array is constructed dynamically. In our case, we can also construct the metadata statically. This is useful for internal functions—for example, for module initializing. Typically, the parameters of these functions are always known, and the compiler writer can hardcode them. The code is shown in the following snippet:\par
+要为函数创建调试元数据，必须为签名创建类型，然后为函数本身创建元数据。这类似于为函数创建IR。函数的签名是一个数组，其中参数的所有类型按源顺序排列，函数的返回类型作为索引0处的第一个元素。通常，这个数组是动态构造的。本例中，我们还可以静态地构造元数据。这对于内部函数非常有用——例如，初始化模块。通常，这些函数的参数是已知的，编译器编写者可以对它们进行硬编码:\par
 
 \begin{lstlisting}[caption={}]
 llvm::Metadata *DbgSigTy = {DbgIntTy};
@@ -76,9 +75,9 @@ llvm::DISubroutineType *DbgFuncTy =
 						DBuilder.createSubroutineType(DbgParamsTy);
 \end{lstlisting}
 
-Our function has an INTEGER return type and no further parameters, so the DbgSigTy array contains only the pointer to the metadata for this type. This static array is turned into a type array, which is then used to create the type for the function.\par
+我们的函数有一个INTEGER返回类型，没有其他参数，所以DbgSigTy数组只包含指向该类型元数据的指针。该静态数组转换为类型数组，然后使用该类型数组创建函数的类型。\par
 
-The function itself requires more data, as follows:\par
+函数本身需要更多的数据:\par
 
 \begin{lstlisting}[caption={}]
 unsigned LineNo = 5;
@@ -90,39 +89,40 @@ llvm::DISubprogram *DbgFunc = DBuilder.createFunction(
 	llvm::DISubprogram::SPFlagLocalToUnit);
 \end{lstlisting}
 
-A function belongs to a compilation unit, in our case stored in the DbgCU variable. We need to specify the name of the function in the source file, which is Func, and the mangled name is stored in the object file. This information helps the debugger to locate the machine code of the function later on. The mangled name, based on the rules of tinylang, is \underline{~}t4File4Func. We also have to specify the file that contains the function.\par
+一个函数属于一个编译单元，我们的例子中存储在DbgCU变量中。需要在源文件中指定函数的名称，即Func，而修饰的名存储在对象文件中。此信息有助于调试器稍后定位函数的机器码。根据tinylang的规则，修饰的名为\underline{~}t4File4Func。我们还必须指定包含该函数的文件。\par
 
-This may sound surprising at first, but think of the include mechanism in C and C++: a function can be stored in a different file, which is then included with \#include in the main compilation unit. Here, this is not the case, and we use the same file as the one the compilation unit uses. Next, the line number of the function and the function type are passed. The line number of the function may not be the line number where the lexical scope of the function begins. In this case, you can specify a different ScopeLine. A function also has protection, which we specify here with the FlagPrivate value to indicate a private function. Other possible values are FlagPublic and FlagProtected, for public and protected functions.\par
+这听起来可能令人惊讶，但考虑一下C和C++中的包含机制:一个函数可以存储在不同的文件中，然后在主编译单元中用\#include包含该函数。这里，情况并非如此，我们使用的文件与编译单元使用的文件相同。接下来，传递函数的行号和函数类型。函数的行号可能不是函数词法作用域开始的行号。在这种情况下，可以指定一个不同的ScopeLine。函数也有保护，在这里用FlagPrivate值指定它来指示一个私有函数。其他可能的值是FlagPublic和FlagProtected，用于public和protected函数。\par
 
-Besides the protection level, there are other flags that can be specified here. For example, FlagVirtual indicates a virtual function, and FlagNoReturn indicates that the function does not return to the caller. You can find a complete list of possible values in the llvm/include/llvm/IR/DebugInfoFlags.def LLVM include file. And lastly, flags specific to a function can be specified. The most used one is the SPFlagLocalToUnit value, which indicates that the function is local to this compilation unit. Also often used is the MainSubprogram value, indicating that this function is the main function of the application. You can also find all possible values in the LLVM include file mentioned previously.\par
+除了保护级别，这里还可以指定其他标志。例如，FlagVirtual表示虚函数，而FlagNoReturn表示函数不返回给调用者。可以在llvm/include/llvm/IR/DebugInfoFlags.def中找到llvm需要包含文件的完整列表。最后，可以指定特定于函数的标志。最常用的是SPFlagLocalToUnit值，该值表明该函数是这个编译单元的本地函数。还经常使用的是MainSubprogram值，这表明该功能是应用程序的主要功能。还可以在前面提到的LLVM包括文件中找到所有可能的值。\par
 
-So far, we only created the metadata referring to static data. Variables are dynamic in nature, and we explore how to attach the static metadata to the IR code for accessing variables in the next section.\par
+到目前为止，我们只创建了引用静态数据的元数据。变量本质上是动态的，下一节中，我们将探讨如何将静态元数据附加到IR代码，以及对变量的访问。\par
 
 \hspace*{\fill} \par %插入空行
-\textbf{Tracking variables and their values}
+\textbf{跟踪变量}
 
-To be useful, the type metadata described in the last section needs to be associated with the variables of the source program. For a global variable, this is pretty easy. The createGlobalVariableExpression() function of the llvm::DIBuilder class creates the metadata to describe a global variable. This includes the name of the variable in the source, the mangled name, the source file, and so on. A global variable in LLVM IR is represented by an instance of the GlobalVariable class. This class has an addDebugInfo() method, which associates the metadata node returned from createGlobalVariableExpression() with the global variable.\par
+上一节中描述的类型元数据需要与源程序的变量相关联。对于全局变量，这非常简单。DIBuilder类的createGlobalVariableExpression()函数创建了描述全局变量的元数据。这包括源文件中变量的名称、修饰的名称、源文件等等。LLVM IR中的全局变量由GlobalVariable类的一个实例表示。这个类有一个addDebugInfo()方法，它将createGlobalVariableExpression()返回的元数据节点与全局变量关联起来。\par
 
-For local variables, we need to take another approach. LLVM IR does not know a class representing a local variable; it knows only about values. The solution the LLVM community developed is to insert calls to intrinsic functions into the IR code of a function. An intrinsic function is a function that LLVM knows about and therefore can do some magic with it. In most cases, intrinsic functions do not result in a subroutine call at the machine level. Here, the function call is a convenient vehicle to associate the metadata with a value.\par
+对于局部变量，我们需要采用另一种方法。LLVM IR不知道一个表示局部变量的类型，它只知道值。LLVM社区开发的解决方案是将对内在函数的调用插入到函数的IR代码中。内在函数是LLVM知道的函数，因此可以对其进行一些修改。大多数情况下，内在函数不会导致机器级别的例程调用。这里，函数调用是将元数据与值关联起来的工具。\par
 
-The most important intrinsic functions for debug metadata are llvm.dbg.declare and llvm.dbg.value. The former is called once to declare the address of a local variable, while the latter is called whenever a local variable is set to a new value.\par
+调试元数据最重要的内部函数是llvm.dbg.declare和llvm.dbg.value。调用前者来声明局部变量的地址，调用后者将变量设置为新值时。\par
 
-\begin{tcolorbox}[colback=blue!5!white,colframe=blue!75!black, title=Future LLVM versions will replace llvm.dbg.declare with the llvm.dbg.addr intrinsic]
-The llvm.dbg.declare intrinsic function makes a very strong assumption: the address of the variable described in the call to the intrinsic is valid throughout the lifetime of the function. This assumption makes it very hard to preserve debug metadata during optimization because the real storage address can change. To solve this, a new intrinsic called llvm.dbg.addr was designed. This intrinsic takes the same parameters as llvm.dbg.declare, but it has less strict semantics. It still describes the address of a local variable, and a frontend should generate exactly one call to it.\par
+\begin{tcolorbox}[colback=blue!5!white,colframe=blue!75!black, title=以后的LLVM版本将用llvm.dbg.addr指令替换llvm.dbg.declare]
+	
+\hspace*{0.7cm}llvm.dbg.declare内在函数做了一个非常大胆的假设:内在函数调用中描述的变量的地址，在函数的整个生命周期内都是有效的。这种假设使得在优化期间很难保留调试元数据，因为实际存储地址可能会改变。为了解决这一问题，设计了一种新的指令llvm.dbg.addr。这个指令的参数与llvm.dbg.declare相同，但是它的语义没有llvm.dbg.declare那么严格。它仍然描述一个局部变量的地址，前端应该生成对它的调用。\par
 
-During optimization, passes can replace this intrinsic with (possibly multiple) calls to llvm.dbg.value and/or llvm.dbg.addr in order to preserve the debug information.\par
+\hspace*{0.7cm}优化期间，pass可以用(可能是多个)对llvm.dbg.value和/或llvm.dbg.addr的调用来替换这个原有的调用，以保留调试信息。\par
 
-The llvm.dbg.declare intrinsic will be deprecated and later removed 
-when work on llvm.dbg.addr is finished.
+\hspace*{0.7cm}当对llvm.dbg.addr的构建工作完成时，llvm.dbg.declare指令将弃用，之后将删除该指令。
+
 \end{tcolorbox}
 
-How does it work? The LLVM IR representation and the programmatic creation via the llvm::DIBuilder class differ a bit, so we look at both. Continuing our example from the previous section, we allocate local storage for the i variable inside the Func function with the alloca instruction, as follows:\par
+它是如何工作的呢?LLVM IR的表示和通过LLVM::DIBuilder类进行的编程创建略有不同，因此我们将两者都考虑。继续上一节的例子，我们使用alloca指令在Func函数中为i变量分配本地存储，如下所示:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 @i = alloca i32
 \end{tcolorbox}
 
-After that, we add a call to the llvm.dbg.declare intrinsic, like this:\par
+之后，我们对llvm.dbg.declare指令添加一个调用:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 call void @llvm.dbg.declare(metadata i32* \%i, \\
@@ -130,18 +130,18 @@ call void @llvm.dbg.declare(metadata i32* \%i, \\
 \hspace*{3cm}!DIExpression())
 \end{tcolorbox}
 
-The first parameter is the address to the local variable. The second parameter is the metadata describing the local variable, created by a call to either createAutoVariable() for a local variable or createParameterVariable() for a parameter of the llvm::DIBuilder class. The third parameter describes an address expression, which I explain later.\par
+第一个参数是局部变量的地址。第二个参数是本地变量的元数据，可以通过调用本地变量的createAutoVariable()或llvm::DIBuilder类的参数的createParameterVariable()创建的。第三个参数是地址表达式，稍后将对此进行解释。\par
 
-Let's implement the IR creation. You allocate the storage for the @i local variable with a call to the CreateAlloca() method of the llvm::IRBuilder<> class, as follows:\par
+来实现IR的创建，可以通过调用llvm::IRBuilder<>类的CreateAlloca()方法来为@i局部变量分配存储，如下所示:\par
 
 \begin{lstlisting}[caption={}]
 llvm::Type *IntTy = llvm::Type::getInt32Ty(LLVMCtx);
 llvm::Value *Val = Builder.CreateAlloca(IntTy, nullptr, "i");
 \end{lstlisting}
 
-The LLVMCtx variable is the used context class, and Builder is the used instance of the llvm::IRBuilder<> class.\par
+LLVMCtx变量是使用的上下文类，而Builder是llvm::IRBuilder<>类的使用实例。\par
 
-A local variable also needs to be described by metadata, as follows:\par
+局部变量也需要用元数据来描述:\par
 
 \begin{lstlisting}[caption={}]
 llvm::DILocalVariable *DbgLocalVar =
@@ -149,9 +149,9 @@ llvm::DILocalVariable *DbgLocalVar =
 								7, DbgIntTy);
 \end{lstlisting}
 
-Using the values from the previous section, we specify that the variable is part of the DbgFunc function, has the name i, is defined in the file named by DbgFile at line 7, and has a DbgIntTy type.\par
+使用上一节中的值，我们指定变量是DbgFunc函数的一部分，变量的名称为i，在第7行由DbgFile命名的文件中定义，变量的类型为DbgIntTy。\par
 
-Finally, we associate the debug metadata with the address of the variable using the llvm.dbg.declare intrinsic. Using llvm::DIBuilder shields you from all of the details of adding a call. The code is shown in the following snippet:\par
+最后，我们使用llvm.dbg.declare指令将调试元数据与变量的地址关联起来。使用llvm::DIBuilder可以屏蔽添加调用的细节:\par
 
 \begin{lstlisting}[caption={}]
 llvm::DILocation *DbgLoc =
@@ -162,15 +162,15 @@ DBuilder.insertDeclare(Val, DbgLocalVar,
 						Val.getParent());
 \end{lstlisting}
 
-Again, we have to specify a source location for the variable. An instance of llvm::DILocation is a container to hold the line and column of a location associated with a scope. The insertDeclare() method adds a call to the intrinsic function to the LLVM IR. As parameters it requires the address of the variable, stored in Val, and the debug metadata for the variable, stored in DbgValVar. We also pass an empty address expression and the debug location created before. As with a normal instruction, we need to specify into which basic block the call is inserted. If we specify a basic block, then the call is inserted at the end. Alternatively, we can specify an instruction, and the call is inserted before that instruction. We have the pointer to the alloca instruction, which is the last one that we inserted into the underlying basic block. So, we use this basic block, and the call gets appended after the alloca instruction.\par
+同样，我们必须为变量指定一个源位置。llvm::DILocation的实例是一个容器，用于保存与作用域关联的位置的行和列。insertDeclare()方法向LLVM IR添加了对固有函数的调用。作为参数，它需要变量的地址(存储在Val中)和变量的调试元数据(存储在DbgValVar中)。我们还传递一个空的地址表达式和之前创建的调试位置。与普通指令一样，需要指定将调用插入到哪个基本块中。如果指定了一个基本块，那么调用将在末尾插入。或者，可以指定一条指令，调用插入到该指令之前。我们有一个指向alloca指令的指针，它是插入底层基本块的最后一个指令。所以，我们使用这个基本块，调用附加在alloca之后的指令。\par
 
-If a value of a local variable changes, then a call to llvm.dbg.value must be added to the IR. You use the insertValue() method of llvm::DIBuilder to do so. This works similarly for llvm.dbg.addr. The difference is that instead of the address of the variable, now the new value is specified.\par
+如果局部变量的值发生了变化，则必须将对llvm.dbg.value的调用添加到IR中。可以使用llvm::DIBuilder的insertValue()来实现。这与llvm.dbg.addr的工作原理类似。不同之处在于，现在指定的不是变量的地址，而是新值。\par
 
-When we implemented the IR generation for functions, we used an advanced algorithm that mainly used values and avoided allocating storage for local variables. For adding debug information, this only means that we use llvm.dbg.value much more often than you see in Clang-generated IR.\par
+在实现函数的IR生成时，我们使用了一种高级算法，主要使用值，避免为局部变量分配存储空间。对于添加调试信息，这只意味着我们使用llvm.dbg.value的次数要比在clang生成的IR中多得多。\par
 
-What can we do if the variable does not have dedicated storage space but is part of a larger aggregate type? One situation where this can arise is with the use of nested functions. To implement access to the stack frame of the caller, you collect all used variables in a structure and pass a pointer to this record to the called function. Inside the called function, you can refer to the variables of the caller as if they were local to the function. What is different is that these variables are now part of an aggregate.\par
+如果变量没有专用的存储空间，但属于较大的聚合类型，该怎么办?可能出现这种情况的一种原因是使用嵌套函数。要实现对调用方堆栈框架的访问，需要收集结构中所有使用过的变量，并将指向该记录的指针传递给被调用的函数。在调用的函数内部，您可以引用调用方的变量，就像是函数的局部变量一样。不同的是，这些变量现在是整体的一部分。\par
 
-In the call to llvm.dbg.declare, you use an empty expression if the debug metadata describes the whole memory the first parameter is pointing to. If it instead describes only a part of the memory, then you need to add an expression indicating which part of the memory the metadata applies to. In the case of the nested frame, you need to calculate the offset into the frame. You need access to a DataLayout instance, which you can get from the LLVM module into which you are creating the IR code. If the llvm::Module instance is named Mod, the variable holding the nested frame structure is named Frame, being of type llvm::StructType, and you access the third member of the frame. This then gives you the offset of the member, as illustrated in the following code snippet:\par
+在对llvm.dbg.declare的调用中，如果调试元数据描述了第一个参数所指向的整个内存，则使用空表达式。如果它只描述内存的一部分，则需要添加一个表达式，指示元数据应用于内存的哪一部分。在嵌套的情况下，需要计算到帧的偏移量。需要访问DataLayout实例，您可以从创建IR代码的LLVM模块获取该实例。如果llvm::Module实例名为Mod，则包含嵌套框架结构的变量名为frame，类型为llvm::StructType，然后访问该框架的第三个成员。这样就可以得到成员的偏移量:\par
 
 \begin{lstlisting}[caption={}]
 const llvm::DataLayout &DL = Mod->getDataLayout();
@@ -178,9 +178,7 @@ uint64_t Ofs = DL.getStructLayout(Frame)
 				->getElementOffset(3);
 \end{lstlisting}
 
-The expression is created from a sequence of operations. To access the third member of 
-the frame, the debugger needs to add the offset to the base pointer. You need to create an 
-array and this information—for example, in this way:
+表达式是由一系列操作创建的。要访问Frame的第三个成员，调试器需要向基指针添加偏移量。需要创建一个数组和这个信息:
 
 \begin{lstlisting}[caption={}]
 llvm::SmallVector<int64_t, 2> AddrOps;
@@ -188,36 +186,36 @@ AddrOps.push_back(llvm::dwarf::DW_OP_plus_uconst);
 AddrOps.push_back(Offset);
 \end{lstlisting}
 
-From this array, you can create an expression that you then pass to llvm.dbg.declare instead of the empty expression, as follows:\par
+从这个数组中，可以创建一个表达式，然后传递给llvm.dbg.declare，而不是空表达式:\par
 
 \begin{lstlisting}[caption={}]
 llvm::DIExpression *Expr = DBuilder.createExpression(AddrOps);
 \end{lstlisting}
 
-You are not limited to this offset operation. DWARF knows many different operators, and you can create fairly complex expressions. You can find a complete list of operators in the llvm/include/llvm/BinaryFormat/Dwarf.def LLVM include file.\par
+您不受此偏移操作的限制。DWARF知道许多不同的操作符，所以可以创建相当复杂的表达式。可以在llvm/include/llvm/BinaryFormat/Dwarf.def文件中找到需要包含的LLVM文件操作符的完整列表。\par
 
-You are now able to create debug information for variables. To enable the debugger to follow the control flow in the source, you also need to provide line-number information, which is the topic of the next section.\par
+现在可以为变量创建调试信息。要使调试器能够跟踪源中的控制流，还需要提供行号信息，这是下一节的主题。\par
 
-
-\hspace*{\fill} \par %插入空行
-\textbf{Adding line numbers}
-
-A debugger allows a programmer to step line by line through an application. For this, the debugger needs to know which machine instructions belong to which line in the source code. LLVM allows a source location to be added to each instruction. In the previous section, we created location information of the llvm::DILocation type. A debug location has more information than just the line, column, and scope. If needed, the scope into which this line is inlined can be specified. It is also possible to indicate that this debug location belongs to implicit code—that is, code that the frontend has generated but that is not in the source code.\par
-
-Before it can be attached to an instruction, we must wrap the debug location in an llvm::DebugLoc object. To do so, you simply pass the location information obtained from the llvm::DILocation class to the llvm::DebugLoc constructor. With this wrapping, it is possible for LLVM to track the location information. While the location in the source obviously does not change, the generated machine code for a source-level statement or expression can be dropped during optimization. Encapsulation helps to deal with these possible changes.\par
-
-Adding line-number information mostly boils down to retrieving the line-number information from the AST and adding it to the generated instructions. The llvm::Instruction class has the setDebugLoc() method, which attaches the location information to the instruction.\par
-
-In the next section, we add the generation of debug information to our tinylang compiler.\par
 
 \hspace*{\fill} \par %插入空行
-\textbf{Adding debug support to tinylang}
+\textbf{添加行号}
 
-We encapsulate the generation of debug metadata in the new CGDebugInfo class. We put the declaration into the tinylang/CodeGen/CGDebugInfo.h header file and the definition into the tinylang/CodeGen/CGDebugInfo.cpp file.\par
+调试器允许程序员逐行调试应用程序。为此，调试器需要知道哪个机器指令属于源代码中的哪一行。LLVM允许在每个指令中添加一个源位置。上一节中，创建了llvm::DILocation类型的位置信息。调试位置包含的信息不仅仅是行、列和范围。如果需要，可以指定这一行内联到的范围。还可以指出此调试位置属于隐式代码，即前端生成的但不在源代码中的代码。\par
 
-The CGDebugInfo class has five important members. We need a reference to the code generator for the module, CGM, because we need to convert types from AST representation to LLVM types. Of course, we also need an instance of the llvm::DIBuilder class, called DBuilder, as in the previous sections. A pointer to the instance of the compile unit is also needed, and we store it in a member called CU.\par
+在将它附加到指令之前，必须将调试位置包装在llvm::DebugLoc对象中。为此，只需将从llvm::DILocation类获得的位置信息传递给llvm::DebugLoc构造函数。通过这种包装，LLVM可以跟踪位置信息。虽然源代码中的位置显然没有改变，但在优化期间可以删除为源代码级语句或表达式生成的机器码。封装有助于处理这些可能的更改。\par
 
-To avoid repeated creation of the debug metadata for types, we also add a map to cache this information. The member is called TypeCache. And lastly, we need a way to manage the scope information, for which we create a stack based on the llvm::SmallVector<> class, called ScopeStack. Thus we have the following code:\par
+添加行号信息主要可以归结为从AST检索行号信息并将其添加到生成的指令中。指令类有setDebugLoc()方法，将位置信息附加到指令上。\par
+
+在下一节中，我们将调试信息的生成添加到tinylang编译器中。\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{为tinylang添加调试支持}
+
+我们将调试元数据的生成封装在新的CGDebugInfo类中。把声明放到tinylang/CodeGen/CG\allowbreak DebugInfo.h头文件中，把定义放到tinylang/CodeGen/CGDebugInfo.cpp文件中。\par
+
+CGDebugInfo类有五个重要成员。我们需要引用模块CGM的代码生成器，因为我们需要将类型从AST表示转换为LLVM类型。当然，还需要llvm::DIBuilder类的一个实例，称为DBuilder，如上一节所述。还需要一个指向编译单元实例的指针，我们将它存储在一个名为CU的成员中。\par
+
+为了避免重复创建类型的调试元数据，我们还添加了一个映射来缓存该信息，该成员称为TypeCache。最后，我们需要一种管理作用域信息的方法，为此我们基于llvm::SmallVector<>类创建一个名为ScopeStack的堆栈:\par
 
 \begin{lstlisting}[caption={}]
 CGModule &CGM;
@@ -228,10 +226,10 @@ llvm::DenseMap<TypeDeclaration *, llvm::DIType *>
 llvm::SmallVector<llvm::DIScope *, 4> ScopeStack;
 \end{lstlisting}
 
-The following methods of the CGDebugInfo class all make use of these members:\par
+CGDebugInfo类的以下方法都使用了这些成员:\par
 
 \begin{enumerate}
-\item First, we need to create the compile unit, which we do in the constructor. We also create a file containing the compile unit here. Later, we can refer to the file through the CU member. The code for the constructor is shown in the following snippet:
+\item 首先，需要创建编译单元，这是在构造函数中完成的。我们还在这里创建了一个包含compile单元的文件。稍后，我们可以通过CU成员引用该文件。构造函数的代码如下所示:
 \begin{lstlisting}[caption={}]
 CGDebugInfo::CGDebugInfo(CGModule &CGM)
 	: CGM(CGM), DBuilder(*CGM.getModule()) {
@@ -254,7 +252,7 @@ CGDebugInfo::CGDebugInfo(CGModule &CGM)
 }
 \end{lstlisting}
 
-\item Very often, we need to provide a line number. This can be derived from the source manager location, which is available is most AST nodes. The source manager can convert this into a line number, as follows:
+\item 通常，我们需要提供行号。这可以从源管理器位置派生，大多数AST节点都可以使用该位置。源管理器可以将其转换为行号，如下所示:
 \begin{lstlisting}[caption={}]
 unsigned CGDebugInfo::getLineNumber(SMLoc Loc) {
 	return CGM.getASTCtx().getSourceMgr().FindLineNumber(
@@ -262,7 +260,7 @@ unsigned CGDebugInfo::getLineNumber(SMLoc Loc) {
 }
 \end{lstlisting}
 
-\item Information about a scope is held on a stack. We need methods to open and close a scope and to retrieve the current scope. The compilation unit is the global scope, which we add automatically, as follows:
+\item 有关作用域的信息保存在堆栈中。我们需要一些方法来打开和关闭一个作用域，以及检索当前作用域。编译单元是全局作用域，我们自动添加它:
 \begin{lstlisting}[caption={}]
 llvm::DIScope *CGDebugInfo::getScope() {
 	if (ScopeStack.empty())
@@ -279,7 +277,7 @@ void CGDebugInfo::closeScope() {
 }
 \end{lstlisting}
 
-\item We create a method for each category of the type we need to transform. The getPervasiveType() method creates the debug metadata for basic types. Note in the following code snippet the use of the encoding parameter, declaring the INTEGER type as a signed type and the BOOLEAN type encoded as a Boolean type:
+\item 我们为需要转换的类型的每个类别创建一个方法。getPervasiveType()方法为基本类型创建调试元数据。注意以下代码片段中编码参数的使用，声明INTEGER类型为signed类型，BOOLEAN类型为Boolean类型:
 \begin{lstlisting}[caption={}]
 llvm::DIType *
 CGDebugInfo::getPervasiveType(TypeDeclaration *Ty) {
@@ -297,7 +295,7 @@ CGDebugInfo::getPervasiveType(TypeDeclaration *Ty) {
 }
 \end{lstlisting}
 
-\item If the type name is simply renamed, then we map this to a type definition. Here, we need to make the first use of the scope and line-number information, as follows:
+\item 如果简单地重命名了类型名，则将其映射到类型定义。这里，我们需要第一次使用范围和行号信息:
 \begin{lstlisting}[caption={}]
 llvm::DIType *
 CGDebugInfo::getAliasType(AliasTypeDeclaration *Ty) {
@@ -308,7 +306,7 @@ CGDebugInfo::getAliasType(AliasTypeDeclaration *Ty) {
 }
 \end{lstlisting}
 
-\item Creating the debug information for an array requires specification about the size and the alignment. We retrieve this data from the DataLayout class. We also need to specify the index range of the array. We can do this with the following code:
+\item 为数组创建调试信息需要关于大小和对齐方式的说明，从DataLayout类中检索这些数据。我们还需要指定数组的下标范围:
 \begin{lstlisting}[caption={}]
 llvm::DIType *
 CGDebugInfo::getArrayType(ArrayTypeDeclaration *Ty) {
@@ -329,7 +327,7 @@ CGDebugInfo::getArrayType(ArrayTypeDeclaration *Ty) {
 }
 \end{lstlisting}
 
-\item Using all these single methods, we create a central method to create the metadata for a type. This metadata is also responsible for caching the data. The code can be seen in the following snippet:
+\item 使用所有这些单一方法，我们创建一个中心方法来创建类型的元数据。该元数据还负责缓存数据。代码可以在以下代码片段中看到:
 \begin{lstlisting}[caption={}]
 llvm::DIType *
 CGDebugInfo::getType(TypeDeclaration *Ty) {
@@ -353,7 +351,7 @@ CGDebugInfo::getType(TypeDeclaration *Ty) {
 }
 \end{lstlisting}
 
-\item We also need to add a method to emit metadata for global variables, as follows:
+\item 我们还需要添加一个方法来生成全局变量的元数据，如下所示:
 \begin{lstlisting}[caption={}]
 void CGDebugInfo::emitGlobalVariable(
 		VariableDeclaration *Decl,
@@ -368,7 +366,7 @@ void CGDebugInfo::emitGlobalVariable(
 }
 \end{lstlisting}
 
-\item To emit the debug information for procedures, we first need to create the metadata for the procedure type. For this, we need a list of the types of the parameter, with the return type being the first entry. If the procedure has no return type, then we use an unspecified type called void, as in C. If a parameter is a reference, then we need to add the reference type; otherwise, we add the type to the list. The code is illustrated in the following snippet:
+\item 要发出过程的调试信息，首先需要为过程类型创建元数据。为此，需要一个参数类型列表，返回类型是第一个条目。如果过程没有返回类型，则使用未指定的类型void，就像C中那样。如果形参是引用，则需要添加引用类型;否则，将该类型添加到列表中。代码如下所示:
 \begin{lstlisting}[caption={}]
 llvm::DISubroutineType *
 CGDebugInfo::getType(ProcedureDeclaration *P) {
@@ -397,7 +395,7 @@ CGDebugInfo::getType(ProcedureDeclaration *P) {
 }
 \end{lstlisting}
 
-\item For the procedure itself, we can now create the debug information using the procedure type created in the last step. A procedure also opens a new scope, so we push the procedure onto the scope stack. We also associate the LLVM function object with the new debug information, as follows:
+\item 对于过程本身，可以使用上一步中创建的过程类型创建调试信息。过程还会打开一个新的作用域，因此我们将该过程压入作用域堆栈。我们还将LLVM函数对象与新的调试信息关联起来，如下所示:
 \begin{lstlisting}[caption={}]
 void CGDebugInfo::emitProcedure(
 		ProcedureDeclaration *Decl, llvm::Function *Fn) {
@@ -413,7 +411,7 @@ void CGDebugInfo::emitProcedure(
 }
 \end{lstlisting}
 
-\item When the end of a procedure is reached, we must inform the builder to finalize the construction of debug information for this procedure. We also need to remove the procedure from the scope stack. We can do this with the following code:
+\item 当到达一个过程的末尾时，必须通知构建器完成此过程调试信息的构建。我们还需要从作用域堆栈中删除该过程:
 \begin{lstlisting}[caption={}]
 void CGDebugInfo::emitProcedureEnd(
 		ProcedureDeclaration *Decl, llvm::Function *Fn) {
@@ -423,14 +421,14 @@ void CGDebugInfo::emitProcedureEnd(
 }
 \end{lstlisting}
 
-\item Lastly, when we are finished with adding the debug information, we need to add the finalize() method onto the builder. The generated debug information is then validated. This is an important step during development as it helps you to find wrongly generated metadata. The code can be seen in the following snippet:
+\item 最后，当完成添加调试信息时，我们需要将finalize()方法添加到构建器中。然后验证生成的调试信息。这是开发过程中的一个重要步骤，因为它可以帮助您查找错误生成的元数据:
 \begin{lstlisting}[caption={}]
 void CGDebugInfo::finalize() { DBuilder.finalize(); }
 \end{lstlisting}
 
 \end{enumerate}
 
-Debug information should only be generated if the user requested it. We will need a new command-line switch for this. We will add this to the file of the CGModule class, and we will also use it inside this class, as follows:\par
+只有在用户请求时才应该生成调试信息。为此，需要一个新的命令行选项。我们将把它添加到CGModule类的文件中:\par
 
 \begin{lstlisting}[caption={}]
 static llvm::cl::opt<bool>
@@ -438,14 +436,14 @@ static llvm::cl::opt<bool>
 		llvm::cl::init(false));
 \end{lstlisting}
 
-The CGModule class holds an instance of the std::unique\underline{~}ptr<CGDebugInfo> class. The pointer is initialized in the constructor, regarding the setting of the command-line switch, as follows:\par
+CGModule类持有std::unique\underline{~}ptr<cgdebuginfo>类的实例。关于命令行选项的设置，指针在构造函数中初始化:\par
 
 \begin{lstlisting}[caption={}]
 	if (Debug)
 		DebugInfo.reset(new CGDebugInfo(*this));
 \end{lstlisting}
 
-In the getter method we return the pointer, like this:\par
+在getter方法中，这样返回指针:\par
 
 \begin{lstlisting}[caption={}]
 CGDebugInfo *getDbgInfo() {
@@ -453,7 +451,7 @@ CGDebugInfo *getDbgInfo() {
 }
 \end{lstlisting}
 
-A common pattern when generating the debug metadata is to retrieve the pointer and check if it is valid. For example, after we have created a global variable, we add the debug information in this way:\par
+生成调试元数据时，一个常见的模式是检索指针并检查它是否有效。例如，在创建了一个全局变量之后，会以这种方式添加调试信息:\par
 
 \begin{lstlisting}[caption={}]
 VariableDeclaration *Var = …;
@@ -462,7 +460,7 @@ if (CGDebugInfo *Dbg = getDbgInfo())
 	Dbg->emitGlobalVariable(Var, V);
 \end{lstlisting}
 
-In order to add line-number information, we need to add a getDebugLoc() conversion method into the CGDebugInfo class, which turns the location information from the AST into the debug metadata, as follows:\par
+为了添加行号信息，需要添加一个getDebugLoc()转换方法到CGDebugInfo类中，它将AST中的位置信息转换为调试元数据:\par
 
 \begin{lstlisting}[caption={}]
 llvm::DebugLoc CGDebugInfo::getDebugLoc(SMLoc Loc) {
@@ -475,7 +473,7 @@ llvm::DebugLoc CGDebugInfo::getDebugLoc(SMLoc Loc) {
 }
 \end{lstlisting}
 
-A utility function in the CGModule class can then be called to add the line-number information to an instruction, as follows:\par
+然后，可以调用CGModule类中的实用函数，将行号信息添加到指令中:\par
 
 \begin{lstlisting}[caption={}]
 void CGModule::applyLocation(llvm::Instruction *Inst,
@@ -485,4 +483,4 @@ void CGModule::applyLocation(llvm::Instruction *Inst,
 }
 \end{lstlisting}
 
-In this way, you can add the debug information for your own compiler.\par
+通过这种方式，可以为您自己的编译器添加调试信息。\par
