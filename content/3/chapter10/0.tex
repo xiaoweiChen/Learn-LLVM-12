@@ -1,16 +1,16 @@
-The LLVM core libraries come with the ExecutionEngine component, which allows the compilation and execution of IR code in memory. Using this component, we can build just in time (JIT) compilers, which allow the direct execution of IR code. A JIT compiler works more like an interpreter, in the sense that no object code needs to be stored on secondary storage.\par
+LLVM核心库附带了ExecutionEngine组件，允许在内存中编译和执行IR代码。使用这个组件，我们可以构建即时(JIT)编译器，它允许直接执行IR代码。JIT编译器的工作方式更像解释器，因为不需要将目标代码存储在辅助存储上。\par
 
-In this chapter, you will learn about applications for JIT compilers, and how the LLVM JIT compiler works in principle. You will explore the LLVM dynamic compiler and interpreter, and you will also learn how to implement a JIT compiler tool on your own. You will also see how to make use of a JIT compiler as part of a static compiler, and the challenges associated with it.\par
+在本章中，您将了解JIT编译器的应用程序，以及LLVM JIT编译器的原理。您将探索LLVM动态编译器和解释器，还将学习如何自己实现JIT编译器工具。还将了解如何使用JIT编译器作为静态编译器的一部分，以及与之相关的挑战。\par
 
-This chapter will cover the following topics:\par
+本章将涵盖以下内容:\par
 
 \begin{itemize}
-\item Getting an overview of LLVM's JIT implementation and use cases
-\item Using JIT compilation for direct execution
-\item Utilizing a JIT compiler for code evaluation
+\item 概述LLVM的JIT实现和用例
+\item 使用JIT编译直接执行
+\item 利用JIT编译器进行代码计算
 \end{itemize}
 
-By the end of the chapter, you will know how to develop a JIT compiler, either using a preconfigured class, or a customized version fitting your needs. You will also acquire the knowledge to make use of a JIT compiler inside a traditional static compiler.\par
+在本章结束时，您将知道如何开发JIT编译器，可以使用预先配置的类，也可以使用符合您需求的定制版本。您还将获得如何在传统静态编译器中使用JIT编译器的知识。\par
 
 
 

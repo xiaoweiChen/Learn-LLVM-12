@@ -1,28 +1,27 @@
-Compiler writers make a great effort to produce optimal code. A simple, yet effective, optimization is to replace an arithmetic operation on two constants by the result value of this operation. To be able to perform the computation, an interpreter for constant expressions is embedded. And to arrive at the same result, the interpreter has to implement the same rules as the generated machine code! Of course, this can be thesource of subtle errors.\par
+编译器编写者为了生成最优代码付出了巨大的努力。一种简单而有效的优化方法是用运算的结果值替换对两个常量的算术运算。为了能够执行计算，嵌入了常量表达式的解释器。为了得到相同的结果，解释器必须实现与生成的机器代码相同的规则!当然，这可能是出错的原因。\par
 
-A different approach would be to compile the constant expression to IR using the same code generations methods, and then have JIT compile and execute the IR. This idea can even be taken a step further. In mathematics, a function always produces the same result for the same input. For functions in computer languages, this is not true. A good example is the rand() function, which returns a random value for each call. A function in computer languages, which has the same characteristic as a function in mathematics, is called a pure function. During the optimization of expressions, we could JIT-compile and execute pure functions, which only have constant parameters, and replace the call to the function with the result returned from JIT execution. Effectively, we move the execution of the function from runtime to compile time!\par
+另一种方法是使用相同的代码生成方法将常量表达式编译到IR，然后让JIT编译并执行IR。这个想法甚至可以更进一步。在数学中，对于相同的输入，函数总是产生相同的结果。对于计算机语言中的函数，这是错误的。一个很好的例子是rand()函数，它为每次调用返回一个随机值。计算机语言中的函数与数学中的函数具有相同的特性，称为纯函数。在优化表达式期间，我们可以JIT编译和执行纯函数(只有常量参数)，并使用JIT执行返回的结果替换对函数的调用。实际上，我们将函数的执行从运行时移动到编译时!\par
 
-\begin{tcolorbox}[colback=blue!5!white,colframe=blue!75!black, title=Think about cross-compilation]
-Using a JIT compiler as part of a static compiler is an interesting option. However, if the compiler were to support cross-compilation, then this approach should be well thought-out. The usual candidates causing trouble are floatingpoint types. The precision of the long double type in C often depends on the hardware and the operation system. Some systems use 128-bit floating points, while others only use 64-bit floating points. The 80-bit floating point type is only available on the x86 platform, and usually only used on Windows. Performing the same floating-point operation with different precision can result in huge differences. Evaluation through JIT compilation cannot be used in such cases.
+\begin{tcolorbox}[colback=blue!5!white,colframe=blue!75!black, title=考虑交叉编译]
+使用JIT编译器作为静态编译器的一部分是一个有趣的选择。但是，如果编译器要支持交叉编译，那么就应该仔细考虑这种方法。引起麻烦的常见候选者是浮点类型，C语言中的长双精度通常取决于硬件和操作系统。有些系统使用128位浮点数，而有些系统只使用64位浮点数。80位浮点类型只在x86平台上可用，通常只在Windows上使用。以不同的精度执行相同的浮点运算可能会导致巨大的差异。在这种情况下不能使用通过JIT编译进行的计算。
 \end{tcolorbox}
 
-It cannot easily be decided whether a function is pure. The common solution is to apply a heuristic. If a function does not read or write into heap memory, either through pointers or indirectly with the use of aggregate types, and only calls other pure functions, then it is a pure function. The developer can aid the compiler, and mark pure functions, for example, with a special keyword or symbol. In the semantic analysis phase, the compiler can then check for violations.\par
+一个函数纯不纯不容易判定，常见的解决方案是应用启发式。如果一个函数不通过指针或间接使用聚合类型读取或写入堆内存，并且只调用其他纯函数，那么它就是一个纯函数。开发人员可以帮助编译器，并标记纯函数，例如：用特殊的关键字或符号。在语义分析阶段，编译器可以检查是否存在违规。\par
 
-In the next subsection, we will take a closer look at the implications for language semantics when trying to JIT-execute a function at compile time.\par
+在下一小节中，我们将进一步研究在编译时尝试JIT执行函数时对语义的影响。\par
 
 \hspace*{\fill} \par %插入空行
-\textbf{Identifying the language semantics}
+\textbf{识别语义}
 
-The difficult part is indeed to decide at the language semantics level which parts of the language are suitable for evaluation at compile time. Excluding access to heap memory is very restrictive. In general terms, it rules out string handling, for example. Using heap memory becomes problematic when the allocated memory survives the lifetime of the JIT-executed function. This is a program state, which can influence other results, and is therefore dangerous. On the other hand, if there are matched calls to malloc() and free() functions, then the memory is only used for internal calculation. In this case, the use of heap memory would be safe. But precisely this condition is not easy to proof.\par
+困难的部分确实是在语义级别，需要决定语言的哪些部分适合在编译时计算。排除对堆内存的访问是非常严格的，它排除了字符串处理。当分配的内存在JIT执行函数的生命周期内仍然存在时，使用堆内存就会出现问题。这是一种程序状态，可能会影响其他结果。另一方面，如果有对malloc()和free()函数的匹配调用，那么内存只用于内部计算。在这种情况下，使用堆内存是安全的。但确切地说，这并不容易证明。\par
 
-At a similar level, an infinite loop inside the JIT-executed function can freeze the compiler. Alan Turing showed in 1936 that no machine can decide whether a function will produce a result or whether it is stuck in an endless loop. Some precautions must be taken to avoid this situation, for example, a runtime limit after which the JIT-executed function is terminated.\par
+在类似的级别上，JIT执行函数内部的无限循环可能会冻结编译器。1936年，艾伦·图灵(Alan Turing)证明，没有机器可以决定一个函数是否会产生结果，或者是否陷入了无休止的循环。必须采取一些预防措施来避免这种情况，例如：在运行时限制之后，JIT执行的函数需要停止。\par
 
-And last, the more that functionality is allowed, the more thoughts must be put into security, because the compiler now executes code written by someone else. Just imagine that this code downloads and runs files from the internet or tries to erase the hard disk: with too much state allowed for JIT-executed functions, we also need to think about such scenarios.\par
+最后，允许的功能越多，就必须更多地考虑安全性，因为编译器现在执行别人编写的代码。想象一下，这些代码从互联网上下载并运行文件，或者试图擦除硬盘:对于JIT执行的函数，允许的状态太多了，因此我们也需要考虑这样的场景。\par
 
-The idea is not new. The D programming language has a feature called compiletime
-function execution. The reference compiler dmd implements this feature by interpretation of the functions at the AST level. The LLVM-based LDC compiler has an experimental feature to use the LLVM JIT engine for it. You can find out more about the language and the compilers at \url{https://dlang.org/}.\par
+这个想法并不新。D编程语言有一个叫做编译时函数执行的特性。引用编译器dmd通过在AST级别解释函数来实现这个特性。基于LLVM的LDC编译器实验性的特性，可以为它使用LLVM JIT引擎。可以在\url{https://dlang.org/}找到更多关于语言和编译器的信息。\par
 
-Ignoring the semantic challenges, the implementation is not that difficult. In the Building a JIT compiler class from scratch section, we developed a JIT compiler with the JIT class. We feed an IR module in the class, and we can look up and execute a function from this module. Looking at the tinylang compiler implementation, we can clearly identify access to constants, because there is a ConstantAccess node in the AST. For example, there is code like the following:\par
+忽略语义挑战，实现并不是那么困难。在从零开始构建JIT编译器类一节中，我们使用JIT类开发了一个JIT编译器。在类中输入一个IR模块，然后可以从这个模块查找并执行函数。看看tinylang编译器的实现，我们可以清楚地识别对常量的访问，因为AST中有一个ConstantAccess节点。例如:\par
 
 \begin{lstlisting}[caption={}]
 if (auto *Const = llvm::dyn_cast<ConstantAccess>(Expr)) {
@@ -30,23 +29,23 @@ if (auto *Const = llvm::dyn_cast<ConstantAccess>(Expr)) {
 }
 \end{lstlisting}
 
-Instead of interpreting the operations in the expression to derive the value of the constant, we can do the following:\par
+不需要解释表达式中的运算来推导常量的值，我们可以做以下操作:\par
 
 \begin{enumerate}
-\item Create a new IR module.
+\item 创建一个新的IR模块。
 
-\item Create an IR function in the module, returning a value of the expected type.
+\item 在模块中创建一个IR函数，返回一个预期类型的值。
 
-\item Use the existing emitExpr() function to create the IR for the expression and return the calculated value with the last instruction.
+\item 使用现有的emitExpr()函数为表达式创建IR，并使用最后一条指令返回计算值。
 
-\item JIT-execute the function to calculate the value.
+\item JIT执行函数来计算值。
 \end{enumerate}
 
-Is this worth implementing? LLVM performs constant propagation and function inlining as part of the optimization pipeline. A simple expression such as 4 + 5 is already replaced during IR construction with the result. Small functions such as calculation of the greatest common divisor are inlined. If all parameters are constant values, then the inlined code gets replaced by the result of the calculation through constant propagation.\par
+这是否值得实现?作为优化流水的一部分，LLVM执行常量传播和函数内联。像4 + 5这样的简单表达式在构建IR时已经替换了。像计算最大公约数这样的小函数是内联的。如果所有参数都是常量值，那么内联代码将通过常量传播。\par
 
-Based on this observation, an implementation of this approach is only useful if enough language features are available for execution at compile time. If this is the case, then it is fairly easily implemented using the given sketch.\par
+根据这一观察，只有在有足够的语言特性可在编译时执行时，这种方法的实现才有用。如果是这样，那么使用给定的示意图就相当容易实现了。\par
 
-Knowing how to utilize the JIT compiler component of LLVM enables you to use LLVM in whole new ways. Besides implementing a JIT compiler like the Java VM, the JIT compiler can also be embedded in other applications. This allows creative approaches, such as its use inside a static compiler, which you looked at in this section.\par
+了解如何使用LLVM的JIT编译器组件使您能够以全新的方式使用LLVM。除了实现像Java VM这样的JIT编译器外，JIT编译器还可以嵌入到其他应用程序中。这允许使用创造性的方法，例如：在静态编译器中使用它(这一节中已经介绍过了)。\par
 
 
 
