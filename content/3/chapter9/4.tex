@@ -1,12 +1,12 @@
 
-The task of an LLVM backend is to create machine instructions from the LLVM IR. This process is called instruction selection or lowering. Motivated by the idea to automate this task as much as possible, the LLVM developers invented the TableGen language to capture all the details of a target description. We first look at this language before diving into the instruction selection algorithms.\par
+LLVM后端的任务是从LLVM IR创建机器指令。这个过程叫做指令选择或指令降级。出于尽可能地自动化这个任务的想法，LLVM开发人员发明了TableGen语言来捕获目标描述的所有细节。在深入学习指令选择算法之前，我们先来看看这种语言。\par
 
 \hspace*{\fill} \par %插入空行
-\textbf{Specifying the target description in the TableGen language}
+\textbf{用TableGen语言指定目标}
 
-A machine instruction has a lot of properties: a mnemonic used by the assembler and disassembler, a bit pattern to represent the instruction in memory, input and output operands, and so on. The LLVM developers decided to capture all this information in a single place, the target description. A new language, the TableGen language, was invented for this purpose. The idea was to use a code generator to create various source fragments from the target description, which could then be used in different tools. Target descriptions are stored in files using the .td suffix.\par
+机器指令有很多属性:汇编程序和反汇编程序使用的助记符、在内存中表示指令的位模式、输入和输出操作数，等等。LLVM开发人员决定在一个地方捕获所有这些信息，即目标描述。一种新的语言，TableGen语言，就是为此目的而发明的。其想法是使用代码生成器从目标描述创建各种源片段，然后可以在不同的工具中使用这些片段。目标描述存储在使用.td后缀的文件中。\par
 
-In principle, the TableGen language is very simple. All you can do is define records. A record has a unique name and contains a list of values and a list of superclasses. A definition is a record in which all values are defined, while a class is a record that can have undefined values. The main purpose of classes is to have an abstract record that can be used to build other abstract or concrete records. For example, the Register class defines the common properties of a register, and you can define a concrete record for register R0:\par
+原则上，TableGen语言非常简单，您所能做的就是定义记录。一个记录有唯一的名称，包含一个值列表和一个超类列表。定义是一个所有值的记录，而类是一个可以有未定义值的记录。类的主要目的是有一个抽象记录，可以用来构建其他抽象或具体的记录。例如，Register类定义了一个寄存器的公共属性，则您可以为寄存器R0定义一个具体的记录:\par
 
 \begin{lstlisting}[caption={}]
 class Register {
@@ -19,9 +19,9 @@ def R0 : Register {
 }
 \end{lstlisting}
 
-You use the let keyword to override a value.\par
+使用let关键字覆盖一个值。\par
 
-The TableGen language has a lot of syntactic sugar to make dealing with records easier. A class can have a template argument, for example:\par
+TableGen语言有很多语法糖，可以使处理记录更容易。一个类可以有一个模板实参，例如:\par
 
 \begin{lstlisting}[caption={}]
 class Register<string n> {
@@ -33,26 +33,26 @@ def R0 : Register<"R0"> {
 }
 \end{lstlisting}
 
-The TableGen language is statically typed, and you have to specify the type of each value. Some of the supported types are the following:\par
+TableGen语言是静态类型的，您必须指定每个值的类型。一些受支持的类型如下:\par
 
 \begin{itemize}
-	\item bit: A single bit
-	\item int: A 64-bit integer value
-	\item bits<n>: An integral type consisting of n bits
-	\item string: A character string
-	\item list<t>: A list of elements of type t
-	\item dag: A directed acyclic graph (DAG; used by the instruction selection)
+\item bit: 一个位
+\item int: 64位整数值
+\item bits<n>: 一种由n位组成的整数类型
+\item string: 一个字符串
+\item list<t>: 类型为t的元素列表
+\item dag: 有向无环图(DAG：由指令选择使用)
 \end{itemize}
 
-The name of a class can also be used as a type. For example, list<Register> specifies a list of elements of the Register class.\par
+类的名称也可以用作类型。例如，list<register>指定Register类的元素列表。\par
 
-The language allows the inclusion of other files with the include keyword. For  conditional compiling, the preprocessor directives \#define, \#ifdef, and \#ifndef are supported.\par
+该语言允许使用include关键字包含其他文件。对于条件编译，支持预处理指令\#define、\#ifdef和\#ifndef。\par
 
-The TableGen library in LLVM can parse files written in the TableGen language and create an in-memory representation of the records. You can use this library to create your own generator.\par
+LLVM中的TableGen库可以解析用TableGen语言编写的文件，并创建记录的内存表示。您可以使用这个库创建自己的生成器。\par
 
-LLVM comes with its own generator tool called llvm-tblgen and some .td files. The target description of a backend includes the llvm/Target/Target.td file first. This file defines classes such as Register, Target, or Processor. The llvm-tblgen tool knows about these classes and generates C++ code from the defined records.\par
+LLVM自带了自己的生成工具LLVM-tblgen和一些.td文件。后端目标描述包括llvm/target/\allowbreak target.td文件。该文件定义诸如Register、Target或Processor等类。llvm-tblgen工具了解这些类，并从定义的记录中生成C++代码。\par
 
-Let's have a look at the MIPS backend as an example. The target description is in the Mips.td file in the llvm/lib/Target/Mips folder. This file includes the Target.td file mentioned first. It also defines target features, for example:\par
+让我们以MIPS后端为例来看看。目标描述在Mips.td中，文件位于llvm/lib/Target/Mips文件夹，该文件包含Target.td文件。它还定义了目标特性，例如:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 def FeatureMips64r2 \\
@@ -61,15 +61,15 @@ def FeatureMips64r2 \\
 \hspace*{4cm}[FeatureMips64, FeatureMips32r2]>;
 \end{tcolorbox}
 
-Such features are later used to define CPU models, for example:\par
+这些特性可以用来定义CPU模型，例如:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 def : Proc<"mips64r2", [FeatureMips64r2]>;
 \end{tcolorbox}
 
-Other files that define registers, instructions, scheduling models, and so on are also included.\par
+还包括定义寄存器、指令、调度模型等的其他文件。\par
 
-The llvm-tblgen tool can show you the records defined by this target description. If you are in the build directory, then the following command will print the records to the console:\par
+llvm-tblgen工具可以显示此目标描述定义的记录。如果在build目录下，下面的命令会将记录打印到控制台:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ bin/llvm-tblgen $\setminus$ \\
@@ -78,7 +78,7 @@ The llvm-tblgen tool can show you the records defined by this target description
 \hspace*{0.5cm}../llvm-project/llvm/lib/Target/Mips/Mips.td
 \end{tcolorbox}
 
-Like with Clang, the –I option adds a directory to search when including files. To see the records can be helpful for debugging. The real purpose of the tool is to generate C++ code from the records. For example, with the -gen-subtarget option, the data necessary to parse the –mcpu= and –mtarget= option of llc is emitted to the console:\par
+与Clang一样，-I选项在包含文件时添加一个要搜索的目录。查看记录对调试有帮助。这个工具的真正目的是从记录中生成C++代码。例如，使用-gen-subtarget选项，解析llc的-mcpu=和-mtarget=选项所需的数据将发送到控制台:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ bin/llvm-tblgen $\setminus$ \\
@@ -88,9 +88,9 @@ Like with Clang, the –I option adds a directory to search when including files
 \hspace*{0.5cm}-gen-subtarget
 \end{tcolorbox}
 
-Save the generated code from that command in a file and explore how the feature and the CPU are used in generated code!\par
+将该命令生成的代码保存在一个文件中，并探索如何在生成的代码中使用该特性和CPU !\par
 
-The encoding of instructions usually follows a handful of patterns. Therefore, the definition of instructions is split into classes defining the bit encoding and the concrete definition of instruction. The encoding for the MIPS instructions is in the file llvm/Target/Mips/MipsInstrFormats.td. Let's have a look at the definition of the ADD\underline{~}FM format:\par
+指令的编码通常遵循一些模式。因此，将指令的定义分为定义位编码的类和指令的具体定义类。MIPS指令编码在llvm/Target/Mips/MipsInstrFormats.td文件中。让我们来看看ADD\underline{~}FM格式的定义:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 class ADD\underline{~}FM<bits<6> op, bits<6> funct> : StdArch \{ \\
@@ -109,9 +109,9 @@ class ADD\underline{~}FM<bits<6> op, bits<6> funct> : StdArch \{ \\
 \}
 \end{tcolorbox}
 
-In the record body, several new bit fields are defined: rd, rs, and so on. They are used to override portions of the Inst field, which holds the bit pattern for the instruction. The rd, rs, and rt bit fields encode the registers the instruction operates on, and the op and funct parameters denote the opcode and a function number. The StdArch superclass only adds a field stating that this format follows a standard encoding.\par
+在记录主体中，定义了几个新的位域:rd、rs等。它们用于覆盖Inst字段的部分，该字段保存指令的位模式。rd、rs和rt位域对指令操作的寄存器进行编码，而op和funct参数表示操作码和函数号。StdArch超类只添加一个字段，声明该格式遵循的编码标准。\par
 
-Most instruction encoding in the MIPS target does not refer to the DAG nodes and do not specify the assembly mnemonic. A separate class is defined for that. One of the instructions in the MIPS architecture is the nor instruction, which computes the bitwise or of the first and second input register, inverts the bits of the result, and assigns the result to the output register. There are several variants of this instruction, and the following LogicNOR class helps with avoiding the same definitions multiple times:\par
+MIPS目标中的大多数指令编码不指向DAG节点，也不指定汇编助记符。为此定义了一个单独的类。MIPS体系结构中的一个指令是nor指令，它按位计算第一和第二输入寄存器的值，将结果的位倒转，并将结果赋给输出寄存器。该指令有几种变体，下面的LogicNOR类可以避免多次使用相同的定义:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 class LogicNOR<string opstr, RegisterOperand RO>: \\
@@ -123,24 +123,24 @@ class LogicNOR<string opstr, RegisterOperand RO>: \\
 \}
 \end{tcolorbox}
 
-Wow, the simple concept of records now looks complicated. Let's dissect that definition. The class derives from the InstSE class, which is always used for instructions with standard encoding. If you follow the superclass hierarchy further, then you see that this class derives from Instruction class, which is the predefined class denoting an instruction of a target. The (outs RO:\$rd) parameter defines the result of the final instruction as a DAG node. The RO part refers to the parameter of the same name of the LogicNOR class and denotes a register operand. The \$rd is the register to use. This is the value that will be put later into the instruction encoding, in the rd field. The second parameter defines the values the instruction will operate on. In summary, this class is for an instruction that operates on three registers. The !strconcat(opstr, "$\setminus$t\$rd, \$rs, \$rt") parameter assembles the textual representation of the instruction. The !strconcat operator is a predefined functionality from TableGen, which concatenates two strings. You can look up all predefined operators in the TableGen programmer's guide at: \url{https://llvm.org/docs/TableGen/ProgRef.html}.\par
+哇，记录这个简单的概念现在看起来很复杂。让我们解析一下这个定义：这个类派生自InstSE类，它用于具有标准编码的指令。如果进一步跟踪超类的层次结构，就会看到这个类派生自指令类，指令类是预定义的类，表示目标的一条指令。(outs RO:\$rd)参数将最后一条指令的结果定义为DAG节点。RO部分是指与LogicNOR类同名的参数，表示寄存器操作数，\$rd是要使用的寄存器。在rd字段中，这是以后要放到指令编码中的值。第二个参数定义指令将操作的值。总之，这个类用于在三个寄存器上操作的指令。strconcat(opstr, "$\setminus$t\$rd, \$rs, \$rt")参数汇编指令的文本表示。strconcat操作符是TableGen预定义的函数，用于连接两个字符串。你以在TableGen开发者指南中查找所有预定义的操作符:\url{https://llvm.org/docs/TableGen/ProgRef.html}。\par
 
-It follows a pattern definition, which resembles the textual description of the nor instruction and describes the computation of this instruction. The first element of the pattern is the operation, which is followed by a comma-separated list of operands. The operands refer to the register names in the DAG parameters and also specify an LLVM IR value type. LLVM has a set of predefined operators, such as add and and, which can be used in patterns. The operators are of the SDNode class, and can also beused as parameters. You can look up the predefined operators in the file llvm/Target/TargetSelectionDAG.td.\par
+记录遵循模式定义，类似于nor指令的文本描述，并描述该指令的计算。模式的第一个元素是操作，后面是用逗号分隔的操作数列表。操作数引用DAG参数中的寄存器名称，并指定LLVM IR值类型。LLVM有一组预定义的操作符，例如add和and，可以在模式中使用。这些操作符属于SDNode类，也可以用作参数。您可以在llvm/Target/TargetSelectionDAG.td文件中查找预定义的操作符。\par
 
-The II\underline{~}NOR parameter specifies the itinerary class used in the scheduling model, and the FrmR parameter is a value defined to identify this instruction format. Finally, the opstr mnemonic is passed to the superclass. The body of this class is quite simple: it just specifies that the nor operation is commutative, which means that the order of the operands can be swapped.\par
+II\underline{~}NOR参数指定在调度模型中使用的路线类，而FrmR参数是定义来标识这种指令格式的值。最后，opstr助记符传递给超类。这个类的主体非常简单:它只指定nor操作是可交换的，这意味着操作数的顺序可以交换。\par
 
-Finally, this class is used to define a record for an instruction, as an example, for the nor instruction in 64-bit mode:\par
+最后，这个类用于定义一条指令的记录，例如：64位模式下的nor指令:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 def NOR64 : LogicNOR<"nor", GPR64Opnd>, ADD\underline{~}FM<0, 0x27>,  \\
 \hspace*{6cm}GPR\underline{~}64;
 \end{tcolorbox}
 
-This is the final definition, recognizable from the def keyword. It uses the LogicNOR class to define the DAG operands and pattern, and the ADD\underline{~}FM class to specify the binary instruction encoding. The additional GPR\underline{~}64 predicate makes sure that this instruction is only used if 64-bit registers are available.\par
+这是最终的定义，可以通过def关键字识别。它使用LogicNOR类来定义DAG操作数和模式，并使用ADD\underline{~}FM类来指定二进制指令编码。附加的GPR\underline{~}64谓词可以确保该指令仅在64位寄存器上可用。\par
 
-The developers try hard to not repeat definitions multiple times, and one often-used approach is the use of multiclass classes. A multiclass class can define multiple records at once.\par
+开发人员努力避免多次重复定义，一种常用的方法是使用multiclass类。一个multiclass类可以一次定义多个记录。\par
 
-For example, the floating point unit of a MIPS CPU can perform addition with single- or double-precision floating point values. The definition of both instructions is very similar, therefore a multiclass class is defined to create two instructions at once:\par
+例如，MIPS CPU的浮点单元可以使用单精度或双精度浮点值进行加法运算。这两条指令的定义非常相似，因此multiclass类定义为一次创建两条指令:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 multiclass ADDS\underline{~}M<…> \{ \\
@@ -149,49 +149,50 @@ multiclass ADDS\underline{~}M<…> \{ \\
 \}
 \end{tcolorbox}
 
-The ADDS\underline{~}FT class defines the instruction format, similar to the LogicNOR class. The FGR\underline{~}32 and FGR\underline{~}64 predicates are used to decide at compile time which instruction can be used. The important part is the definition of \underline{~}D32 and \underline{~}D64 records. These are the templates for the records. The instruction records are then defined with the defm keyword:\par
+FT类定义了指令格式，类似于LogicNOR类。FGR\underline{~}32和FGR\underline{~}64谓词在编译时决定可以使用哪条指令。重要的是\underline{~}D32和\underline{~}D64记录的定义，这些是记录的模板。然后用defm关键字定义指令记录:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 defm FADD : ADDS\underline{~}M<…>;
 \end{tcolorbox}
 
-This defines the two records from the multiclass at once and assigns the names FADD\underline{~}D32 and FADD\underline{~}D64 to them. This is a very powerful way to avoid code repetition, and it is often used in the target descriptions, but combined with the other TableGen features it can lead to very cryptic definitions.\par
+这将同时定义来自多类的两条记录，并将名称FADD\underline{~}D32和FADD\underline{~}D64赋给它们。这是避免代码重复的一种非常强大的方法，它经常用于目标描述，但与其他TableGen特性相结合，可能导致定义模糊。\par
 
-With the knowledge of how the target description is organized, we can now explore the instruction selection in the next section.\par
+有了目标描述是如何组织的知识，我们现在可以在下一节中探索指令选择。\par
 
 \hspace*{\fill} \par %插入空行
-\textbf{Instruction selection with the selection DAG}
+\textbf{指令选择与选择DAG}
 
-The standard way LLVM converts the IR to machine instructions is via a DAG. Using pattern matching with the patterns provided in the target description and using custom code, the IR instructions are transformed into machine instructions. This approach is not as straightforward as it sounds: the IR is mostly target-independent and can contain data types that are not supported on the target. For example, the i1 type representing a single bit is not a valid type on most targets.\par
+LLVM将IR转换为机器指令的标准方法是通过DAG。使用与目标描述中提供的模式匹配的模式，并使用自定义代码，IR指令将转换为机器指令。这种方法并不像听起来那么简单:IR主要是独立于目标的，并且可以包含目标不支持的数据类型。例如，表示单个位的i1类型在大多数目标上不是有效类型。\par
 
-The selectionDAG consists of nodes of SDNode type, defined in the file llvm/CodeGen/SelectionDAGNodes.h. The operation the node represents is called OpCode, and the target-independent codes are defined in the file llvm/CodeGen/ISDOpcodes.h. Besides the operation, the node stores the operands and the value it produces.\par
+selectionDAG由SDNode类型的节点组成，在llvm/CodeGen/SelectionDAGNodes.h文件中定义。该节点表示的操作称为OpCode，目标独立代码定义在llvm/CodeGen/ISDOpcodes.h文件中。除了操作之外，节点还存储操作数及其生成的值。\par
 
-The values and operands of a node form a data flow dependency. A control flow dependency is represented by chain edges, which have the special type MVT::Other. This makes it possible to keep the order of instructions with side effects, for example, a load instruction.\par
+节点的值和操作数形成数据流依赖关系。控制流依赖由链边表示，链边具有特殊类型MVT::Other。这使得保留具有副作用的指令的顺序成为可能，例如，加载指令。\par
 
-Instruction selection using the selection DAG is performed with the following steps:\par
+使用选择DAG进行指令选择的步骤如下:\par
 
 \begin{enumerate}
-\item The DAG is constructed
-\item The DAG is optimized.
-\item The types in the DAG are legalized
-\item The DAG is optimized.
-\item The operations in the DAG are legalized.
-\item The instructions are selected.
-\item The instructions are ordered.
+\item 构建DAG。
+\item 优化DAG。
+\item 检查DAG中类型的合法性。
+\item 优化DAG。
+\item 检查DAG中操作的合法性。
+\item 优化DAG。
+\item 选择指令。
+\item 指令排序。
 \end{enumerate}
 
-Let's examine how we can follow the changes each of the steps makes to the selection DAG.\par
+让我们检查一下每个步骤对选择DAG所做的更改。\par
 
 \hspace*{\fill} \par %插入空行
-\textbf{How to follow the instruction selection process}
+\textbf{如何进行指令选择}
 
-You can see the work of the instruction selection in two different ways. If you pass the –debug-only=isel option to the llc tool, then the result of each step is printed in textual format. This is a great help if you need to investigate why a machine instruction was selected. For example, run the following command to see the output for the sum.ll file from the Understanding the LLVM target backend structure section:\par
+您可以通过两种不同的方式看到指令选择的工作。如果将-debug-only =isel选项传递给llc工具，则每一步的结果都会以文本格式打印出来。如果您需要调查为什么选择机器指令，这会有很大的帮助。例如，运行以下命令查看总和的输出。ll文件来自理解LLVM目标后端结构一节:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ llc -mtriple=mips-linux-gnu -debug-only=isel < sum.ll
 \end{tcolorbox}
 
-This prints a lot of information. At the top of the output, you see the description of the initial created DAG for the input:\par
+这会打印出很多信息。在输出的顶部，您可以看到为输入创建的初始DAG的描述:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 Initial selection DAG: \%bb.0 'sum:' \\
@@ -207,40 +208,39 @@ SelectionDAG has 12 nodes: \\
 \hspace*{0.5cm}t11: ch = MipsISD::Ret t10, Register:i32 \$v0, t10:1 
 \end{tcolorbox}
 
-Like in the MIR output from the last section, you see here CopyFromReg instructions, which transfer the content of registers used by the ABI to virtual nodes. The truncate nodes are required because the example uses 16-bit values, but the MIPS architectures have only native support for 32-bit values. The add operation is performed on 16-bit virtual registers, and the result is extended and returned to the caller. Such a section is  printed for each of the steps mentioned above.\par
+与上一节的MIR输出类似，您可以在这里看到CopyFromReg指令，它将ABI使用的寄存器的内容转移到虚拟节点。截断节点是必需的，因为示例使用16位值，但是MIPS体系结构只支持32位值。在16位虚拟寄存器上执行添加操作，并将结果扩展并返回给调用者。上面提到的每个步骤都会打印这个部分。\par
 
-LLVM can also generate a visualization of the selection DAG with the help of the Graphviz software. If you pass the –view-dag-combine1-dags option to the llc tool, then a window opens showing the constructed DAG. For example, run llc with the small file from the preceding:\par
+LLVM还可以在Graphviz软件的帮助下生成选择DAG的可视化。如果将–view-dag-combine1-dags选项传递给llc工具，则会打开一个窗口，显示构建的DAG。例如，使用前面的小文件运行llc:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ llc -mtriple=mips-linux-gnu –view-dag-combine1-dags sum.ll
 \end{tcolorbox}
 
-Running on a Windows PC, you then see the DAG:\par
+在Windows PC上运行，将会看到DAG:\par
 
 \hspace*{\fill} \par %插入空行
 \begin{center}
 \includegraphics[width=0.55\textwidth]{content/3/chapter9/images/1.jpg}\\
-Figure 9.1 – Constructed selection DAG for the sum.ll file
+图9.1 – 使用sum.ll构造选择DAG图
 \end{center}
 
-Be sure to compare that the textual representation and this graph contain the same information. The EntryToken is the start of the DAG, and the GraphRoot is the final node. The chain for the control flow is marked with the blue dashed arrows. The black arrows denote the data flow. The red arrows glue nodes together, preventing reordering them. The graph can get really big even for moderately sized functions. It does not contain more or other information than the textual output with the –debug-only=isel option, only the presentation is more comfortable. You can also generate the graph at other points in time, for example:\par
+一定要比较文本表示和这个图包含相同的信息。EntryToken是DAG的开始，GraphRoot是最后一个节点。控制流的链用蓝色虚线箭头标记，黑色箭头表示数据流，红色箭头将节点粘在一起，防止它们重新排序。即使对于中等大小的函数，图也会变得非常大。它并不比带有-debug-only=isel选项的文本输出更多或其他信息，只是表示的方式更友好。您也可以在其他时间点生成图表，例如:\par
 
 \begin{itemize}
-\item Add the \verb|--|view-legalize-types-dags option to see the DAG before 
-type legalization.
-\item Add the –view-isel-dags option to see the selection instructions
+\item 添加\verb|--|view-legalize-types-dags选项，在类型合法化之前查看DAG。
+\item 添加-view-isel-dags选项以查看指令选择。
 \end{itemize}
 
-You can see all available options to view the DAG using the \verb|--|help-hidden option. Because the DAG can get large and confusing, you can limit the rendering to one basic block using the -filter-view-dags option.\par
+您可以使用\verb|--|help-hidden选项查看所有可用的DAG选项。因为DAG可能会变得很大，而且容易混淆，所以您可以使用-filter-view-dags选项将输出限制为一个基本块。\par
 
 \hspace*{\fill} \par %插入空行
-\textbf{Examining the instruction selection}
+\textbf{检查指令选择}
 
-Knowing how to visualize the DAG, we can now dive into the details. The selection DAG is constructed from the IR. For each function in the IR, an instance of the SelectionDAG class is populated by the SelectionDAGBuilder class. There are no special optimizations done at this step. Nevertheless, a target needs to provide some functions to lower calls, argument handling, return jumps, and so on. To do so, the target has to implement the TargetLowering interface. Inside the folder of a target, the source is usually in the XXXISelLowering.h and XXXISelLowering.cpp files. The implementation of the TargetLowering interface provides all the information needed for the instruction process, for example, which data types and which operations are supported on the target.\par
+知道了如何形象化DAG，我们现在可以深入到细节。选择DAG是由IR构建的。对于IR中的每个函数，SelectionDAG类的一个实例由SelectionDAGBuilder类填充。在此步骤中没有进行特殊的优化。然而，目标需要提供一些函数来降级调用、参数处理、返回跳转等。为此，目标必须实现targetlower接口。在目标文件夹中，源文件通常在XXXISelLowering.h 和XXXISelLowering.cpp文件中。targetlower接口的实现提供指令过程所需的所有信息，例如：目标上支持哪些数据类型和哪些操作。\par
 
-The optimization step is run several times. The optimizer performs simple optimization, for example identifying rotates on targets that support these operations. The rationale here is that a cleaned-up DAG is produced, which simplifies the other steps.\par
+优化步骤会运行几次。优化器执行简单的优化，例如：在支持这些操作的目标上标识旋转。这里的基本原理是生成一个清理过的DAG，这里简化了其他步骤。\par
 
-During the type legalization step, types that are not supported on the target are replaced with supported ones. For example, if a target natively supports only 32-bit-wide integers, then smaller values must be converted to 32-bit through sign or zero extension. This is called promoting. If a 64-bit value can't be handled by this target, then the value must be split into a pair of 32-bit values. This is called expanding. Vector types are treated similarly. A vector type can be extended with additional elements, or it can be broken up into several values. For example, a vector with four values could be split into two vectors with two values each. If the splitting process ends with a single value, then no suitable vector could be found and scalar types are used instead. This is called scalarizing. The information about the supported types is configured in the target-specific implementation of the TargetLowering interface. After type legalization, the selection DAG has this textual representation for the sum.ll file:\par
+在类型合法化步骤期间，目标上不支持的类型将被支持的类型替换，例如：如果目标本机只支持32位范围的整数，那么较小的值必须通过符号或0扩展名转换为32位。如果一个64位的值不能被这个目标处理，那么这个值必须被分割成一对32位的值。向量类型也以类似的方式处理。vector类型可以使用额外的元素进行扩展，也可以将其分解为几个值。例如，一个有四个值的向量可以分成两个各有两个值的向量。如果拆分过程以单个值结束，则找不到合适的向量，而使用标量类型。有关支持类型的信息是在targetlower接口的特定目标实现中配置的。在型合法化之后，选择DAG转存文本表示到sum.ll文件中:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 Optimized type-legalized selection DAG: \%bb.0 'sum:' \\
@@ -253,17 +253,17 @@ SelectionDAG has 9 nodes: \\
 \hspace*{0.5cm}t11: ch = MipsISD::Ret t10, Register:i32 \$v0, t10:1
 \end{tcolorbox}
 
-If you compare this with the initial constructed DAG, then here only 32-bit registers are used. The 16-bit values were promoted, because only 32-bit values are supported natively.\par
+如果将它与初始构造的DAG进行比较，则这里只使用了32位寄存器。因为本地只支持32位值，所以提升了16位。\par
 
-Operation legalization is similar to type legalization. This step is necessary because not all operations may be supported by a target, or even if a type is natively supported on a target, it may not valid for all operations. For example, not all targets have a native instruction for population count. In such cases, the operation is replaced by a sequence of operations to implement the functionality. If the type does not fit for the operation, then promoting the type to a larger one could be done. It is also possible for a backend author to provide custom code. If the legalization action is set to Custom, then the LowerOperation() method in the TargetLowering class is called for these operations. The method must create a legal version of the operation then. In the sum.ll example, the add operation is already legal, because addition of two 23-bit registers is supported on the platform, and nothing changed.\par
+操作合法化类似于类型合法化。这个步骤是必要的，因为目标不是所有的操作都能支持，或者即使目标本地支持某种类型，也不能对所有操作都有效。例如，并不是所有的目标都有一个针对总体计数的本机指令。在这种情况下，操作被一系列实现功能的操作所取代。如果该类型不适合操作，那么可以将该类型提升为更大的类型。后端作者也可以提供自定义代码。如果合法化操作设置为Custom，那么targetlower类中的LowerOperation()方法将用于这些操作。然后，该方法必须创建该操作的合法版本。sum.ll 的例子中，添加操作已经是合法的，因为平台上支持添加两个23位寄存器，所以没有任何改变。\par
 
-After types and operations are legalized, the instruction selection happens. A large part of the selection is automated. Remember from the previous section that you provided a pattern in the description of an instruction. From these descriptions, a pattern matcher is generated by the llvm-tblgen tool. Basically, the pattern matcher tries to find a pattern that matches the current DAG node. The instruction associated with the pattern will then be selected. The pattern matcher is implemented as a bytecode interpreter. The available codes for the interpreter are defined in the llvm/CodeGen/SelectionDAGISel.h header file. The XXXISelDAGToDAG class implements the instruction selection for a target. The Select() method is called for each DAG node. The default is to call the generated matcher, but you can also add code for cases not handled by it.\par
+在类型和操作合法化之后，就会进行指令选择，大部分的选择是自动化的。请记住，在上一节中，指令的描述中提供了一个模式。根据这些描述，llvm-tblgen工具生成一个模式匹配器。基本上，模式匹配器试图找到与当前DAG节点匹配的模式。然后选择与模式相关联的指令。模式匹配器实现为字节码解释器，解释器的可用代码定义在llvm/CodeGen/SelectionDAGISel.h头文件中。XXXISelDAGToDAG类实现了目标的指令选择。对每个DAG节点调用Select()方法。默认情况是调用生成的匹配器，但您也可以为它不支持的情况添加支持。\par
 
-It is noteworthy that there is no one-to-one relationship between a selection DAG node and the selected instructions. A DAG node can expand into several instructions, and several DAG nodes can collapse into a single instruction. An example of the former is synthesizing immediate values. Especially on RISC architectures, the bit length of immediate values is restricted. A 32-bit target may only support an embedded immediate value of 16-bit length. To perform an operation that requires a 32-bit constant value, you usually split it into two 16-bit values and then generate two or more instructions that use the 16-bit values instead. Among others, you find patterns for this in the MIPS target. Bit-field instructions are a common example for the latter case: combinations of and, or, and shift DAG nodes can often be matched to special bit-field instructions, resulting in just one instruction for two or more DAG nodes.\par
+值得注意的是，选择DAG节点和选择的指令之间没有一对一的关系。一个DAG节点可以扩展成几个指令，而几个DAG节点可以分解成一条指令。前者的一个例子是合成直接值，特别是在RISC体系结构中，直接值的位长是受到限制的。一个32位的目标可能只支持16位长度的立即数。要执行需要32位常量值的操作，通常将其分割为两个16位值，然后生成两个或更多使用16位值的指令。其中，您可以在MIPS目标中找到这种模式。位域指令是后一种情况的一个常见例子:and、or和shift DAG节点的组合通常可以匹配到特殊的位域指令，导致两个或多个DAG节点只使用一条指令。\par
 
-Usually, you specify a pattern in the target description to combine two or more DAG nodes. For more complex cases, which are not easily handled with a pattern, you can mark the operation of the top node to require special DAG combine treatment. For these nodes, the PerformDAGCombine() method in the XXXISelLowering class is called. You can then check arbitrary complex patterns, and if you find your match, then you can return the operation representing the combined DAG nodes. This method is called before the generated matcher is run for the DAG node.\par
+通常，可以在目标描述中指定一个模式来组合两个或多个DAG节点。对于较复杂的、不易用模式处理的情况，可以将顶层节点的操作标记为需要特殊的DAG组合处理。对于这些节点，将调用XXXISelLowering类中的PerformDAGCombine()方法。然后可以检查任意的复杂模式，如果找到匹配，则可以返回表示组合DAG节点的操作。在为DAG节点运行生成的匹配器之前调用此方法。\par
 
-You can follow the instruction selection process in the printed output for the sum.ll file. For the add operation, you find there the following lines:\par
+您可以按照选择过程的打印输出来生成sum.ll文件。对于add操作，您可以在这里找到以下几行:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 ISEL: Starting selection on root node: t12: i32 = add t2, t4 \\
@@ -274,80 +274,80 @@ ISEL: Starting pattern match \\
 ISEL: Match complete!
 \end{tcolorbox}
 
-The index numbers point into the array of the generated matcher. The start is at index 27835 (an arbitrary value that can change from release to release), and after some steps, the ADDu instruction is selected.\par
+索引号指向生成的匹配器的数组。从索引27835开始(一个任意值，可以在不同的版本中更改)，经过一些步骤后，选择ADDu指令。\par
 
-\begin{tcolorbox}[colback=blue!5!white,colframe=blue!75!black, title=Following the pattern matching]
-If you encounter a problem with a pattern, then you can also retrace the matching by reading the generated bytecode. You find the source in the lib/Target/XXX/XXXGenDAGIsel.inc file in the build directory. You open the file in a text editor and search for the index in the preceding output. Each line is prefixed with the index number, so you can easily find the right place in the array. The used predicates are also printed as comments, so they can help you to understand why a certain pattern was not selected.
+\begin{tcolorbox}[colback=blue!5!white,colframe=blue!75!black, title=模式匹配]
+如果遇到模式问题，还可以通过读取生成的字节码来回溯匹配。您可以在lib/Target/XXX/XXXGenDAGIsel.inc中找到源代码，在文本编辑器中打开文件并在前面的输出中搜索索引。每一行都以索引号作为前缀，因此可以很容易地在数组中找到正确的位置。所使用的谓词也会以注释的形式打印出来，这些谓词可以帮助您理解为什么没有选择某个模式。
 \end{tcolorbox}
 
 \hspace*{\fill} \par %插入空行
-\textbf{Turning the DAG into instruction sequences}
+\textbf{将DAG转换为指令序列}
 
-After instruction selection, the code is still a graph. This data structure needs to be flattened, which means that the instructions must be sequentially ordered. The graph contains data and control flow dependencies, but there are always several possibilities to order the instructions in such a way that these dependencies are fulfilled. What we want is an order that best utilizes the hardware. Modern hardware can issue several instructions in parallel, but restrictions always apply. A simple example of such a restriction is one instruction requiring the result of another instruction. In such a case, the hardware may not be able to issue both instructions and instead executes the instructions in sequence.\par
+在指令选择之后，代码仍然是一个图形。这个数据结构需要扁平化，这意味着指令必须按顺序排列。图中包含数据和控制流的依赖关系，但总是有几种可能以满足这些依赖关系的方式对指令进行排序。我们想要的是一份能充分利用硬件的顺序。现代硬件可以并行地发出多条指令，但总是有限制。这种限制的一个简单例子是一条指令需要另一条指令的结果。在这种情况下，硬件可能不能同时发出两个指令，而是按顺序执行指令。\par
 
-You can add a scheduling model to the target description, which describes the available units and their properties. For example, if a CPU has two integer arithmetic units, then this information is captured in the model. For each instruction, it is necessary to know which part of the model is used. There are different ways to do this. The newer, recommended approach is to define a scheduling model using the so-called machineinstruction scheduler. To do so, you need to define a SchedMachineModel record for each subtarget in the target description. Basically, the model consists of definitions for the input and output operands of instructions and processor resources. Both definitions are then associated together with latency values. You can look up the predefined types for this model in the llvm/Target/TargetSched.td file. Look at the Lanai target for a very simple model and in the SystemZ target for a complex scheduling model.\par
+您可以将调度模型添加到目标描述中，该描述描述可用的单元及其属性。例如，如果一个CPU有两个整数算术单元，那么该信息将在模型中捕获。对于每个指令，有必要知道模型的哪个部分被使用。较新的方法是使用机器指令调度程序定义一个调度模型，您需要为目标描述中的每个子目标定义一个SchedMachineModel记录。基本上，这个模型由指令的输入和输出操作数以及处理器资源的定义组成。然后将这两个定义与延迟值关联在一起，您可以在llvm/Target/TargetSched.td中查找此模型的预定义类型。Lanai目标中有比较简单的模型，SystemZ目标中比较复杂的调度模型。\par
 
-There is also an older model based on so-called itineraries. With this model, you define processor units as FuncUnit records. A step using such a unit is defined as an InstrStage record. Each instruction is associated with an itinerary class. For each itinerary class, the used processor pipeline composed of InstrStage records is defined, together with the number of processor cycles required for execution. You can find the predefined types for the itinerary model in the llvm/Target/TargetItinerary.td file.\par
+还有一种基于所谓路线的旧模式。在这个模型中，您将处理器单元定义为FuncUnit记录。使用这样一个单元的步骤定义为一个InstrStage记录。每个指令都与一个itinerary类相关联。对于每个itinerary类，定义了由InstrStage记录组成的使用的处理器管道，以及执行所需的处理器周期数。您可以在llvm/Target/targetiinerary.td中找到路线模型的预定义类型。\par
 
-Some targets use both models. One reason is due to development history. The itinerarybased model was the first one added to LLVM, and targets began using this model. When the new machine-instruction scheduler was added more than 5 years later, nobody cared enough to migrate the already existing models. Another reason is that with the itinerary model, you can not only model an instruction that uses multiple processor units, but you can also specify during which cycles the units are used. However, this detail level is rarely needed, and if it is needed, then you can refer to the machine-instruction scheduler model to the defined itineraries, basically pulling this information into the new model too.\par
+一些目标同时使用两种模型(由于历史原因)。基于路线的模型是第一个添加到LLVM的模型，目标开始使用这个模型。5年多以后，当新的机器指令调度程序被添加进来时，没有人迁移已经存在的模型。另一个原因是，使用路线模型，您不仅可以为使用多个处理器单元的指令建模，还可以指定在哪个周期中使用这些单元。然而，这个细节很少需要，如果需要，可以参考机器指令调度程序模型来定义路线，基本上也可以将该信息拉入新模型中。\par
 
-If present, the scheduling model is used to order the instructions in an optimal way. After this step, the DAG is not needed anymore and is destroyed.\par
+如果存在，则使用调度模型以最优方式对指令进行排序。这一步之后，不再需要DAG，并且被销毁。\par
 
-Performing instruction selection with the selection DAG produces almost optimal results, but it comes at a cost in terms of runtime and memory usage. Therefore, alternative approaches were developed, which we examine next. In the next section, we look at the fast instruction selection approach.\par
+使用选择DAG执行指令选择可以产生几乎最优的结果，但这是以运行时和内存使用为代价的。因此，我们开发了可供选择的方法，下面将对其进行研究。在下一节中，我们将介绍快速指令选择方法。\par
 
 \hspace*{\fill} \par %插入空行
-\textbf{Fast instruction selection – FastISel}
+\textbf{快速指令选择- FastISel}
 
-Using the selection DAG for instruction selection costs compile time. If you are developing an application, then the runtime of the compiler matters. You also do not care about the generated code so much, because it is more important that complete debug information is emitted. Because of these reasons, the LLVM developers decided to implement a special instruction selector that has a fast runtime but produces less optimal code, and which is used only for –O0 optimization level. This component is called fast instruction selection, or FastIsel for short.\par
+使用选择DAG进行指令选择会消耗编译时间。如果您正在开发一个应用程序，那么编译器的运行时很重要。您可能也不太关心生成的代码，因为发出完整的调试信息更为重要。由于这些原因，LLVM开发人员决定实现一个特殊的指令选择器，它有一个快速的运行时，但产生的最优代码较少，只用于-O0优化级别。该组件称为快速指令选择，简称FastIsel。\par
 
-The implementation is in the XXXFastISel classes. Not every target supports this instruction selection method, in which case the selection DAG approach is used for –O0, too. The implementation is straightforward: a target-specific class is derived from a FastISel class and has to implement a couple of methods. The TableGen tool generates most of the required code from the target description. Nevertheless, there is some effort needed to implement this instruction selector. One of the root causes is that you need to get the calling convention right, which is usually complex.\par
+实现在XXXFastISel类中。不是每个目标都支持这种指令选择方法，在这种情况下，选择DAG方法也用于-O0。实现很简单:一个特定于目标的类派生自一个FastISel类，并且必须实现两个方法。TableGen工具从目标描述生成大部分所需的代码。然而，实现这个指令选择器还需要一些工作量。一个根本原因是您需要获得正确的调用规则，这通常比较复杂。\par
 
-The MIPS target features an implementation of fast instruction selection. You can enable use of fast instruction selection by passing the –fast-isel option to llc tool. Using the sum.ll example file from first section, an invocation looks like this:\par
+MIPS目标的特点是实现快速指令选择。您可以使用快速指令选择通过传递-fast-isel选项使用llc工具。使用sum.ll文件的例子，调用看起来像这样:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ llc -mtriple=mips-linux-gnu -fast-isel –O0 sum.ll
 \end{tcolorbox}
 
-Fast instruction selection runs very quickly, but it is a completely different code path. Some LLVM developers decided to look for a solution that runs quickly but can also produce good code, with the goal to replace both the selection dag and the fast instruction selector in the future. We look at this approach in the next section.\par
+快速指令选择运行非常快，但它是一个完全不同的代码路径。一些LLVM开发人员决定寻找一种既能快速运行又能生成良好代码的解决方案，目标是在未来同时替换选择DAG和快速指令选择器。我们将在下一节中介绍这种方法。\par
 
 \hspace*{\fill} \par %插入空行
-\textbf{The new global instruction selection – GlobalISel}
+\textbf{新的全局指令选择- GlobalISel}
 
-Using the selection DAG, we can generate pretty good machine code. The drawback is that it is a very complex piece of software. This means that it is hard to develop, test, and maintain. The FastISel instruction selection works quickly and is less complex, but does not produce good code. Both approaches do not share much code, except for the code generated by TableGen.\par
+使用选择DAG，我们可以生成非常好的机器代码。缺点是它对于软件来说，它非常复杂。这意味着很难开发、测试和维护。FastISel指令选择工作迅速且不那么复杂，但不能生成良好的代码。除了TableGen生成的代码外，这两种方法都不共享太多代码。\par
 
-Can we have the best of both worlds? One instruction selection algorithm, which is fast, easy to implement, and which produces good code? That is the motivation for adding another instruction selection algorithm, the global instruction selection, to the LLVM framework. The short-term goal is to replace FastISel first, and in the long term the selection DAG, too.\par
+能两全其美吗?一个指令选择算法，是快速，容易实现，并产生良好的代码?这就是在LLVM框架中添加另一种指令选择算法——全局指令选择的动机。短期目标是首先取代FastISel，长期目标是选择DAG。\par
 
-The approach taken by global instruction selection is to build on the existing infrastructure. The whole task is broken down into a sequence of machine function passes. Another major design decision is to not introduce another intermediate representation but instead use the existing MachineInstr class. However, new generic opcodes are added.\par
+全局指令选择的方法是在现有的基础上进行。整个任务被分解成一系列的机器功能传递。另一个主要的设计决策是不引入另一个中间表示，而是使用现有的MachineInstr类。但是，添加了新的泛型操作码。\par
 
-The current sequence of steps is as follows:\par
+当前的步骤顺序如下:\par
 
 \begin{enumerate}
-\item The IRTranslator pass builds the initial machine instructions using the generic opcodes.
+\item IRTranslator通过使用通用操作码构建初始机器指令。
 
-\item The Legalizer pass legalizes types and operations in one step. This is different from the selection DAG, which uses two different steps for it. Real CPU architectures are sometimes weird, and it is possible that a certain data type is only supported with one instruction. This case is not handled well by the selection DAG, but it's easy to handle this in the combined step in the global instruction selection.
+\item Legalizer可以将类型和操作合法化。这与选择DAG不同，后者使用两个不同的步骤。真实的CPU架构有时会很奇怪，而且有可能某一数据类型只被一条指令支持。这种情况不能由选择DAG很好地处理，但是在全局指令选择的组合步骤中很容易处理。
 
-\item The generated machine instructions still operate on virtual registers. In the RegBankSelect pass, a register bank is selected. A register bank represents a type of registers on the CPU, for example, general-purpose registers. This is more coarsegrained than the register definitions in the target description. The important point is that it associates type information with the instruction. The type information is based on the types available in the target, so this is already lower than the generic type in LLVM IR.
+\item 生成的机器指令仍然在虚拟寄存器上运行。在RegBankSelect通道中，选择一个注册。寄存器组表示CPU上的一种寄存器，例如通用寄存器。这比目标描述中的寄存器定义更粗粒度。重要的一点是，它将类型信息与指令关联起来。类型信息基于目标中可用的类型，因此这已经低于LLVM IR中的泛型类型。
 
-\item At this point, the types and operations are known to be legal for the target, and type information is associated with each instruction. The following InstructionSelect pass can then easily replace the generic instructions with the machine ones.
+\item 此时，已知类型和操作对目标是合法的，并且类型信息与每个指令相关联。下面的InstructionSelect Pass可以轻松地用机器指令替换通用指令。
 \end{enumerate}
 
-After the global instruction selection, the usual backend passes such as instruction scheduling, register allocation, and basic block placement are run.\par
+在全局指令选择之后，后端程序(如指令调度、寄存器分配和基本块放置)就会运行。\par
 
-Global instruction selection is compiled into LLVM, but it is not enabled by default. If you want to use it, you need to give the –global-isel option to llc or –mllvm global-isel to clang. You can control what happens if an IR construct cannot be handled by global instruction selection. When you give the -global-isel-abort=0 option to llc, then the selection DAG is used as fallback. With =1, the application is terminated. To prevent this, you can give the -global-isel-abort=0 option to llc. And with =2, the selection DAG is used as fallback, and a diagnostic message is printed to inform you about the problem.\par
+全局指令选择编译到LLVM中，但默认情况下不启用。如果要使用它，需要将-global-isel选项赋予llc，或将-mllvm global-isel选项赋予clang。如果全局指令选择不能处理IR构造，则可以进行手动控制。当给llc提供-global-isel-abort=0选项时，选择DAG会作为备选。当=1时，应用程序终止。为了防止这种情况，可以给llc提供-global-isel-abort=0选项。如果是=2，选择DAG将作为备选，并打印一条诊断信息来通知您。\par
 
-To add global instruction selection to a target, you only need to override the corresponding functions in the TargetPassConfig class of your target. This class is instantiated by the XXXTargetMachine class, and the implementation is usually found in the same file. For example, you override the addIRTranslator() method to add the IRTranslator pass to the machine passes of your target.\par
+要将全局指令选择添加到目标，只需要覆盖目标的TargetPassConfig类中的相应函数。这个类由XXXTargetMachine类实例化，实现通常在同一个文件中找到。例如，您重写addIRTranslator()方法，可以将IRTranslator传递添加到目标的机器传递中。\par
 
-The development happens mainly on the AArch64 target, which currently has the best support for global instruction selection. Many other targets, including x86 and Power, have also added support for global instruction selection. One challenge here is that not that much code is generated from the table description, so there is still an amount of manual coding you have to do. Another challenge is that big-endian targets are currently not supported, so pure big-endian targets such as SystemZ cannot use global instruction selection as of today. Both will certainly improve over time.\par
+开发主要在AArch64目标上进行，该目标目前对全局指令选择有最好的支持。许多其他目标，包括x86和Power，也增加了对全局指令选择的支持。这里挑战是，从表描述中生成的代码并不多，因此仍然需要手工编写大量代码。另一个挑战是目前还不支持大端目标，所以像SystemZ这样的纯大端目标目前还不能使用全局指令选择。随着时间的推移，两者都肯定会得到改善。\par
 
-The Mips target features an implementation of global instruction selection, with the mentioned limitation that it can only be used for little-endian targets. You can enable use of global instruction selection by passing the –global-isel option to the llc tool. Using the sum.ll example file from first section, an invocation looks like this:\par
+Mips目标的特点是实现了全局指令选择，但有提到的限制，即它只能用于小端目标。你可以通过将-global-isel选项传递给llc工具来启用全局指令选择。使用sum.ll文件，调用看起来像这样:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ llc -mtriple=mipsel-linux-gnu -global-isel sum.ll
 \end{tcolorbox}
 
-Please note that the target mipsel-linux-gnu is the little-endian target. Using the big-endian mips-linux-gnu target results in an error message.\par
+请注意，目标mipsell-linux-gnu是小端目标。使用大端位的mips-linux-gnu目标会导致错误。\par
 
-The global instruction selector works much quicker than the selection DAG, and already produces higher code quality than fast instruction selection.\par
+全局指令选择器的工作速度比选择DAG快得多，并且已经产生了比快速指令选择更高质量的代码。\par
 
 
 

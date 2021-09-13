@@ -1,22 +1,21 @@
-After the LLVM IR is optimized, the selected LLVM target is used to generate the machine code from it. Among others, the following tasks are performed in the target backend:\par
+优化LLVM IR后，使用所选的LLVM目标生成机器码。其中，以下任务在后端执行:\par
 
 \begin{enumerate}
-\item The directed acyclic graph (DAG) used for instruction selection, usually referred to as the SelectionDAG, is constructed.
-\item Machine instructions corresponding to the IR code are selected.
-\item The selected machine instructions are ordered in an optimal sequence.
-\item Virtual registers are replaced with machine registers.
-\item Prologue and epilogue code is added to functions.
-\item Basic blocks are ordered in an optimal sequence.
-\item Target-specific passes are run.
-\item Object code or assembly is emitted.
+\item 构造了用于指令选择的有向无环图(DAG)，通常称为SelectionDAG。
+\item 选择与IR代码相对应的机器指令。
+\item 选定的机器指令按最优顺序排列。
+\item 机器寄存器取代虚拟寄存器。
+\item 函数中添加头尾代码。
+\item 按最优顺序排列基本块。
+\item 运行目标特定的Pass。
+\item 使用对象源码或汇编进行触发。
 \end{enumerate}
 
-All these steps are implemented as machine function passes, derived from the MachineFunctionPass class. This is a subclass of the FunctionPass class, one of the base classes used by the old pass manager. As of LLVM 12, the conversion of machine function passes to the new pass manager is still a work in progress.
-\par
+所有这些步骤都是由MachineFunctionPass类派生的机器函数Pass来实现的。这是FunctionPass类的一个子类，该类是旧Pass管理器使用的基类之一。在LLVM 12中，机器功能Pass到新Pass管理器的转换仍在进行中。\par
 
-During all these steps, an LLVM instruction undergoes a transformation. At the code level, an LLVM IR instruction is represented by an instance of the Instruction class. During the instruction selection phase, it is transformed into a MachineInstr instance.This is a representation much nearer to the actual machine level. It already contains the instructions that are valid for the target, but still operates on virtual registers (up to register allocation) and also can contain certain pseudo instructions. The passes after the instruction selection refine this, and in the end, an instance of MCInstr is created, which is a representation of the real machine instruction. The MCInstr instance can be written into an object file or printed as assembly code.\par
+在所有这些步骤中，LLVM指令都要进行转换。在代码层，一个LLVM IR指令由Instruction类的实例表示。在指令选择阶段，它转换为MachineInstr实例。这是一个更接近实际机器表示。它已经包含了对目标有效的指令，但仍然在虚拟寄存器上操作(到寄存器分配)，还可以包含某些伪指令。指令选择之后的传递会对其进行改进，最后创建MCInstr实例，它是真实机器指令的表示。MCInstr实例可以写入目标文件或打印为汇编代码。\par
 
-To explore the backend passes, you can create a small IR file with the following content:\par
+为了探索后端Pass，可以创建一个包含以下内容的小IR文件:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 define i16 @sum(i16 \%a, i16 \%b) \{ \\
@@ -25,13 +24,13 @@ define i16 @sum(i16 \%a, i16 \%b) \{ \\
 \}
 \end{tcolorbox}
 
-Save this code as sum.ll. Compile it for the MIPS architecture using llc, the LLVM static compiler. This tool compiles LLVM IR into assembly text or an object file. The target platform compile for can be overridden on the command line with the –mtriple option. Invoke the llc tool with the –debug-pass=Structure option:\par
+将此代码保存为sum.ll，使用llc (LLVM静态编译器)编译MIPS架构。该工具将LLVM IR编译为汇编文本或目标文件。可以在命令行中用-mtriple选项覆盖编译的目标平台。使用-debug-pass=\allowbreak Structure选项调用llc工具:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ llc -mtriple=mips-linux-gnu -debug-pass=Structure < sum.ll
 \end{tcolorbox}
 
-Besides the generated assembly code, you will see a long list of machine passes to run. Among them, the MIPS DAG->DAG Pattern Instruction Selection pass performs the instruction selection, the Mips Delay Slot Filler is a target-specific pass, and the last pass before cleanup, Mips Assembly Printer, is responsible for printing the assembly code. Of all of these passes, the instruction selection pass is the most interesting one, and we look at it in detail in the next section.\par
+除了生成的程序集代码之外，您还将看到一长串要运行的机器通行证列表。其中，MIPS DAG->\allowbreak DAG指令选择模式Pass执行指令选择，MIPS延迟槽填充器是针对特定目标的Pass，清理前的最后一个Pass是MIPS汇编打印器负责打印汇编代码。在所有这些Pass中，指令选择Pass是最有趣的，我们将在下一节详细讨论它。\par
 
 
 

@@ -1,15 +1,15 @@
-The LLVM IR used so far still needs to be turned into machine instructions. This is called instruction selection, often abbreviated to ISel. Instruction selection is an important part of the target backend, and LLVM has three different approaches for selecting instructions: the selection DAG, fast instruction selection, and global instruction selection.\par
+到目前为止使用的LLVM IR仍然需要转换成机器指令，这称为\textbf{指令选择}，通常缩写为\textbf{ISel}。指令选择是后端的重要组成部分，LLVM有三种不同的指令选择方法:选择DAG、快速指令选择和全局指令选择。\par
 
-In this chapter, you will learn the following topics:\par
+在本章中，您将学习以下内容:\par
 
 \begin{itemize}
-\item Understanding the LLVM target backend structure, which introduces you to the task performed by the target backend, and you examine the machine passes to run.
-\item Using the machine IR (MIR) to test and debug the backend, which helps you to output MIR after a specified pass and run a pass on the MIR file.
-\item How instruction selection works, in which you learn about the different ways LLVM performs instruction selection.
-\item Supporting new machine instructions, in which you add a new machine instruction and make it available to the instruction selection.
+\item 了解LLVM目标后端结构，将介绍目标后端执行的任务，并检查要运行的机器。
+\item 使用\textbf{机器IR(MIR)}来测试和调试后端，这有助于您输出MIR后指定的通过和运行一个通过的MIR文件。
+\item 指令选择是如何工作的，在其中您将了解LLVM执行指令选择的不同方式。
+\item 支持新的机器指令，在其中添加一个新的机器指令，并使其用于指令选择。
 \end{itemize}
 
-By the end of the chapter, you will know how the target backends are structured and how instruction selection works. You will also acquire the knowledge to add currently unsupported machine instructions to the assembler and the instruction selection, and how to test your addition.\par
+在本章结束时，您将了解目标后端是如何构造的，以及指令选择是如何工作的。您还将获得将当前不支持的机器指令添加到汇编程序和指令选择的知识，以及如何测试您添加的指令。\par
 
 
 
