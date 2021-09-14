@@ -1,0 +1,218 @@
+
+LLVM comes with a couple of sanitizers. These are passes that instrument the Intermediate Representation (IR) in a way to check for certain misbehaviors of an application. Usually, they require library support, which is part of the compiler-rt project. Sanitizers can be enabled in Clang, which makes them very comfortable to use. In the following sections, we will have a look at the available sanitizers, namely, address, memory, and thread. We will first look at the address sanitizer.\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{Detecting memory access problems with the address sanitizer}
+
+You use the address sanitizer to detect a couple of memory access bugs in an application. This includes common errors such as using dynamically allocated memory after freeing it, or writing to dynamically allocated memory outside the boundaries of the allocated memory.\par
+
+When enabled, the address sanitizer replaces calls to the malloc() and free() functions with its own version, and instruments all memory access with a checking guard. Of course, this adds a lot of overhead to the application, and you will use the address sanitizer only during the testing phase of the application. If you are interested in the implementation details, then you can find the source of the pass in the llvm/lib/Transforms/Instrumentation/AddressSanitzer.cpp file and a description of the algorithm used at \url{https://github.com/google/sanitizers/wiki/AddressSanitizerAlgorithm}.\par
+
+Let's run a short example to demonstrate the capabilities of the address sanitizer. The following example application, outofbounds.c, allocates 12 bytes of memory, but initializes 14 bytes:\par
+
+\begin{lstlisting}[caption={}]
+#include <stdlib.h>
+#include <string.h>
+
+int main(int argc, char *argv[]) {
+	char *p = malloc(12);
+	memset(p, 0, 14);
+	return (int)*p;
+}
+\end{lstlisting}
+
+You can compile and run this application without noticing any problems. This is typical for this kind of error. Even in larger applications, this kind of bug can go unnoticed for a long time. But, if you enable the address sanitizer with the -fsanitize=address option, then the application stops after detecting the error.\par
+
+It is also useful to enable debug symbols with the –g option, because it helps to identify the location of the error in the source. The following code is an example of how to compile the source file with the address sanitizer and debug symbols enabled:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ clang -fsanitize=address -g outofbounds.c -o outofbounds
+\end{tcolorbox}
+
+Now, you get a lengthy error report when running the application:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ ./outofbounds \\
+============================================= \\
+=== \\
+==1067==ERROR: AddressSanitizer: heap-buffer-overflow on \\
+address 0x60200000001c at pc 0x00000023a6ef bp 0x7fffffffeb10 \\
+sp 0x7fffffffe2d8 \\
+WRITE of size 14 at 0x60200000001c thread T0 \\
+\hspace*{1cm}\#0 0x23a6ee in \underline{~~}asan\underline{~}memset /usr/src/contrib/llvm-project/ \\
+compiler-rt/lib/asan/asan\underline{~}interceptors\underline{~}memintrinsics.cpp:26:3 \\
+\hspace*{1cm}\#1 0x2b2a03 in main /home/kai/sanitizers/outofbounds.c:6:3 \\
+\hspace*{1cm}\#2 0x23331f in \underline{~}start /usr/src/lib/csu/amd64/crt1.c:76:7
+\end{tcolorbox}
+
+The report also contains detailed information about the memory content. The important information is the type of error – heap buffer overflow, in this case – and the offending source line. To find the source line, you look at the stack trace at location \#1, which is the last location before the address sanitizer intercepts the execution of the application. It shows line 6 in the outofbounds.c file, which is the line containing the call to memset() – indeed, the exact place where the buffer overflow happens.\par
+
+If you replace the line containing memset(p, 0, 14); in the outofbounds.c file with the following code, then you introduce access to memory after the memory is freed. You'll need to store the source in the useafterfree.c file:\par
+
+\begin{lstlisting}[caption={}]
+memset(p, 0, 12);
+free(p);
+\end{lstlisting}
+
+Again, if you compile and run it, the use of the pointer after the memory is free is detected:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ clang -fsanitize=address -g useafterfree.c -o useafterfree \\
+\$ ./useafterfree \\
+============================================== \\
+=== \\
+==1118==ERROR: AddressSanitizer: heap-use-after-free on address \\
+0x602000000010 at pc 0x0000002b2a5c bp 0x7fffffffeb00 sp \\
+0x7fffffffeaf8 \\
+READ of size 1 at 0x602000000010 thread T0 \\
+\hspace*{1cm}\#0 0x2b2a5b in main /home/kai/sanitizers/ \\
+useafterfree.c:8:15 \\
+\hspace*{1cm}\#1 0x23331f in \underline{~}start  /usr/src/lib/csu/amd64/crt1.c:76:7
+\end{tcolorbox}
+
+This time, the report points to line 8, which contains dereferencing of the p pointer.\par
+
+On x86\underline{~}64 Linux and macOS, you can also enable a leak detector. If you set the ASAN\underline{~}OPTIONS environment variable to the value detect\underline{~}leaks=1 before running the application, then you also get a report about memory leaks. On the command line, you do this as follows:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ ASAN\underline{~}OPTIONS=detect\underline{~}leaks=1 ./useafterfree
+\end{tcolorbox}
+
+The address sanitizer is very useful, because it catches a category of bugs that are otherwise difficult to detect. The memory sanitizer does a similar task, and we'll look at it in the next section.\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{Finding uninitialized memory access with the memory sanitizer}
+
+Using uninitialized memory is another category of bugs that are hard to find. In C and C++, the general memory allocation routines do not initialize the memory buffer with a default value. The same is true for automatic variables on the stack.\par
+
+There are lots of opportunities for errors, and the memory sanitizer helps to find the bugs. If you are interested in the implementation details, you can find the source for the memory sanitizer pass in the llvm/lib/Transforms/Instrumentation/MemorySanitizer.cpp file. The comment at top of the file explains the ideas behind the implementation.\par
+
+Let's run a small example and save the following source as the memory.c file. You should note that the x variable is not initialized, but is used as a return value:\par
+
+\begin{lstlisting}[caption={}]
+int main(int argc, char *argv[]) {
+	int x;
+	return x;
+}
+\end{lstlisting}
+
+Without the sanitizer, the application will run just fine. However, you will get an error report if you use the -fsanitize=memory option:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ clang -fsanitize=memory -g memory.c -o memory \\
+\$ ./memory \\
+==1206==WARNING: MemorySanitizer: use-of-uninitialized-value \\
+\hspace*{1cm}\#0 0x10a8f49 in main /home/kai/sanitizers/memory.c:3:3 \\
+\hspace*{1cm}\#1 0x1053481 in \underline{~}start /usr/src/lib/csu/amd64/crt1.c:76:7 \\
+\\
+SUMMARY: MemorySanitizer: use-of-uninitialized-value /home/kai/ \\
+sanitizers/memory.c:3:3 in main \\
+Exiting
+\end{tcolorbox}
+
+Like the address sanitizer, the memory sanitizer stops the application at the first found error.\par
+
+In the next section, we look at how we can use the thread sanitizer to detect data races in multi-threaded applications.\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{Pointing out data races with the thread sanitizer}
+
+To leverage the power of modern CPUs, applications now use multiple threads. This is a powerful technique, but it also introduces new sources of errors. A very common problem in multi-threaded applications is that access to global data is not protected, for example, with a mutex or semaphore. This is called a data race. The thread sanitizer can detect data races in Pthread-based applications and applications using the LLVM libc++ implementation. You will find the implementation in the llvm/lib/Transforms/Instrumentation/ThreadSanitize.cpp file.\par
+
+To demonstrate the functionality of the thread sanitizer, we will create a very simple producer/consumer-style application. The producer thread increments a global variable, while the consumer thread decrements the same variable. The access to the global variable is not protected, so this is clearly a data race. You'll need to save the following source in the thread.c file:\par
+
+\begin{lstlisting}[caption={}]
+#include <pthread.h>
+
+int data = 0;
+
+void *producer(void *x) {
+	for (int i = 0; i < 10000; ++i) ++data;
+	return x;
+}
+
+void *consumer(void *x) {
+	for (int i = 0; i < 10000; ++i) --data;
+	return x;
+}
+
+int main() {
+	pthread_t t1, t2;
+	pthread_create(&t1, NULL, producer, NULL);
+	pthread_create(&t2, NULL, consumer, NULL);
+	pthread_join(t1, NULL);
+	pthread_join(t2, NULL);
+	return data;
+}
+\end{lstlisting}
+
+From the preceding code, the data variable is shared between two threads. Here, it is of the int type to make the example simple. Most often, a data structure such as the std::vector class or similar would be used. These two threads run the producer() and consumer() functions.\par
+
+The producer() function only increments the data variable, while the consumer() function decrements it. No access protection is implemented, so this constitutes a data race. The main() function starts both threads with the pthread\underline{~}create() function, waits for the end of the threads with the pthread\underline{~}join() function, and returns the current value of the data variable.\par
+
+If you compile and run this application, then you will note no error; that is, the return value is always 0. An error, in this case, a return value not equal to 0, will show up if the number of loops performed is increased by a factor of 100. Then, you'll see other values showing up.\par
+
+You use the thread sanitizer to identify the data race. To compile with the thread sanitizer being enabled, you'll need to pass the -fsanitize=thread option to Clang. Adding debug symbols with the –g option gives you line numbers in the report, which helps a lot. Note that you also need to link the pthread library:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ clang -fsanitize=thread -g thread.c -o thread -lpthread \\
+\$ ./thread \\
+================== \\
+WARNING: ThreadSanitizer: data race (pid=1474) \\
+\hspace*{0.5cm}Write of size 4 at 0x000000cdf8f8 by thread T2: \\
+\hspace*{1cm}\#0 consumer /home/kai/sanitizers/thread.c:11:35 
+(thread+0x2b0fb2) \\
+\\
+\hspace*{0.5cm}Previous write of size 4 at 0x000000cdf8f8 by thread T1: \\
+\hspace*{1cm}\#0 producer /home/kai/sanitizers/thread.c:6:35 
+(thread+0x2b0f22)
+\\
+\hspace*{0.5cm}Location is global 'data' of size 4 at 0x000000cdf8f8 
+(thread+0x000000cdf8f8)
+\\
+\hspace*{0.5cm}Thread T2 (tid=100437, running) created by main thread at: \\
+\hspace*{1cm}\#0 pthread\underline{~}create /usr/src/contrib/llvm-project/ \\
+compiler-rt/lib/tsan/rtl/tsan\underline{~}interceptors\underline{~}posix.cpp:962:3 
+(thread+0x271703) \\
+\hspace*{1cm}\#1 main /home/kai/sanitizers/thread.c:18:3 
+(thread+0x2b1040) \\
+\\
+\hspace*{0.5cm}Thread T1 (tid=100436, finished) created by main  thread at: \\
+\hspace*{1cm}\#0 pthread\underline{~}create  /usr/src/contrib/llvm-project/ \\
+compiler-rt/lib/tsan/rtl/tsan\underline{~}interceptors\underline{~}posix.cpp:962:3 
+(thread+0x271703) \\
+\\
+\hspace*{1cm}\#1 main /home/kai/sanitizers/thread.c:17:3 
+(thread+0x2b1021) \\
+\\
+SUMMARY: ThreadSanitizer: data race /home/kai/sanitizers/ 
+thread.c:11:35 in consumer \\
+================== \\
+ThreadSanitizer: reported 1 warnings
+\end{tcolorbox}
+
+The report points us to lines 6 and 11 of the source file, where the global variable is accessed. It also shows that two threads, named T1 and T2, accessed the variable, as well as the file and line number of the respective calls to the pthread\underline{~}create() function.\par
+
+In this section, we learned how to use three sanitizers to identify common problems in applications. The address sanitizer helps us to identify common memory access errors, such as out-of-bounds access or using memory after being freed. Using the memory sanitizer, we can find accesses to uninitialized memory, and the thread sanitizer helps us to identify data races.\par
+
+In the next section, we try to trigger the sanitizers by running our application on random data, called fuzz testing.\par
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

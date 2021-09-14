@@ -1,0 +1,130 @@
+
+To test your application, you'll need to write unit tests. This is a great way to make sure your software behaves correctly. However, due to the exponential number of possible inputs, you'll probably miss certain weird inputs, and a few bugs as well.\par
+
+Fuzz testing can help here. The idea is to present your application with randomly generated data, or data based on valid input but with random changes. This is done over and over again, and so your application is tested with a large number of inputs. This is a very powerful testing approach. Literally hundreds of bugs in web browsers and other software have been found with fuzz testing.\par
+
+LLVM comes with its own fuzz testing library. Originally part of the LLVM core libraries, the libFuzzer implementation was finally moved to compiler-rt. The library is designed to test small and fast functions.\par
+
+Let's run a small example. You'll need to provide the LLVMFuzzerTestOneInput() function. This function is called by the fuzzer driver and provides you with some input. The following function counts consecutive ASCII digits in the input, and then we'll feed the random input to it. You'll need to save the example in the fuzzer.c file:\par
+
+\begin{lstlisting}[caption={}]
+#include <stdint.h>
+#include <stdlib.h>
+
+int count(const uint8_t *Data, size_t Size) {
+	int cnt = 0;
+	if (Size)
+		while (Data[cnt] >= '0' && Data[cnt] <= '9') ++cnt;
+	return cnt;
+}
+
+int LLVMFuzzerTestOneInput(const uint8_t *Data, size_t
+							Size) {
+	count(Data, Size);
+	return 0;
+}
+\end{lstlisting}
+
+From the preceding code, the count() function counts the number of digits in the memory pointed to by the Data variable. The size of the data is only checked to determine whether there are any bytes available. Inside the while loop, the size is not checked.\par
+
+Used with normal C strings, there will be no error because C strings are always terminated by a 0 byte. The LLVMFuzzerTestOneInput() function is the so-called fuzz target, and it is the function called by libFuzzer. It calls the function we want to test and returns 0, which is currently the only allowed value.\par
+
+To compile the file with libFuzzer, you add the -fsanitize=fuzzer option. The recommendation is to also enable the address sanitizer and the generation of debug symbols. Use the following command to compile the file:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ clang -fsanitize=fuzzer,address -g fuzzer.c -o fuzzer
+\end{tcolorbox}
+
+When you run the test, a lengthy report is emitted. The report contains more information than a stack trace, so let's have a closer look at it:\par
+
+\begin{enumerate}
+\item The first line tells you the seed that was used to initialize the random number generator. You can use the –seed= option to repeat this execution:
+\begin{tcolorbox}[colback=white,colframe=black]
+INFO: Seed: 1297394926
+\end{tcolorbox}
+
+\item By default, libFuzzer limits inputs to at most 4,096 bytes. You can change the default by using the –max\underline{~}len= option:
+\begin{tcolorbox}[colback=white,colframe=black]
+INFO: -max\underline{~}len is not provided; libFuzzer will not \\
+generate inputs larger than 4096 bytes
+\end{tcolorbox}
+
+\item Now, we run the test without providing sample input. The set of all sample inputs is called the corpus, and it is empty for this run:
+\begin{tcolorbox}[colback=white,colframe=black]
+INFO: A corpus is not provided, starting from an empty corpus
+\end{tcolorbox}
+
+\item Some information about the generated test data will follow. It shows you that 28 inputs were tried and 6 inputs, with a combined length of 19 bytes, were found, which together cover 6 coverage points or basic blocks:
+\begin{tcolorbox}[colback=white,colframe=black]
+\#28 NEW cov: 6 ft: 9 corp: 6/19b lim: 4 exec/s: 0 \\
+rss: 29Mb L: 4/4 MS: 4 CopyPart-PersAutoDict-CopyPart- \\
+ChangeByte- DE: "1$\setminus$x00"-
+\end{tcolorbox}
+
+\item After this, a buffer overflow was detected, and it follows the information from the address sanitizer. Lastly, the report tells you where the input causing the buffer overflow is saved:
+\begin{tcolorbox}[colback=white,colframe=black]
+artifact\underline{~}prefix='./'; Test unit written to ./crash-17ba0791499db908433b80f37c5fbc89b87\allowbreak 0084b
+\end{tcolorbox}
+
+\end{enumerate}
+
+With the saved input, you can execute the test case with just the crashing input again:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ ./fuzzer crash-17ba0791499db908433b80f37c5fbc89b870084b
+\end{tcolorbox}
+
+\hspace*{\fill} \par %插入空行
+\textbf{Limitations and alternatives}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
