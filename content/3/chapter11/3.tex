@@ -74,13 +74,61 @@ With the saved input, you can execute the test case with just the crashing input
 \$ ./fuzzer crash-17ba0791499db908433b80f37c5fbc89b870084b
 \end{tcolorbox}
 
+This is obviously a great help to identify the problem. Only, using random data is often not very helpful. If you try to fuzz test the tinylang lexer or parser, then pure random data leads to immediate rejection of the input, because no valid token can be found. \par
+
+In such cases, it is more useful to provide a small set of valid input, called the corpus. Then, the files of the corpus are randomly mutated and used as input. You can think of the input as mostly valid, with just a few bits flipped. This also works great with other input, which must have a certain format. For example, for a library processing JPEG and PNG files, you will provide some small JPEG and PNG files as the corpus.\par
+
+You can save the corpus files in one or more directories and you can create a simple corpus for your fuzz test with the help of the printf command:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ mkdir corpus \\
+\$ printf "012345$\setminus$0" >corpus/12345.txt \\
+\$ printf "987$\setminus$0" >corpus/987.txt
+\end{tcolorbox}
+
+When running the test, you will provide the directory on the command line:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ ./fuzzer corpus/
+\end{tcolorbox}
+
+The corpus is then used as the base for generating random input, as the report tells you:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+INFO: seed corpus: files: 2 min: 4b max: 7b total: 11b rss: 29Mb
+\end{tcolorbox}
+
+If you are testing a function that works on tokens or other magic values, such as a programming language, then you can speed up the process by providing a dictionary with the tokens. For a programming language, the dictionary would contain all the keywords and special symbols used in the language. The dictionary definitions follow a simple key-value style. For example, to define the if keyword in the dictionary, you can add the following:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+kw1="if"
+\end{tcolorbox}
+
+However, the key is optional and can be left out. You can then specify the dictionary file on the command line with the –dict= option. In the next section, we'll get to know the limitations and alternatives for the libFuzzer implementation.\par
+
 \hspace*{\fill} \par %插入空行
 \textbf{Limitations and alternatives}
 
+The libFuzzer implementation is fast but poses a number of restrictions on the test target. They are as follows:\par
 
 
+\begin{itemize}
+\item The function under test must accept the input as an array in memory. Some library functions require a file path to the data instead, and they cannot be tested with libFuzzer.
 
+\item The exit() function should not be called.
 
+\item The global state should not be altered.
+
+\item Hardware random number generators should not be used.
+\end{itemize}
+
+From the aforementioned restrictions, the first two restrictions are an implication of the implementation of libFuzzer as a library. The latter two restrictions are needed to avoid confusion in the evaluation algorithm. If one of these restrictions is not met, then two identical calls to the fuzz target can give different results.\par
+
+The best-known alternative tool for fuzz testing is AFL, found at \url{https://github.com/google/AFL}. AFL needs an instrumented binary (an LLVM plugin for instrumentation is provided) and requires the application to take the input as the file path on the command line. AFL and libFuzzer can share the same corpus and the same dictionary files. Thus, it is possible to test an application with both tools. In cases where libFuzzer is not applicable, AFL may be a good alternative.\par
+
+There are many more ways of influencing the way libFuzzer works. You can read the reference page at \url{https://llvm.org/docs/LibFuzzer.html} for more details.\par
+
+In the next section, we look at a totally different problem an application can have; we try to identify performance bottlenecks.\par
 
 
 

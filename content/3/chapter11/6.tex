@@ -1,0 +1,285 @@
+The static analyzer is an impressive example of what you can do with the Clang infrastructure. It is also possible to extend Clang with plugins, so you are able to add your own functionality to Clang. The technique is very similar to adding a pass plugin to LLVM.\par
+
+Let's explore the functionality with a simple plugin. The LLVM coding standard requires function names to begin with a lowercase letter. However, the coding standard has evolved over time, and there are many instances in which a function begins with an uppercase letter. A plugin that warns about a violation of the naming rule can help to fix the issue, so let's give it a try.\par
+
+Because you want to run a user-defined action over the abstract syntax tree (AST), you need to define a subclass of the PluginASTAction class. If you write your own tool using the Clang libraries, then you define subclasses of the ASTFrontendAction class for your actions. The PluginASTAction class is a subclass of the ASTFrontendAction class, with the additional ability to parse command-line options.\par
+
+The other class you need is a subclass of the ASTConsumer class. An AST consumer is a class using which you can run an action over an AST, regardless of the origin of the AST. Nothing more is needed for our first plugin. You can create the implementation in the NamingPlugin.cpp file as follows:\par
+
+\begin{enumerate}
+\item Begin by including the required header files. Besides the mentioned ASTConsumer class, you also need an instance of the compiler and the plugin registry:
+\begin{lstlisting}[caption={}]
+#include "clang/AST/ASTConsumer.h"
+#include "clang/Frontend/CompilerInstance.h"
+#include "clang/Frontend/FrontendPluginRegistry.h"
+\end{lstlisting}
+
+\item Use the clang namespace and put your implementation into an anonymous namespace to avoid name clashes:
+\begin{lstlisting}[caption={}]
+using namespace clang;
+namespace {
+\end{lstlisting}
+
+\item Next, define your subclass of the ASTConsumer class. Later, you will want to emit warnings if you detect a violation of the naming rule. To do so, you need a reference to a DiagnosticsEngine instance.
+
+\item You'll need to store a CompilerInstance instance in the class, then you can ask for a DiagnosticsEngine instance:
+\begin{lstlisting}[caption={}]
+class NamingASTConsumer : public ASTConsumer {
+	CompilerInstance &CI;
+	
+public:
+	NamingASTConsumer(CompilerInstance &CI) : CI(CI) {}
+\end{lstlisting}
+
+\item An ASTConsumer instance has several entry methods. The HandleTopLevelDecl() method fits our purpose. The method is called for each declaration at the top level. This includes more than functions, for example, variables. So, you will use the LLVM RTTI dyn\underline{~}cast<>() function to determine whether the declaration is a function declaration. The HandleTopLevelDecl() method has a declaration group as a parameter, which can contain more than a single declaration. This requires a loop over the declarations. The following code shows us the HandleTopLevelDecl() method:
+\begin{lstlisting}[caption={}]
+bool HandleTopLevelDecl(DeclGroupRef DG) override {
+	for (DeclGroupRef::iterator I = DG.begin(),
+								E = DG.end();
+			I != E; ++I) {
+		const Decl *D = *I;
+		if (const FunctionDecl *FD =
+			dyn_cast<FunctionDecl>(D)) {
+\end{lstlisting}
+
+\item After having found a function declaration, you'll need to retrieve the name of the function. You'll also need to make sure that the name is not empty:
+\begin{lstlisting}[caption={}]
+			std::string Name =
+				FD->getNameInfo().getName().getAsString();
+			assert(Name.length() > 0 &&
+				"Unexpected empty identifier");
+\end{lstlisting}
+If the function name does not start with a lowercase letter, then you'll have found a violation of the naming rule:
+\begin{lstlisting}[caption={}]
+			char &First = Name.at(0);
+			if (!(First >= 'a' && First <= 'z')) {
+\end{lstlisting}
+
+\item To emit a warning, you need a DiagnosticsEngine instance. Additionally, you need a message ID. Inside Clang, the message ID is defined as an enumeration. Because your plugin is not part of Clang, you need to create a custom ID, which you then use to emit the warning:
+\begin{lstlisting}[caption={}]
+				DiagnosticsEngine &Diag =
+					CI.getDiagnostics();
+				unsigned ID = Diag.getCustomDiagID(
+					DiagnosticsEngine::Warning,
+					"Function name should start with "
+					"lowercase letter");
+				Diag.Report(FD->getLocation(), ID);
+\end{lstlisting}
+
+\item Aside from closing all open braces, you need to return true from this function to indicate that processing can continue:
+\begin{lstlisting}[caption={}]
+				}
+			}
+		}
+	return true;
+	}
+};
+\end{lstlisting}
+
+\item Next, you need to create the PluginASTAction subclass, which implements the interface called by Clang:
+\begin{lstlisting}[caption={}]
+class PluginNamingAction : public PluginASTAction {
+public:
+\end{lstlisting}
+The first method you must implement is the CreateASTConsumer() method, which returns an instance of your NamingASTConsumer class. This method is called by Clang, and the passed CompilerInstance instance gives you access to all the important classes of the compiler. The following code demonstrates this:
+\begin{lstlisting}[caption={}]
+	std::unique_ptr<ASTConsumer>
+	CreateASTConsumer(CompilerInstance &CI,
+					  StringRef file) override {
+		return std::make_unique<NamingASTConsumer>(CI);
+	}
+\end{lstlisting}
+
+\item A plugin also has access to command-line options. Your plugin has no commandline parameters, and you will just return true to indicate success:
+\begin{lstlisting}[caption={}]
+	bool ParseArgs(const CompilerInstance &CI,
+				   const std::vector<std::string> &args)
+												 override {
+		return true;
+	}
+\end{lstlisting}
+
+\item The action type of a plugin describes when the action is invoked. The default value is Cmdline, which means that the plugin must be named on the command line in order to be invoked. You'll need to override the method and change the value to AddAfterMainAction, which automatically runs the action:
+\begin{lstlisting}[caption={}]
+	PluginASTAction::ActionType getActionType() override {
+		return AddAfterMainAction;
+	}
+\end{lstlisting}
+
+\item The implementation of your PluginNamingAction class is finished; only the closing braces for the class and the anonymous namespace are missing. Add them to the code as follows:
+\begin{lstlisting}[caption={}]
+};
+}
+\end{lstlisting}
+
+\item Lastly, you need to register the plugin. The first parameter is the name of the plugin, and the second parameter is the help text:
+\begin{lstlisting}[caption={}]
+static FrontendPluginRegistry::Add<PluginNamingAction>
+	X("naming-plugin", "naming plugin");
+\end{lstlisting}
+
+\end{enumerate}
+
+This finishes the implementation of the plugin. To compile the plugin, create a build description in the CMakeLists.txt file. The plugin lives outside the Clang source tree, so you need to set up a complete project. You can do so by following these steps:\par
+
+\begin{enumerate}
+\item Begin with the definition of the required CMake version and the name of the project:
+\begin{tcolorbox}[colback=white,colframe=black]
+cmake\underline{~}minimum\underline{~}required(VERSION 3.13.4) \\
+project(naminglugin)
+\end{tcolorbox}
+
+\item Next, include the LLVM files. If CMake is not able to find the files automatically, then you have to set the LLVM\underline{~}DIR variable to point to the LLVM directory containing the CMake files:
+\begin{tcolorbox}[colback=white,colframe=black]
+find\underline{~}package(LLVM REQUIRED CONFIG)
+\end{tcolorbox}
+
+\item Append the LLVM directory with the CMake files to the search path, and include some required modules:
+\begin{tcolorbox}[colback=white,colframe=black]
+list(APPEND CMAKE\underline{~}MODULE\underline{~}PATH \$\{LLVM\underline{~}DIR\}) \\ 
+include(ChooseMSVCCRT) \\
+include(AddLLVM) \\
+include(HandleLLVMOptions)
+\end{tcolorbox}
+
+\item Then, load the CMake definitions for Clang. If CMake is not able to find the files automatically, then you have to set the Clang\underline{~}DIR variable to point to the Clang directory containing the CMake files:
+\begin{tcolorbox}[colback=white,colframe=black]
+find\underline{~}package(Clang REQUIRED)
+\end{tcolorbox}
+
+\item Next, define where the headers files and the library files are located, and which definitions to use:
+\begin{tcolorbox}[colback=white,colframe=black]
+include\underline{~}directories("\$\{LLVM\underline{~}INCLUDE\underline{~}DIR\}" \\
+\hspace*{1cm}"\$\{CLANG\underline{~}INCLUDE\underline{~}DIRS\}") \\
+add\underline{~}definitions("\$\{LLVM\underline{~}DEFINITIONS\}") \\
+link\underline{~}directories("\$\{LLVM\underline{~}LIBRARY\underline{~}DIR\}")
+\end{tcolorbox}
+
+\item The previous definitions set up the build environment. Insert the following command, defining the name of your plugin, the source file(s) of the plugin, and that it is a Clang plugin:
+\begin{tcolorbox}[colback=white,colframe=black]
+add\underline{~}llvm\underline{~}library(NamingPlugin MODULE NamingPlugin.cpp \\
+\hspace*{3cm}PLUGIN\underline{~}TOOL clang)
+\end{tcolorbox}
+
+On Windows, the plugin support is different from the Unix platforms, and the required LLVM and Clang libraries must be linked in. The following code ensures this:
+\begin{tcolorbox}[colback=white,colframe=black]
+if(LLVM\underline{~}ENABLE\underline{~}PLUGINS AND (WIN32 OR CYGWIN)) \\
+\hspace*{0.5cm}set(LLVM\underline{~}LINK\underline{~}COMPONENTS Support) \\
+\hspace*{0.5cm}clang\underline{~}target\underline{~}link\underline{~}libraries(NamingPlugin PRIVATE \\
+\hspace*{1cm}clangAST clangBasic clangFrontend clangLex) \\
+endif()
+\end{tcolorbox}
+
+\item Save both files in the NamingPlugin directory. Create a build-namingplugin directory at the same level as the NamingPlugin directory, and build the plugin with the following commands:
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ mkdir build-naming-plugin \\
+\$ cd build-naming-plugin \\
+\$ cmake –G Ninja ../NamingPlugin \\
+\$ ninja
+\end{tcolorbox}
+
+\end{enumerate}
+
+These steps create the NamingPlugin.so shared library in the build directory.\par
+
+To test the plugin, save the following source as the naming.c file. The Func1 function name violates the naming rule, but not the main name:\par
+
+\begin{lstlisting}[caption={}]
+int Func1() { return 0; }
+int main() { return Func1(); }
+\end{lstlisting}
+
+To invoke the plugin, you need to specify the –fplugin= option:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ clang -fplugin=./NamingPlugin.so naming.c \\
+naming.c:1:5: warning: Function name should start with \\
+lowercase letter \\
+int Func1() { return 0; } \\
+\hspace*{0.7cm}\^ \\
+1 warning generated.
+\end{tcolorbox}
+
+This kind of invocation requires that you override the getActionType() method of the PluginASTAction class, and that you return a value different from the Cmdline default value.\par
+
+If you did not do this, for example, because you want to have more control over the invocation of the plugin action, then you can run the plugin from the compiler command line:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ clang -cc1 -load ./NamingPlugin.so -plugin naming-plugin$\setminus$ \\
+\hspace*{0.5cm}naming.c
+\end{tcolorbox}
+
+Congrats, you have built your first Clang plugin!\par
+
+The disadvantage of this approach is that it has certain limitations. The ASTConsumer class has different entry methods, but they are all coarse-grained. This can be solved by using a RecursiveASTVisitor class. This class traverses all AST nodes, and you can override the VisitXXX() methods you are interested in. You can rewrite the plugin to use the visitor with the following steps:\par
+
+\begin{enumerate}
+\item You need an additional include for the definition of the RecursiveASTVisitor class. Insert it as follows:
+\begin{lstlisting}[caption={}]
+#include "clang/AST/RecursiveASTVisitor.h"
+\end{lstlisting}
+
+\item Then, define the visitor as the first class in the anonymous namespace. You will only store a reference to the AST context, which will give you access to all the important methods for AST manipulation, including the DiagnosticsEngine instance required for emitting the warning:
+\begin{lstlisting}[caption={}]
+class NamingVisitor
+	: public RecursiveASTVisitor<NamingVisitor> {
+private:
+	ASTContext &ASTCtx;
+public:
+	explicit NamingVisitor(CompilerInstance &CI)
+		: ASTCtx(CI.getASTContext()) {}
+\end{lstlisting}
+
+\item During traversal, the VisitFunctionDecl() method is called whenever a function declaration is discovered. Copy the body of the inner loop inside the HandleTopLevelDecl() function here:
+\begin{lstlisting}[caption={}]
+	virtual bool VisitFunctionDecl(FunctionDecl *FD) {
+		std::string Name =
+			FD->getNameInfo().getName().getAsString();
+		assert(Name.length() > 0 &&
+			  "Unexpected empty identifier");
+		char &First = Name.at(0);
+		if (!(First >= 'a' && First <= 'z')) {
+			DiagnosticsEngine &Diag =
+				ASTCtx.getDiagnostics();
+			unsigned ID = Diag.getCustomDiagID(
+				DiagnosticsEngine::Warning,
+				"Function name should start with "
+				"lowercase letter");
+			Diag.Report(FD->getLocation(), ID);
+		}
+		return true;
+	}
+};
+\end{lstlisting}
+
+\item This finishes the visitor implementation. In your NamingASTConsumer class, you will now only store a visitor instance:
+\begin{lstlisting}[caption={}]
+	std::unique_ptr<NamingVisitor> Visitor;
+public:
+	NamingASTConsumer(CompilerInstance &CI)
+		: Visitor(std::make_unique<NamingVisitor>(CI)) {}
+\end{lstlisting}
+
+\item You will remove the HandleTopLevelDecl() method, because the functionality is now in the visitor class, so you'll need to override the HandleTranslationUnit() method instead. This class is called once for each translation unit, and you will start the AST traversal here:
+\begin{lstlisting}[caption={}]
+	void
+	HandleTranslationUnit(ASTContext &ASTCtx) override {
+		Visitor->TraverseDecl(
+			ASTCtx.getTranslationUnitDecl());
+	}
+\end{lstlisting}
+
+\end{enumerate}
+
+This new implementation has exactly the same functionality. The advantage is that it is easier to extend. For example, if you want to examine variable declarations, then you implement the VisitVarDecl() method. Or if you want to work with a statement, then you implement the VisitStmt() method. Basically, you have a visitor method for each entity of the C, C++, and Objective C languages.\par
+
+Having access to the AST allows you to build plugins that perform complex tasks. Enforcing naming conventions, as described in this section, is a useful addition to Clang. Another useful addition you could implement as a plugin is the calculation of a software metric such as cyclomatic complexity. You can also add or replace AST nodes, allowing you, for example, to add runtime instrumentation. Adding plugins allows you to extend Clang in the way you need it.\par
+
+
+
+
+
+
+
+
+
