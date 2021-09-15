@@ -1,0 +1,122 @@
+Our new target, located in the llvm/lib/Target/M88k directory, needs to be integrated into the build system. To make development easy, we add it as an experimental target in the llvm/CMakeLists.txt file. We replace the existing empty string with the name of our target:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+set(LLVM\underline{~}EXPERIMENTAL\underline{~}TARGETS\underline{~}TO\underline{~}BUILD "M88k" … )
+\end{tcolorbox}
+
+We also need to provide a llvm/lib/Target/M88k/CMakeLists.txt file to build our target. Besides listing the C++ files for the target, it also defines the generation of the source from the target description.\par
+
+\begin{tcolorbox}[colback=blue!5!white,colframe=blue!75!black, title=Generating all the types of sources from the target description]
+Different runs of the llvm-tblgen tool generate different portions of C++ code. However, I recommend adding the generation of all parts to the CMakeLists.txt file. The reason for this is that it provides better checking. For example, if you make an error with the instruction encoding, then this is only caught during the generation of the code for the disassembler. So, even if you do not plan to support the disassembler, it is still worth generating the source for it.	
+\end{tcolorbox}
+
+The file looks as follows:\par
+
+\begin{enumerate}
+\item First, we define a new LLVM component named M88k:
+\begin{tcolorbox}[colback=white,colframe=black]
+add\underline{~}llvm\underline{~}component\underline{~}group(M88k)
+\end{tcolorbox}
+
+\item Next, we name the target description file, add statements to generate the various source pieces with TableGen, and define a public target for it:
+\begin{tcolorbox}[colback=white,colframe=black]
+set(LLVM\underline{~}TARGET\underline{~}DEFINITIONS M88k.tdtablegen(LLVM \\
+M88kGenAsmMatcher.inc -gen-asm-matcher) \\
+tablegen(LLVM M88kGenAsmWriter.inc -gen-asm-writer) \\
+tablegen(LLVM M88kGenCallingConv.inc -gen-callingconv) \\
+tablegen(LLVM M88kGenDAGISel.inc -gen-dag-isel) \\
+tablegen(LLVM M88kGenDisassemblerTables.inc \\
+\hspace*{8cm}-gen-disassembler) \\
+tablegen(LLVM M88kGenInstrInfo.inc -gen-instr-info) \\
+tablegen(LLVM M88kGenMCCodeEmitter.inc -gen-emitter) \\
+tablegen(LLVM M88kGenRegisterInfo.inc -gen-register-info) \\
+tablegen(LLVM M88kGenSubtargetInfo.inc -gen-subtarget) \\
+add\underline{~}public\underline{~}tablegen\underline{~}target(M88kCommonTableGen)
+\end{tcolorbox}
+
+\item We must list all the source files the new component is made of:
+\begin{tcolorbox}[colback=white,colframe=black]
+add\underline{~}llvm\underline{~}target(M88kCodeGen \\
+\hspace*{0.5cm}M88kAsmPrinter.cpp M88kFrameLowering.cpp \\
+\hspace*{0.5cm}M88kISelDAGToDAG.cpp M88kISelLowering.cpp \\
+\hspace*{0.5cm}M88kRegisterInfo.cpp M88kSubtarget.cpp \\
+\hspace*{0.5cm}M88kTargetMachine.cpp )
+\end{tcolorbox}
+
+\item Last, we include the directories with the MC and disassembler classes in the build:
+\begin{tcolorbox}[colback=white,colframe=black]
+add\underline{~}subdirectory(MCTargetDesc) \\
+add\underline{~}subdirectory(Disassembler)
+\end{tcolorbox}
+
+\end{enumerate}
+
+Now we are ready to compile the LLVM with the new backend target. On the build directory, we can simply run this:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ ninja
+\end{tcolorbox}
+
+This detects the changed CmakeLists.txt file, runs the configuration step again, and compiles the new backend. To check that all went well, you can run this:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ bin/llc –version
+\end{tcolorbox}
+
+The output should contain the following line in the Registered Target section:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+m88k   \hspace{2cm} - M88k
+\end{tcolorbox}
+
+Hurray! We finished the backend implementation. Let's try it out. The following f1 function in LLVM IR performs a bitwise AND operation between the two parameters of the function and returns the result. Save it in the example.ll file:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+target triple = "m88k-openbsd" \\
+define i32 @f1(i32 \%a, i32 \%b) \{ \\
+\hspace*{0.5cm}\%res = and i32 \%a, \%b \\
+\hspace*{0.5cm}ret i32 \%res \\
+\}
+\end{tcolorbox}
+
+Run the llc tool as follows to see the generated assembler text on the console:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ llc < example.ll \\
+\hspace*{1cm}.text \\
+\hspace*{1cm}.file \hspace{0.8cm}"<stdin>" \\
+\hspace*{1cm}.globl \hspace{0.5cm}f1 \hspace{6cm} \# \verb|--| Begin \\
+function f1 \\
+\hspace*{1cm}.align \hspace{0.5cm} 3 \\
+\hspace*{1cm}.type\hspace{0.8cm}f1,@function \\
+f1: \hspace{8cm} \# @f1 \\
+\hspace*{1cm}.cfi\underline{~}startproc \\
+\# \%bb.0: \\
+\hspace*{1cm}and \%r2, \%r2, \%r3 \\
+\hspace*{1cm}jmp \%r1 \\
+.Lfunc\underline{~}end0: \\
+\hspace*{1cm}.size\hspace{1cm}f1, .Lfunc\underline{~}end0-f1 \\
+\hspace*{1cm}.cfi\underline{~}endproc \\
+\hspace*{8.8cm}\# -- End function \\
+\hspace*{1cm}.section\hspace{1cm}".note.GNU-stack","",@progbits
+\end{tcolorbox}
+
+The output is in valid GNU syntax. For the f1 function, and and jmp instructions are generated. The parameters are passed in the \%r2 and \%r3 registers, which are used in
+the and instruction. The result is stored in the \%r2 register, which is also the register to return 32-bit values. The return from the function is realized with a branch to the address hold in the \%r1 register, which also matches the ABI. It all looks very good!\par
+
+With the topics you learned about in this chapter, you can now implement your own LLVM backend. For many relatively simple CPUs such as digital signal processors (DSPs), you do not need to implement more than we did here. Of course, the implementation for the M88k CPU architecture does not yet support all features of the architecture, for example, floating-point registers. However, you now know all the important concepts applied in LLVM backend development, and with this, you will be able to add any missing parts!\par
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

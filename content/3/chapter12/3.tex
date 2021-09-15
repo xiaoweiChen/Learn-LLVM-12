@@ -1,0 +1,63 @@
+An instance of the Triple class represents the target platform LLVM is producing code for. To support a new architecture, the first task is to extend the Triple class. In the llvm/include/llvm/ADT/Triple.h file, you add a member to the ArchType enumeration and a new predicate:\par
+
+\begin{lstlisting}[caption={}]
+class Triple {
+	public:
+	enum ArchType {
+		// Many more members
+		m88k, // M88000 (big endian): m88k
+	};
+	/// Tests whether the target is M88k.
+	bool isM88k() const {
+		return getArch() == Triple::m88k;
+	}
+// Many more methods
+};
+\end{lstlisting}
+
+Inside the llvm/lib/Support/Triple.cpp file, there are numerous methods that use the ArchType enumeration. You need to extend all of them; for example, in the getArchTypeName() method, you need to add a new case statement:\par
+
+\begin{lstlisting}[caption={}]
+	switch (Kind) {
+		// Many more cases
+		case m88k: return "m88k";
+	}
+\end{lstlisting}
+
+In most cases, the compiler will warn you if you forget to handle the new m88k enumeration member in one of the functions. Next, we will expand the Executable and Linkable Format (ELF) definition.\par
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

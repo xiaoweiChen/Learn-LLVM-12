@@ -1,0 +1,120 @@
+The ELF file format is one of the binary object file formats that LLVM has support for to read and write. ELF itself is defined for many CPU architectures, and there is also a definition for the M88k architecture. All we need to do is to add the definition of the relocations and some flags. The relocations are given in Chapter 4, Object Files, of the System V ABI M88k Processor supplement book:\par
+
+\begin{enumerate}
+\item We need to type the following into the llvm/include/llvm/BinaryFormat/ELFRelocs/M88k.def file:
+\begin{lstlisting}[caption={}]
+#ifndef ELF_RELOC
+#error "ELF_RELOC must be defined"
+#endif
+ELF_RELOC(R_88K_NONE, 0)
+ELF_RELOC(R_88K_COPY, 1)
+// Many more…
+\end{lstlisting}
+
+\item We also add some flags to the llvm/include/llvm/BinaryFormat/ELF.h file and include the relocation definitions:
+\begin{lstlisting}[caption={}]
+// M88k Specific e_flags
+enum : unsigned {
+	EF_88K_NABI = 0x80000000, // Not ABI compliant
+	EF_88K_M88110 = 0x00000004 // File uses 88110-
+	// specific
+	// features
+};
+// M88k relocations.
+enum {
+#include "ELFRelocs/M88k.def"
+};
+\end{lstlisting}
+The code can be added anywhere in the file, but it is best to keep a sorted order and insert it before the code for the MIPS architecture.
+
+\item We also need to expand some other methods. In the llvm/include/llvm/Object/ELFObjectFile.h file are some methods that translate between enumeration members and strings. For example, we must add a new case statement to the getFileFormatName() method:
+\begin{lstlisting}[caption={}]
+	switch (EF.getHeader()->e_ident[ELF::EI_CLASS]) {
+		// Many more cases
+		case ELF::EM_88K:
+			return "elf32-m88k";
+	}
+\end{lstlisting}
+
+\item Similarly, we extend the getArch() method.
+
+\item Last, we use the relocation definitions in the llvm/lib/Object/ELF.cpp file, in the getELFRelocationTypeName() method:
+\begin{lstlisting}[caption={}]
+	switch (Machine) {
+		// Many more cases
+		case ELF::EM_88K:
+		switch (Type) {
+#include "llvm/BinaryFormat/ELFRelocs/M88k.def"
+			default:
+			break;
+		}
+		break;
+	}
+\end{lstlisting}
+
+\item To complete the support, you can also add the relocations in the llvm/lib/ObjectYAML/ELFYAML.cpp file, in the method that maps the ELFYAML::ELF\underline{~}REL enumeration.
+
+\item At this point, we have completed the support of the m88k architecture in the ELF file format. You can use the llvm-readobj tool to inspect an ELF object file, for example, created by a cross-compiler on OpenBSD. Likewise, you can create an ELF object file for the m88k architecture with the yaml2obj tool.
+\begin{tcolorbox}[colback=blue!5!white,colframe=blue!75!black, title=Is adding support for an object file format mandatory?]
+	
+Integrating support for an architecture into the ELF file format implementation requires only a couple of lines. If the architecture for which you create an LLVM backend uses the ELF format, then you should take this route. On the other hand, adding support for a completely new binary file format is itself a complicated task. In this case, a possible approach is to only output assembler files and use an external assembler to create object files.
+\end{tcolorbox}
+
+\end{enumerate}
+
+With these additions, the implementation of the ELF file formats now supports the M88k architecture. In the next section, we create the target description for the M88k architecture, which describes the instructions, registers, calling convention, and other details of the architecture.\par
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,111 @@
+The instruction selection implemented in the previous sections lowers the IR instructions into MachineInstr instances. This is already a much lower representation of instruction, but it is not yet the machine code itself. The last pass in the backend pipeline is to emit the instructions, either as assembly text or into an object file. The M88kAsmPrinter machine pass is responsible for this task.\par
+
+Basically, this pass lowers a MachineInstr instance to an MCInst instance, which is then emitted to a streamer. The MCInst class represents the real machine code instruction. This additional lowering is required because the MachineInstr class still does not have all the required details.\par
+
+For the first approach, we can limit our implementation to overriding the emitInstruction() method. You need to override more methods for supporting several operand types, mainly to emit the correct relocations. This class is also responsible for handling inline assemblers, which you also need to implement if needed.\par
+
+Because the M88kAsmPrinter class is again a machine function pass, we also override the getPassName() method. The declaration of the class is as follows:\par
+
+\begin{lstlisting}[caption={}]
+class M88kAsmPrinter : public AsmPrinter {
+public:
+	explicit M88kAsmPrinter(TargetMachine &TM,
+							std::unique_ptr<MCStreamer>
+							Streamer)
+		: AsmPrinter(TM, std::move(Streamer)) {}
+	StringRef getPassName() const override
+	{ return "M88k Assembly Printer"; }
+	
+	void emitInstruction(const MachineInstr *MI) override;
+};
+\end{lstlisting}
+
+Basically, we must handle two different cases in the emitInstruction() method. The MachineInstr instance can still have operands, which are not real machine instructions. For example, this is the case for the return ret\underline{~}flag node, having the RET opcode value. On the M88k architecture, there is no return instruction. Instead, a jump to the address store in the r1 register is made. Therefore, we need to construct the branch instruction when we detect the RET opcode. In the default case, the lowering only needs the information from the MachineInstr instance, and we delegate this task to the M88kMCInstLower class:\par
+
+\begin{lstlisting}[caption={}]
+void M88kAsmPrinter::emitInstruction(const MachineInstr *MI) {
+	MCInst LoweredMI;
+	switch (MI->getOpcode()) {
+	case M88k::RET:
+		LoweredMI = MCInstBuilder(M88k::JMP).addReg(M88k::R1);
+		break;
+		
+	default:
+		M88kMCInstLower Lower(MF->getContext(), *this);
+		Lower.lower(MI, LoweredMI);
+		break;
+	}
+	EmitToStreamer(*OutStreamer, LoweredMI);
+}
+\end{lstlisting}
+
+The M88kMCInstLower class has no predefined superclass. Its main purpose is to handle the various operand types. As we currently only have a very limited set of supported operand types, we can reduce this class to having only a single method. The lower() method sets the opcode and the operand of the MCInst instance. Only register and immediate operands are handled; other operand types are ignored. For the full implementation, we also need to handle memory addresses:\par
+
+\begin{lstlisting}[caption={}]
+void M88kMCInstLower::lower(const MachineInstr *MI, MCInst
+&OutMI) const {
+	OutMI.setOpcode(MI->getOpcode());
+	for (unsigned I = 0, E = MI->getNumOperands(); I != E; ++I)
+	{
+		const MachineOperand &MO = MI->getOperand(I);
+		switch (MO.getType()) {
+		case MachineOperand::MO_Register:
+			if (MO.isImplicit())
+			break;
+			OutMI.addOperand(MCOperand::createReg(MO.getReg()));
+			break;
+			
+		case MachineOperand::MO_Immediate:
+			OutMI.addOperand(MCOperand::createImm(MO.getImm()));
+			break;
+			
+		default:
+			break;
+		}
+	}
+}
+\end{lstlisting}
+
+The assembler printer needs a factory method, which is called during initialization, for example, from the InitializeAllAsmPrinters() method:\par
+
+\begin{lstlisting}[caption={}]
+extern "C" LLVM_EXTERNAL_VISIBILITY void
+LLVMInitializeM88kAsmPrinter() {
+	RegisterAsmPrinter<M88kAsmPrinter> X(getTheM88kTarget());
+}
+\end{lstlisting}
+
+Finally, having lowered the instructions to real machine code instructions, we are still not done. We need to implement various small pieces for the MC layer, which we look at in the next section.\par
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

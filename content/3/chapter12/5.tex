@@ -1,0 +1,288 @@
+
+The target description is the heart of a backend implementation. In an ideal world, we could generate the whole backend from the target description. This goal has not yet been reached, and therefore, we need to extend the generated code later. Let's dissect the target description, beginning with the top-level file.\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{Implementing the top-level file of the target description}
+
+We put the files of our new backend into the llvm/lib/Target/M88k directory. The target description is in the M88k.td file:\par
+
+\begin{enumerate}
+\item In this file, we first need to include basic target description classes predefined by LLVM and then the files we are going to create in the next sections:
+\begin{tcolorbox}[colback=white,colframe=black]
+include "llvm/Target/Target.td" \\
+\\
+include "M88kRegisterInfo.td" \\
+include "M88kCallingConv.td" \\
+include "M88kSchedule.td" \\
+include "M88kInstrFormats.td" \\
+include "M88kInstrInfo.td"
+\end{tcolorbox}
+
+\item Next, we also define the supported processor. Among other things, this translates into the parameter for the –mcpu= option:
+\begin{tcolorbox}[colback=white,colframe=black]
+def : ProcessorModel<"mc88110", M88kSchedModel, []>;
+\end{tcolorbox}
+
+\item With all these definitions done, we now can piece our target together. We define these subclasses, in case we need to modify some of the default values. The M88kInstrInfo class holds all the information about the instructions:
+\begin{tcolorbox}[colback=white,colframe=black]
+def M88kInstrInfo : InstrInfo;
+\end{tcolorbox}
+
+\item We define a parser for the .s assembly files, and we additionally state that register names are always be prefixed with \%:
+\begin{tcolorbox}[colback=white,colframe=black]
+def M88kAsmParser : AsmParser; \\
+def M88kAsmParserVariant : AsmParserVariant \{ \\
+\hspace*{1cm}let RegisterPrefix = "\%"; \\
+\}
+\end{tcolorbox}
+
+\item Next, we define a class for the assembly writer, which is responsible for writing .s assembly files:
+\begin{tcolorbox}[colback=white,colframe=black]
+def M88kAsmWriter : AsmWriter;
+\end{tcolorbox}
+
+\item And lastly, all these records are put together to define the target:
+\begin{tcolorbox}[colback=white,colframe=black]
+def M88k : Target \{ \\
+\hspace*{1cm}let InstructionSet = M88kInstrInfo; \\
+\hspace*{1cm}let AssemblyParsers = [M88kAsmParser]; \\
+\hspace*{1cm}let AssemblyParserVariants = [M88kAsmParserVariant]; \\
+\hspace*{1cm}let AssemblyWriters = [M88kAsmWriter]; \\
+\hspace*{1cm}let AllowRegisterRenaming = 1; \\
+\}
+\end{tcolorbox}
+
+\end{enumerate}
+
+Now that the top-level file is implemented, we create the included files, starting with the register definition in the next section.\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{Adding the register definition}
+
+A CPU architecture usually defines a set of registers. The characteristics of these registers can vary greatly. Some architectures allow access to subregisters. For example, the x86 architecture has special register names to access only a part of a register value. Other architectures do not implement this. Besides general-purpose, floating-point, and vector registers, an architecture may also define special registers, for example, for status codes or for the configuration of floating-point operations. You need to define all this information for LLVM.\par
+
+The M88k architecture defines general-purpose registers, floating-point registers, and control registers. To keep the example small, we will only define the general-purpose registers. We begin with defining a super-class for the registers. The encoding for registers uses only 5 bits, so we limit the field holding the encoding. We also define that all the generated C++ code should reside in the M88k namespace:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+class M88kReg<bits<5> Enc, string n> : Register<n> \{ \\
+\hspace*{1cm}let HWEncoding{15-5} = 0; \\
+\hspace*{1cm}let HWEncoding{4-0} = Enc; \\
+\hspace*{1cm}let Namespace = "M88k"; \\
+\}
+\end{tcolorbox}
+
+The M88kReg class is used for all register types. We define a special class for generalpurpose registers:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+class GRi<bits<5> Enc, string n> : M88kReg<Enc, n>;
+\end{tcolorbox}
+
+Now we can define all 32 general-purpose registers:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+foreach I = 0-31 in \{ \\
+\hspace*{1cm}def R\#I : GRi<I, "r"\#I>; \\
+\}
+\end{tcolorbox}
+
+The single registers need to be grouped in register classes. The sequence order of the registers also defines the allocation order in the register allocator. Here, we simply add all registers:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+def GPR : RegisterClass<"M88k", [i32], 32, \\
+\hspace*{4.5cm}(add (sequence "R\%u", 0, 31))>;
+\end{tcolorbox}
+
+And last, we need to define an operand based on the register class. The operand is used in selecting DAG nodes to match a register, and it can also be extended to denote method names for printing and matching the register in assembly code:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+def GPROpnd : RegisterOperand<GPR>;
+\end{tcolorbox}
+
+This finishes our definition of the registers. In the next section, we use these definitions to define the calling convention.\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{Defining the calling convention}
+
+A calling convention defines how parameters are passed to functions. Usually, the first parameters are passed in registers, and the rest of the parameters are passed on the stack. There must also be rules on how aggregates are passed and how values are returned from a function. From the definition given here, analyzer classes are generated, which are used later during the lowering of calls.\par
+
+You can read about the calling convention used on the M88k architecture in Chapter 3, Low-Level System Information, of the System V ABI M88k Processor supplement book. Let's translate this into the TableGen syntax:\par
+
+\begin{enumerate}
+\item We define a record for the calling convention:
+\begin{tcolorbox}[colback=white,colframe=black]
+def CC\underline{~}M88k : CallingConv<[
+\end{tcolorbox}
+
+\item The M88k architecture only has 32-bit registers, therefore values of smaller data types need to be promoted to 32 bit:
+\begin{tcolorbox}[colback=white,colframe=black]
+\hspace*{0.5cm}CCIfType<[i1, i8, i16], CCPromoteToType<i32>>,
+\end{tcolorbox}
+
+\item The calling convention states that for aggregate return values, a pointer to the memory is passed in the r12 register:
+\begin{tcolorbox}[colback=white,colframe=black]
+\hspace*{0.5cm}CCIfSRet<CCIfType<[i32], CCAssignToReg<[R12]>>>,
+\end{tcolorbox}
+
+\item The registers r2 to r9 are used to pass parameters:
+\begin{tcolorbox}[colback=white,colframe=black]
+\hspace*{0.5cm}CCIfType<[i32,i64,f32,f64], \\
+\hspace*{1cm}CCAssignToReg<[R2, R3, R4, R5, R6, R7, R8, \\
+\hspace*{1.5cm}R9]>>, 
+\end{tcolorbox}
+
+\item Every additional parameter is passed on the stack, in 4 bytes-aligned slots:
+\begin{tcolorbox}[colback=white,colframe=black]
+\hspace*{0.5cm}CCAssignToStack<4, 4>, \\
+>;
+\end{tcolorbox}
+
+\item An additional record defines how results are passed to the calling function. 32-bit values are passed in the r2 register, and 64-bit values use the r2 and r3 registers:
+\begin{tcolorbox}[colback=white,colframe=black]
+def RetCC\underline{~}M88k : CallingConv<[ \\
+\hspace*{0.5cm}CCIfType<[i32,f32], CCAssignToReg<[R2]>>, \\
+\hspace*{0.5cm}CCIfType<[i64,f64], CCAssignToReg<[R2, R3]>> \\
+]>;
+\end{tcolorbox}
+
+\item And last, a calling convention also states which registers have to be preserved by the called function:
+\begin{tcolorbox}[colback=white,colframe=black]
+def CSR\underline{~}M88k : \\
+\hspace*{1.5cm}CalleeSavedRegs<(add (sequence "R\%d", 14, \\
+\hspace*{2cm}25), R30)>;
+\end{tcolorbox}
+
+\end{enumerate}
+
+If needed, you can also define multiple calling conventions. In the next section, we will have a brief look at the scheduling model.\par
+
+
+\hspace*{\fill} \par %插入空行
+\textbf{Creating the scheduling model}
+
+The scheduling model is used by the code generation to order the instructions in an optimal way. Defining a scheduling model improves the performance of the generated code, but it is not necessary for code generation. Therefore, we only define a placeholder for the model. We add the information that the CPU can issue at most two instructions at once, and that it is an in-order CPU:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+def M88kSchedModel : SchedMachineModel \{ \\
+\hspace*{1cm}let IssueWidth = 2; \\
+\hspace*{1cm}let MicroOpBufferSize = 0; \\
+\hspace*{1cm}let CompleteModel = 0; \\
+\hspace*{1cm}let NoModel = 1; \\
+\}
+\end{tcolorbox}
+
+You can find recipes on how to create a complete scheduling model in the talk Writing Great Schedulers on YouTube at \url{https://www.youtube.com/
+watch?v=brpomKUynEA}.\par
+
+Next, we will define the instruction formats and the instructions.\par
+
+\hspace*{\fill} \par %插入空行
+\textbf{Defining the instruction formats and the instruction information}
+
+We have already looked at the instruction formats and the instruction information in Chapter 9, Instruction Selection, in the Supporting new machine instructions section. To define the instructions for the M88k architecture, we follow the same approach. First, we define a base class for the instruction records. The most important field of this class is the Inst field, which holds the encoding for the instruction. Most of the other field definitions just assign a value to a field defined in the Instruction superclass:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+class InstM88k<dag outs, dag ins, string asmstr, \\
+\hspace*{2cm}list<dag> pattern, InstrItinClass itin = \\
+\hspace*{2.5cm}NoItinerary> \\
+\hspace*{1.3cm}: Instruction \{ \\
+\hspace*{1cm}field bits<32> Inst; \\
+\hspace*{1cm}field bits<32> SoftFail = 0; \\
+\hspace*{1cm}let Namespace = "M88k"; \\
+\hspace*{1cm}let Size = 4; \\
+\hspace*{1cm}dag OutOperandList = outs; \\
+\hspace*{1cm}dag InOperandList = ins; \\ 
+\hspace*{1cm}let AsmString = asmstr; \\
+\hspace*{1cm}let Pattern = pattern; \\
+\hspace*{1cm}let DecoderNamespace = "M88k"; \\
+\hspace*{1cm}let Itinerary = itin; \\
+\}
+\end{tcolorbox}
+
+This base class is used for all instruction formats, so it is also used for the F\underline{~}JMP format. You take the encoding for the user manual of the processor. The class has two parameters, which must be part of the encoding. The func parameter defines bits 11 to 15 of the encoding, which defines the instruction as a jump with or without saving the return address. The next parameter is a bit that defines whether the next instruction is executed unconditionally or not. This is similar to the delay slot of the MIPS architecture.\par
+
+The class also defines the rs2 field, which holds the encoding of the register holding the target address. The other parameters are the DAG input and output operand, the textual assembler string, a DAG pattern used to select this instruction, and an itinerary class for the scheduler model:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+class F\underline{~}JMP<bits<5> func, bits<1> next, \\
+\hspace*{3cm}dag outs, dag ins, string asmstr, \\
+\hspace*{3cm}list<dag> pattern, \\
+\hspace*{3cm}InstrItinClass itin = NoItinerary> \\
+\hspace*{1.3cm}: InstM88k<outs, ins, asmstr, pattern, itin> \{ \\
+\hspace*{1cm}bits<5> rs2; \\
+\hspace*{1cm}let Inst{31-26} = 0b111101; \\
+\hspace*{1cm}let Inst{25-16} = 0b0000000000; \\
+\hspace*{1cm}let Inst{15-11} = func; \\
+\hspace*{1cm}let Inst{10} = next; \\
+\hspace*{1cm}let Inst{9-5} = 0b00000; \\
+\hspace*{1cm}let Inst{4-0} = rs2; \\
+\}
+\end{tcolorbox}
+
+And with this, we can finally define the instruction. A jump instruction is the last instruction in a basic block, so we need to set the isTerminator flag. Because control flow can't fall through this instruction, we also have to set the isBarrier flag. We take the values for the func and next parameters from the user manual of the processor.\par
+
+The input DAG operand is a general-purpose register and refers to the operand from the preceding register's information. The encoding is stored in the rs2 field, from the preceding class definition. The output operand is empty. The assembler string gives the textual syntax of the instruction and also refers to the register operand. The DAG pattern uses the predefine brind operator. This instruction is selected if the DAG contains an indirect branch node with the target address hold in a register:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+let isTerminator = 1, isBarrier = 1 in \\
+\hspace*{1cm}def JMP : F\underline{~}JMP<0b11000, 0, (outs), (ins GPROpnd:\$rs2), \\
+\hspace*{4cm}"jmp \$rs2", [(brind GPROpnd:\$rs2)]>;
+\end{tcolorbox}
+
+We need to define records for all instructions in this way.\par
+
+In this file, we also implement other necessary patterns for instruction selection. A typical application is a constant synthesis. The M88k architecture has 32 bit-wide registers, but the instructions with immediate values as operands support only 16 bit-wide constants. As a consequence, operations such as a bitwise and between a register and a 32-bit constant have to be split into two instructions that use 16-bit constants.\par
+
+Luckily, a flag in the and instruction defines whether an operation applies to the lower or the upper half of the register. With operators LO16 and HI16 used to extract the lower or upper half of a constant, we can formulate a DAG pattern for an and operation between a register and a 32 bit-wide constant:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+def : Pat<(and GPR:\$rs1, uimm32:\$imm), \\
+\hspace*{2cm}(ANDri (ANDriu GPR:\$rs1, (HI16 i32:\$imm)), \\
+\hspace*{6cm}(LO16 i32:\$imm))>;
+\end{tcolorbox}
+
+The ANDri operator is the and instruction that applies the constant to the lower half of the register, and the ANDriu operator uses the upper half of the register. Of course, before we can use these names in the pattern, we must define the instruction like we defined the jmp instruction. This pattern solves the problem using a 32-bit constant with an and operation, generating two machine instructions for it during instruction selection.\par
+
+Not all operations can be represented by the predefined DAG nodes. For example, the M88k architecture defined bit field operations, which can be seen as generalizations of the normal and/or operations. For such operations, it is possible to introduce new node types, for example, for the set instruction:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+def m88k\underline{~}set : SDNode<"M88kISD::SET", SDTIntBinOp>;
+\end{tcolorbox}
+
+This defines a new record of the SDNode class. The first argument is the C++ enumeration member that denotes the new operation. The second parameter is the so-called type profile and defines the type and number of parameters and the result type. The predefined SDTIntBinOp class defines two integer parameters and an integer result type, which is suitable for this operation. You can look up the predefined classes in the llvm/include/llvm/Target/TargetSelectionDAG.td file. If there is no suitable predefined type profile, then you can define a new one.\par
+
+For calling functions, LLVM requires certain definitions that cannot be predefined because they are not completely target-independent. For example, for returns, we need to specify a retflag record:\par
+
+\begin{tcolorbox}[colback=white,colframe=black]
+def retflag : SDNode<"M88kISD::RET\underline{~}FLAG", SDTNone, \\
+\hspace*{3cm}[SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
+\end{tcolorbox}
+
+Comparing this to m88k\underline{~}set the record, this also defines some flags for the DAG node: the chain and glue sequences are used, and the operator can take a variable number of arguments.\par
+
+\begin{tcolorbox}[colback=blue!5!white,colframe=blue!75!black, title=Implement the instructions iteratively]
+	
+A modern CPU can easily have thousands of instructions. It makes sense to not implement all instructions at once. Instead, you should first concentrate on basic instructions such as logical operations and call and return instructions. This is enough to get a very basic backend working. To this base, you then add more and more instruction definitions and patterns.
+\end{tcolorbox}
+
+This finishes our implementation of the target description. From the target description, a lot of code is automatically generated with the llvm-tblgen tool. To complete the instruction selection and other parts of the backend, we still need to develop a C++ source using the generated code. In the next section, we implement the DAG instruction selection.\par
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

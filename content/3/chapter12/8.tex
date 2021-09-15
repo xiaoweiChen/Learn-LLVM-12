@@ -1,0 +1,141 @@
+The MC layer is responsible for emitting machine code in textual or binary form. Most of the functionality is either implemented in the various MC classes and only needs to be configured, or the implementation is generated from the target description.\par
+
+The initialization of the MC layer takes place in the MCTargetDesc/M88kMCTargetDesc.cpp file. The following classes are registered with the TargetRegistry singleton:\par
+
+\begin{enumerate}
+\item M88kMCAsmInfo: This class provides basic information, such as the size of a code pointer, the direction of stack growth, the comment symbol, or the name of assembler directives.
+
+\item M88MCInstrInfo: This class holds information about instructions, for example, the name of an instruction.
+
+\item M88kRegInfo: This class provides information about registers, for example, the name of a register, or which register is the stack pointer.
+
+\item M88kSubtargetInfo: This class holds the data of the scheduling model and the methods to parse and set CPU features.
+
+\item M88kMCAsmBackend: This class provides helper methods to get the targetdependent relocation data for fixups. It also contains factory methods for the object writer classes.
+
+\item M88kMCInstPrinter: This class contains helper methods to textually print instructions and operands. If an operand defines a custom print method in the target description, then it must be implemented in this class.
+
+\item M88kMCCodeEmitter: This class writes the encoding of an instruction to a stream.
+\end{enumerate}
+
+Depending on the scope of a backend implementation, we do not need to register and implement all of these classes. You can omit to register the MCInstPrinter subclass if you do not support textual assembler output. If you do not add support writing of object files, you can omit the MCAsmBackend and MCCodeEmitter subclasses.\par
+ 
+We begin the file by including the generated parts and providing factory methods for it:\par
+
+\begin{lstlisting}[caption={}]
+#define GET_INSTRINFO_MC_DESC
+#include "M88kGenInstrInfo.inc"
+#define GET_SUBTARGETINFO_MC_DESC
+#include "M88kGenSubtargetInfo.inc"
+#define GET_REGINFO_MC_DESC
+#include "M88kGenRegisterInfo.inc"
+
+static MCInstrInfo *createM88kMCInstrInfo() {
+	MCInstrInfo *X = new MCInstrInfo();
+	InitM88kMCInstrInfo(X);
+	return X;
+}
+
+static MCRegisterInfo *createM88kMCRegisterInfo(
+										const Triple &TT) {
+	MCRegisterInfo *X = new MCRegisterInfo();
+	InitM88kMCRegisterInfo(X, M88k::R1);
+	return X;
+}
+
+static MCSubtargetInfo *createM88kMCSubtargetInfo(
+				const Triple &TT, StringRef CPU, StringRef
+					FS) {
+	return createM88kMCSubtargetInfoImpl(TT, CPU, FS);
+}
+\end{lstlisting}
+
+We also provide some factory methods for classes implemented in other files:\par
+
+\begin{lstlisting}[caption={}]
+static MCAsmInfo *createM88kMCAsmInfo(
+					const MCRegisterInfo &MRI, const Triple &TT,
+					const MCTargetOptions &Options) {
+	return new M88kMCAsmInfo(TT);
+}
+
+static MCInstPrinter *createM88kMCInstPrinter(
+					const Triple &T, unsigned SyntaxVariant,
+					const MCAsmInfo &MAI, const MCInstrInfo &MII,
+					const MCRegisterInfo &MRI) {
+return new M88kInstPrinter(MAI, MII, MRI);
+}
+\end{lstlisting}
+
+To initialize the MC layer, we only need to register all the factory methods with the TargetRegistry singleton:\par
+
+\begin{lstlisting}[caption={}]
+extern "C" LLVM_EXTERNAL_VISIBILITY
+void LLVMInitializeM88kTargetMC() {
+	TargetRegistry::RegisterMCAsmInfo(getTheM88kTarget(),
+										createM88kMCAsmInfo);
+	TargetRegistry::RegisterMCCodeEmitter(getTheM88kTarget(),
+										createM88kMCCodeEmitter);
+	TargetRegistry::RegisterMCInstrInfo(getTheM88kTarget(),
+										createM88kMCInstrInfo);
+	TargetRegistry::RegisterMCRegInfo(getTheM88kTarget(),
+										createM88kMCRegisterInfo);
+	TargetRegistry::RegisterMCSubtargetInfo(getTheM88kTarget(),
+										createM88kMCSubtargetInfo);
+	TargetRegistry::RegisterMCAsmBackend(getTheM88kTarget(),
+										createM88kMCAsmBackend);
+	TargetRegistry::RegisterMCInstPrinter(getTheM88kTarget(),
+										createM88kMCInstPrinter);
+}
+\end{lstlisting}
+
+Additionally, in the MCTargetDesc/M88kTargetDesc.h header file, we also need to include the header portion of the generated source, to make it available to others, too:\par
+
+\begin{lstlisting}[caption={}]
+#define GET_REGINFO_ENUM
+#include "M88kGenRegisterInfo.inc"
+#define GET_INSTRINFO_ENUM
+
+#include "M88kGenInstrInfo.inc"
+#define GET_SUBTARGETINFO_ENUM
+#include "M88kGenSubtargetInfo.inc"
+\end{lstlisting}
+
+We put the source files for the registered classes all in the MCTargetDesc directory. For the first implementation, it is sufficient to provide just stubs for these classes. For example, as long as support for memory addresses is not added to the target description, no fixups will be generated. The M88kMCAsmInfo class can be very quickly implemented, as we only need to set some properties in the constructor:\par
+
+\begin{lstlisting}[caption={}]
+M88kMCAsmInfo::M88kMCAsmInfo(const Triple &TT) {
+	CodePointerSize = 4;
+	IsLittleEndian = false;
+	MinInstAlignment = 4;
+	CommentString = "#";
+}
+\end{lstlisting}
+
+Having implemented the support classes for the MC layer, we are now able to emit the machine code into files.\par
+
+In the next section, we implement the class required for disassembling, which is the reverse action: turning an object file back into assembler text.\par
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
