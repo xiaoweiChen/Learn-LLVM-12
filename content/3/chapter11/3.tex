@@ -1,11 +1,11 @@
 
-To test your application, you'll need to write unit tests. This is a great way to make sure your software behaves correctly. However, due to the exponential number of possible inputs, you'll probably miss certain weird inputs, and a few bugs as well.\par
+要测试应用程序，需要编写单元测试。这是确保软件正常运行的好方法。然而，可能的输入呈指数级增长，很可能会错过某些奇怪的输入，以及一些bug。\par
 
-Fuzz testing can help here. The idea is to present your application with randomly generated data, or data based on valid input but with random changes. This is done over and over again, and so your application is tested with a large number of inputs. This is a very powerful testing approach. Literally hundreds of bugs in web browsers and other software have been found with fuzz testing.\par
+模糊测试可以在这里提供帮助。其思想是为应用程序提供随机生成的数据，或基于有效输入但随机更改的数据。这是一遍又一遍地进行的，因此您的应用程序将使用大量输入进行测试。这是一种非常强大的测试方法。通过模糊测试，发现了网络浏览器和其他软件中的数百个漏洞。\par
 
-LLVM comes with its own fuzz testing library. Originally part of the LLVM core libraries, the libFuzzer implementation was finally moved to compiler-rt. The library is designed to test small and fast functions.\par
+LLVM自带了自己的模糊测试库。libFuzzer实现最初是LLVM核心库的一部分，后来移到了compiler-rt上。该库旨在测试小而快速的函数。\par
 
-Let's run a small example. You'll need to provide the LLVMFuzzerTestOneInput() function. This function is called by the fuzzer driver and provides you with some input. The following function counts consecutive ASCII digits in the input, and then we'll feed the random input to it. You'll need to save the example in the fuzzer.c file:\par
+让我们运行一个小示例。需要提供LLVMFuzzerTestOneInput()函数。这个函数由fuzzer驱动程序调用，并为您提供一些输入。下面的函数计算输入中的连续ASCII数字，然后我们将随机输入输入给它。你需要将示例保存在fuzzer.c文件中:\par
 
 \begin{lstlisting}[caption={}]
 #include <stdint.h>
@@ -25,60 +25,60 @@ int LLVMFuzzerTestOneInput(const uint8_t *Data, size_t
 }
 \end{lstlisting}
 
-From the preceding code, the count() function counts the number of digits in the memory pointed to by the Data variable. The size of the data is only checked to determine whether there are any bytes available. Inside the while loop, the size is not checked.\par
+代码中，count()函数计算Data变量所指向的内存中的位数。只检查数据的大小以确定是否有可用的字节。在while循环中，不检查数据长度。\par
 
-Used with normal C strings, there will be no error because C strings are always terminated by a 0 byte. The LLVMFuzzerTestOneInput() function is the so-called fuzz target, and it is the function called by libFuzzer. It calls the function we want to test and returns 0, which is currently the only allowed value.\par
+与普通C字符串一起使用时，不会出现错误，因为C字符串总是以0字节结束。LLVMFuzzerTest\allowbreak OneInput()函数就是所谓的fuzz目标，它是libFuzzer调用的函数。调用我们想要测试的函数并返回0，这是目前唯一允许的值。\par
 
-To compile the file with libFuzzer, you add the -fsanitize=fuzzer option. The recommendation is to also enable the address sanitizer and the generation of debug symbols. Use the following command to compile the file:\par
+要使用libFuzzer编译文件，需要添加-fsanitize=fuzzer选项。建议还启用地址sanitizer和调试符号的生成。使用以下命令编译文件:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ clang -fsanitize=fuzzer,address -g fuzzer.c -o fuzzer
 \end{tcolorbox}
 
-When you run the test, a lengthy report is emitted. The report contains more information than a stack trace, so let's have a closer look at it:\par
+当您运行测试时，会产生一个冗长的报告。报告包含比堆栈跟踪更多的信息，所以让我们仔细来看看:\par
 
 \begin{enumerate}
-\item The first line tells you the seed that was used to initialize the random number generator. You can use the –seed= option to repeat this execution:
+\item 第一行告诉您用于初始化随机数生成器的种子。你可以使用-seed =选项来重复执行:
 \begin{tcolorbox}[colback=white,colframe=black]
 INFO: Seed: 1297394926
 \end{tcolorbox}
 
-\item By default, libFuzzer limits inputs to at most 4,096 bytes. You can change the default by using the –max\underline{~}len= option:
+\item 默认情况下，libFuzzer将输入限制为最多4,096字节。可以使用-max \underline{~}len=选项来更改默认值:
 \begin{tcolorbox}[colback=white,colframe=black]
 INFO: -max\underline{~}len is not provided; libFuzzer will not \\
 generate inputs larger than 4096 bytes
 \end{tcolorbox}
 
-\item Now, we run the test without providing sample input. The set of all sample inputs is called the corpus, and it is empty for this run:
+\item 现在，我们在不提供示例输入的情况下运行测试。所有样本输入的集合称为语料库，在这次运行中它是空的:
 \begin{tcolorbox}[colback=white,colframe=black]
 INFO: A corpus is not provided, starting from an empty corpus
 \end{tcolorbox}
 
-\item Some information about the generated test data will follow. It shows you that 28 inputs were tried and 6 inputs, with a combined length of 19 bytes, were found, which together cover 6 coverage points or basic blocks:
+\item 下面是一些关于生成的测试数据的信息。尝试了28个输入，找到了6个输入，总长度为19字节，总共覆盖了6个点或基本块:
 \begin{tcolorbox}[colback=white,colframe=black]
 \#28 NEW cov: 6 ft: 9 corp: 6/19b lim: 4 exec/s: 0 \\
 rss: 29Mb L: 4/4 MS: 4 CopyPart-PersAutoDict-CopyPart- \\
 ChangeByte- DE: "1$\setminus$x00"-
 \end{tcolorbox}
 
-\item After this, a buffer overflow was detected, and it follows the information from the address sanitizer. Lastly, the report tells you where the input causing the buffer overflow is saved:
+\item 之后，检测到内存溢出，它跟随而来的就是地址sanitizer的信息。最后，报告显示导致内存溢出的输入在哪里:
 \begin{tcolorbox}[colback=white,colframe=black]
 artifact\underline{~}prefix='./'; Test unit written to ./crash-17ba0791499db908433b80f37c5fbc89b87\allowbreak 0084b
 \end{tcolorbox}
 
 \end{enumerate}
 
-With the saved input, you can execute the test case with just the crashing input again:\par
+保存了输入，就可以用崩溃的输入再次执行测试用例:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ ./fuzzer crash-17ba0791499db908433b80f37c5fbc89b870084b
 \end{tcolorbox}
 
-This is obviously a great help to identify the problem. Only, using random data is often not very helpful. If you try to fuzz test the tinylang lexer or parser, then pure random data leads to immediate rejection of the input, because no valid token can be found. \par
+这显然对识别问题有很大帮助。只是，使用随机数据通常不是很有帮助。如果您尝试对tinylang词法分析器或解析器进行模糊测试，因为无法找到有效的标记，所以纯随机数据将导致输入立即被拒绝。\par
 
-In such cases, it is more useful to provide a small set of valid input, called the corpus. Then, the files of the corpus are randomly mutated and used as input. You can think of the input as mostly valid, with just a few bits flipped. This also works great with other input, which must have a certain format. For example, for a library processing JPEG and PNG files, you will provide some small JPEG and PNG files as the corpus.\par
+这种情况下，提供一小组称为语料库的有效输入更有用。然后，对语料库中的文件进行随机变异并作为输入。您可以认为输入基本上是有效的，只翻转了几个位。这也适用于其他必须具有特定格式的输入，例如：对于处理JPEG和PNG文件的库，可以将提供一些小的JPEG和PNG文件作为语料库。\par
 
-You can save the corpus files in one or more directories and you can create a simple corpus for your fuzz test with the help of the printf command:\par
+您可以将语料库文件保存在一个或多个目录中，并可以在printf命令的帮助下为fuzz测试创建一个简单的语料库:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ mkdir corpus \\
@@ -86,49 +86,49 @@ You can save the corpus files in one or more directories and you can create a si
 \$ printf "987$\setminus$0" >corpus/987.txt
 \end{tcolorbox}
 
-When running the test, you will provide the directory on the command line:\par
+当运行测试时，可以在命令行上提供语料库目录:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ ./fuzzer corpus/
 \end{tcolorbox}
 
-The corpus is then used as the base for generating random input, as the report tells you:\par
+然后使用语料库作为生成随机输入的基础，如报告所示:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 INFO: seed corpus: files: 2 min: 4b max: 7b total: 11b rss: 29Mb
 \end{tcolorbox}
 
-If you are testing a function that works on tokens or other magic values, such as a programming language, then you can speed up the process by providing a dictionary with the tokens. For a programming language, the dictionary would contain all the keywords and special symbols used in the language. The dictionary definitions follow a simple key-value style. For example, to define the if keyword in the dictionary, you can add the following:\par
+如果您正在测试一个作用于令牌或其他魔数值(如编程语言)的函数，那么可以通过提供一个带有令牌的字典来加快这个过程。对于编程语言，字典将包含该语言中使用的所有关键字和特殊符号。字典定义遵循简单的键-值样式，例如：要在字典中定义if关键字，您可以添加以下内容:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 kw1="if"
 \end{tcolorbox}
 
-However, the key is optional and can be left out. You can then specify the dictionary file on the command line with the –dict= option. In the next section, we'll get to know the limitations and alternatives for the libFuzzer implementation.\par
+但是，这个键是可选的，可以省略。然后可以使用-dict=选项 在命令行上指定字典文件。下一节中，我们将了解libFuzzer实现的限制和替代方案。\par
 
 \hspace*{\fill} \par %插入空行
-\textbf{Limitations and alternatives}
+\textbf{限制和替代}
 
-The libFuzzer implementation is fast but poses a number of restrictions on the test target. They are as follows:\par
+libFuzzer实现速度很快，但对测试目标有许多限制:\par
 
 
 \begin{itemize}
-\item The function under test must accept the input as an array in memory. Some library functions require a file path to the data instead, and they cannot be tested with libFuzzer.
+\item 测试函数必须在内存中以数组的形式接受输入。有些库函数需要数据的文件路径，不能用libFuzzer测试它们。
 
-\item The exit() function should not be called.
+\item 不应该调用exit()函数。
 
-\item The global state should not be altered.
+\item 全局状态不应改变。
 
-\item Hardware random number generators should not be used.
+\item 不应该使用硬件随机数生成器。
 \end{itemize}
 
-From the aforementioned restrictions, the first two restrictions are an implication of the implementation of libFuzzer as a library. The latter two restrictions are needed to avoid confusion in the evaluation algorithm. If one of these restrictions is not met, then two identical calls to the fuzz target can give different results.\par
+从前面提到的限制中可以看出，前两个限制是libFuzzer作为库实现的一个含义。在后两个限制是必需的，以避免在评估算法中的混淆。如果没有满足其中一个限制，那么对模糊目标的两次相同调用可能会得到不同的结果。\par
 
-The best-known alternative tool for fuzz testing is AFL, found at \url{https://github.com/google/AFL}. AFL needs an instrumented binary (an LLVM plugin for instrumentation is provided) and requires the application to take the input as the file path on the command line. AFL and libFuzzer can share the same corpus and the same dictionary files. Thus, it is possible to test an application with both tools. In cases where libFuzzer is not applicable, AFL may be a good alternative.\par
+最著名的模糊测试替代工具是AFL，可以在\url{https://github.com/google/AFL}找到。AFL需要一个检测的二进制文件(提供了一个用于检测的LLVM插件)，并要求应用程序将输入作为命令行上的文件路径。AFL和libFuzzer可以共享相同的语料库和字典文件。因此，可以使用这两种工具来测试应用程序。在libFuzzer不适用的情况下，AFL是一个很好的替代方案。\par
 
-There are many more ways of influencing the way libFuzzer works. You can read the reference page at \url{https://llvm.org/docs/LibFuzzer.html} for more details.\par
+有很多方法可以影响libFuzzer的工作方式，可以在\url{https://llvm.org/docs/LibFuzzer.html}了解更多细节。\par
 
-In the next section, we look at a totally different problem an application can have; we try to identify performance bottlenecks.\par
+在下一节中，我们将讨论应用程序可能存在的一个完全不同的问题，试图查找性能瓶颈。\par
 
 
 

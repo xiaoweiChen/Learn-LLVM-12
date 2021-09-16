@@ -1,14 +1,14 @@
 
-LLVM comes with a couple of sanitizers. These are passes that instrument the Intermediate Representation (IR) in a way to check for certain misbehaviors of an application. Usually, they require library support, which is part of the compiler-rt project. Sanitizers can be enabled in Clang, which makes them very comfortable to use. In the following sections, we will have a look at the available sanitizers, namely, address, memory, and thread. We will first look at the address sanitizer.\par
+LLVM自带一些sanitizer。这些Pass以某种方式检测中间表示(IR)，以检查应用程序的某些不当行为。通常，它们需要库支持，这是compiler-rt项目的一部分。可以在Clang中启用sanitizer，这让它们使用起来更加方便。在下面的小节中，我们将介绍可用的sanitizer，即地址、内存和线程。我们先来看看地址sanitizer。\par
 
 \hspace*{\fill} \par %插入空行
-\textbf{Detecting memory access problems with the address sanitizer}
+\textbf{用地址sanitizer检测内存访问问题}
 
-You use the address sanitizer to detect a couple of memory access bugs in an application. This includes common errors such as using dynamically allocated memory after freeing it, or writing to dynamically allocated memory outside the boundaries of the allocated memory.\par
+您可以使用地址sanitizer来检测应用程序中的两个内存访问错误。这包括一些常见的错误，比如：在释放动态分配的内存后使用它，或者在已分配内存的边界之外写入动态分配的内存。\par
 
-When enabled, the address sanitizer replaces calls to the malloc() and free() functions with its own version, and instruments all memory access with a checking guard. Of course, this adds a lot of overhead to the application, and you will use the address sanitizer only during the testing phase of the application. If you are interested in the implementation details, then you can find the source of the pass in the llvm/lib/Transforms/Instrumentation/AddressSanitzer.cpp file and a description of the algorithm used at \url{https://github.com/google/sanitizers/wiki/AddressSanitizerAlgorithm}.\par
+当启用地址sanitizer时，地址sanitizer将用它自己的版本替换对malloc()和free()函数的调用，并使用检查保护程序检测所有内存访问。当然，这给应用程序增加了很多开销，您将只在应用程序的测试阶段使用地址消毒剂。如果您对实现细节感兴趣，那么您可以在llvm/lib/Transforms/\allowbreak Instrumentation/AddressSanitzer.cpp文件中找到Pass源，并在\url{https://github.com/google/sanitizers/wiki/AddressSanitizerAlgorithm}中找到算法描述。\par
 
-Let's run a short example to demonstrate the capabilities of the address sanitizer. The following example application, outofbounds.c, allocates 12 bytes of memory, but initializes 14 bytes:\par
+让我们运行一个简短的示例来演示地址sanitizer的功能。下面的示例应用程序outfbounds.c分配了12字节的内存，但初始化了14字节:\par
 
 \begin{lstlisting}[caption={}]
 #include <stdlib.h>
@@ -21,15 +21,15 @@ int main(int argc, char *argv[]) {
 }
 \end{lstlisting}
 
-You can compile and run this application without noticing any problems. This is typical for this kind of error. Even in larger applications, this kind of bug can go unnoticed for a long time. But, if you enable the address sanitizer with the -fsanitize=address option, then the application stops after detecting the error.\par
+您可以编译并运行此应用程序，而不会注意到任何问题。这是这中错误的典型特征。即使在较大的应用程序中，这种错误也可能在很长一段时间内不被注意。但是，如果使用-fsanitize=address选项启用地址sanitizer，那么应用程序在检测到错误后将停止。\par
 
-It is also useful to enable debug symbols with the –g option, because it helps to identify the location of the error in the source. The following code is an example of how to compile the source file with the address sanitizer and debug symbols enabled:\par
+使用-g选项启用调试符号也很有用，因为它有助于识别源文件中错误的位置。下面的代码示例说明了如何在启用地址消毒剂和调试符号的情况下编译源文件:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ clang -fsanitize=address -g outofbounds.c -o outofbounds
 \end{tcolorbox}
 
-Now, you get a lengthy error report when running the application:\par
+现在，当运行应用程序时，你会得到一个冗长的错误报告:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ ./outofbounds \\
@@ -45,16 +45,16 @@ compiler-rt/lib/asan/asan\underline{~}interceptors\underline{~}memintrinsics.cpp
 \hspace*{1cm}\#2 0x23331f in \underline{~}start /usr/src/lib/csu/amd64/crt1.c:76:7
 \end{tcolorbox}
 
-The report also contains detailed information about the memory content. The important information is the type of error – heap buffer overflow, in this case – and the offending source line. To find the source line, you look at the stack trace at location \#1, which is the last location before the address sanitizer intercepts the execution of the application. It shows line 6 in the outofbounds.c file, which is the line containing the call to memset() – indeed, the exact place where the buffer overflow happens.\par
+报告还包含关于内存内容的详细信息。重要的信息是错误的类型(在本例中是堆缓冲区溢出)和出错的源行。要找到源码行，可以查看位置\#1的堆栈跟踪，这是地址sanitizer拦截应用程序执行之前的最后一个位置。它显示了outfbounds.c文件中的第6行，这一行包含了对memset()的调用——实际上，这就是发生内存溢出的确切位置。\par
 
-If you replace the line containing memset(p, 0, 14); in the outofbounds.c file with the following code, then you introduce access to memory after the memory is freed. You'll need to store the source in the useafterfree.c file:\par
+替换包含memset(p, 0, 14);在outfbounds.c文件中使用以下代码，然后在释放内存后引入对内存的访问。并将源代码存储在useafterfree.c文件中:\par
 
 \begin{lstlisting}[caption={}]
 memset(p, 0, 12);
 free(p);
 \end{lstlisting}
 
-Again, if you compile and run it, the use of the pointer after the memory is free is detected:\par
+同样，如果你编译并运行它，会检测到内存释放后指针的使用情况:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ clang -fsanitize=address -g useafterfree.c -o useafterfree \\
@@ -70,24 +70,24 @@ useafterfree.c:8:15 \\
 \hspace*{1cm}\#1 0x23331f in \underline{~}start  /usr/src/lib/csu/amd64/crt1.c:76:7
 \end{tcolorbox}
 
-This time, the report points to line 8, which contains dereferencing of the p pointer.\par
+这一次，报告指向第8行，其中包含p指针的释放。\par
 
-On x86\underline{~}64 Linux and macOS, you can also enable a leak detector. If you set the ASAN\underline{~}OPTIONS environment variable to the value detect\underline{~}leaks=1 before running the application, then you also get a report about memory leaks. On the command line, you do this as follows:\par
+在x86\underline{~}64 Linux和macOS上，您也可以启用泄漏检测器。如果在运行应用程序之前将ASAN\underline{~}OPTIONS环境变量设置为detect\underline{~}leaks=1，那么还会得到一个关于内存泄漏的报告。可以这样做:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ ASAN\underline{~}OPTIONS=detect\underline{~}leaks=1 ./useafterfree
 \end{tcolorbox}
 
-The address sanitizer is very useful, because it catches a category of bugs that are otherwise difficult to detect. The memory sanitizer does a similar task, and we'll look at it in the next section.\par
+地址sanitizer非常有用，因为它捕获了一类用其他方法很难检测到的bug。内存sanitizer执行类似的任务，我们将在下一节中研究它。\par
 
 \hspace*{\fill} \par %插入空行
-\textbf{Finding uninitialized memory access with the memory sanitizer}
+\textbf{使用内存sanitizer查找未初始化的内存访问}
 
-Using uninitialized memory is another category of bugs that are hard to find. In C and C++, the general memory allocation routines do not initialize the memory buffer with a default value. The same is true for automatic variables on the stack.\par
+使用未初始化的内存是另一类难以发现的错误。在C和C++中，一般的内存分配例程不会用默认值初始化内存缓冲区。对于堆栈上的变量也是如此。\par
 
-There are lots of opportunities for errors, and the memory sanitizer helps to find the bugs. If you are interested in the implementation details, you can find the source for the memory sanitizer pass in the llvm/lib/Transforms/Instrumentation/MemorySanitizer.cpp file. The comment at top of the file explains the ideas behind the implementation.\par
+出现错误的机会很多，而内存sanitizer有助于找到错误。如果您对实现细节感兴趣，可以在llvm/lib/Transforms/Instrumentation/MemorySanitizer.cpp文件中找到内存sanitizer Pass的源文件。文件顶部的注释解释了实现思想。\par
 
-Let's run a small example and save the following source as the memory.c file. You should note that the x variable is not initialized, but is used as a return value:\par
+让我们运行一个小示例，并将下面的源代码保存为memory.c文件。你应该注意到x变量没有初始化，而是用作返回值:\par
 
 \begin{lstlisting}[caption={}]
 int main(int argc, char *argv[]) {
@@ -96,7 +96,7 @@ int main(int argc, char *argv[]) {
 }
 \end{lstlisting}
 
-Without the sanitizer, the application will run just fine. However, you will get an error report if you use the -fsanitize=memory option:\par
+没有sanitizer，应用程序将运行得很好。如果你使用-fsanitize=memory选项，就会得到一个错误报告:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ clang -fsanitize=memory -g memory.c -o memory \\
@@ -110,16 +110,16 @@ sanitizers/memory.c:3:3 in main \\
 Exiting
 \end{tcolorbox}
 
-Like the address sanitizer, the memory sanitizer stops the application at the first found error.\par
+与地址sanitizer一样，内存sanitizer在发现第一个错误时停止应用程序。\par
 
-In the next section, we look at how we can use the thread sanitizer to detect data races in multi-threaded applications.\par
+下一节中，我们将了解如何使用线程sanitizer来检测多线程应用程序中的数据竞争。\par
 
 \hspace*{\fill} \par %插入空行
-\textbf{Pointing out data races with the thread sanitizer}
+\textbf{用线程sanitizer指出数据竞争}
 
-To leverage the power of modern CPUs, applications now use multiple threads. This is a powerful technique, but it also introduces new sources of errors. A very common problem in multi-threaded applications is that access to global data is not protected, for example, with a mutex or semaphore. This is called a data race. The thread sanitizer can detect data races in Pthread-based applications and applications using the LLVM libc++ implementation. You will find the implementation in the llvm/lib/Transforms/Instrumentation/ThreadSanitize.cpp file.\par
+为了充分利用现代CPU的功能，应用程序现在使用多线程。这是一项强大的技术，但它也引入了新的错误来源。多线程应用程序中一个常见的问题是，对全局数据的访问没有保护，例如：没有使用互斥锁或信号量。这样的问题称为数据竞争。线程sanitizer可以检测基于pthread的应用程序和使用LLVM libc++实现的应用程序中的数据竞争。可以在llvm/lib/Transforms/Instrumentation/\allowbreak ThreadSanitize.cpp文件中找到实现。\par
 
-To demonstrate the functionality of the thread sanitizer, we will create a very simple producer/consumer-style application. The producer thread increments a global variable, while the consumer thread decrements the same variable. The access to the global variable is not protected, so this is clearly a data race. You'll need to save the following source in the thread.c file:\par
+为了演示线程sanitizer的功能，我们将创建一个非常简单的生产者/消费者的应用程序。生产者线程增加一个全局变量，而消费者线程减少同一个变量。对全局变量的访问不受保护，因此这显然是一场数据竞争。在thread.c文件中保存以下源代码:\par
 
 \begin{lstlisting}[caption={}]
 #include <pthread.h>
@@ -146,13 +146,13 @@ int main() {
 }
 \end{lstlisting}
 
-From the preceding code, the data variable is shared between two threads. Here, it is of the int type to make the example simple. Most often, a data structure such as the std::vector class or similar would be used. These two threads run the producer() and consumer() functions.\par
+前面的代码中，数据变量在两个线程之间共享。这里，它是int类型，以使示例简单。最常见的情况是使用std::vector类或类似的数据结构。这两个线程运行producer()和consumer()函数。\par
 
-The producer() function only increments the data variable, while the consumer() function decrements it. No access protection is implemented, so this constitutes a data race. The main() function starts both threads with the pthread\underline{~}create() function, waits for the end of the threads with the pthread\underline{~}join() function, and returns the current value of the data variable.\par
+producer()函数只增加数据变量，而consumer()函数减少数据变量。没有实现访问保护，因此这构成了一场数据竞争。main()函数使用pthread\underline{~}create()函数启动两个线程，使用pthread\underline{~}join()函数等待线程结束，并返回数据变量的当前值。\par
 
-If you compile and run this application, then you will note no error; that is, the return value is always 0. An error, in this case, a return value not equal to 0, will show up if the number of loops performed is increased by a factor of 100. Then, you'll see other values showing up.\par
+如果编译并运行此应用程序，则不会注意到任何错误，返回值总是0。如果执行的循环次数增加100倍，则会出现一个错误。在本例中，返回值不等于0，您将看到显示其他值。\par
 
-You use the thread sanitizer to identify the data race. To compile with the thread sanitizer being enabled, you'll need to pass the -fsanitize=thread option to Clang. Adding debug symbols with the –g option gives you line numbers in the report, which helps a lot. Note that you also need to link the pthread library:\par
+您可以使用线程sanitizer来标识数据竞争。要在启用了线程sanitizer的情况下进行编译，需要将-fsanitize=thread选项传递给Clang。使用-g选项添加调试符号可以在报告中提供行号，这很有帮助。注意，还需要链接pthread库:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ clang -fsanitize=thread -g thread.c -o thread -lpthread \\
@@ -191,11 +191,11 @@ thread.c:11:35 in consumer \\
 ThreadSanitizer: reported 1 warnings
 \end{tcolorbox}
 
-The report points us to lines 6 and 11 of the source file, where the global variable is accessed. It also shows that two threads, named T1 and T2, accessed the variable, as well as the file and line number of the respective calls to the pthread\underline{~}create() function.\par
+报告指向源文件的第6行和第11行，其中访问全局变量。它还显示了两个名为T1和T2的线程访问了该变量，以及分别调用pthread\underline{~}create()函数的文件和行号。\par
 
-In this section, we learned how to use three sanitizers to identify common problems in applications. The address sanitizer helps us to identify common memory access errors, such as out-of-bounds access or using memory after being freed. Using the memory sanitizer, we can find accesses to uninitialized memory, and the thread sanitizer helps us to identify data races.\par
+在本节中，我们学习了如何使用三种sanitizer来查找应用程序中的常见问题。地址sanitizer帮助我们识别常见的内存访问错误，例如：越界访问或在释放后使用内存。使用内存sanitizer，可以找到对未初始化内存的访问，线程sanitizer帮助我们查找数据竞争。\par
 
-In the next section, we try to trigger the sanitizers by running our application on random data, called fuzz testing.\par
+下一节中，我们将尝试通过在随机数据上运行应用程序(称为模糊测试)来触发sanitizer。\par
 
 
 

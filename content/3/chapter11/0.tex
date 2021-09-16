@@ -1,18 +1,18 @@
-LLVM comes with a set of tools that helps you to identify certain errors in your application. All of these tools make use of the LLVM and Clang libraries.\par
+LLVM附带了一组工具，可以帮助您查找应用程序中的某些错误。所有这些工具都会使用LLVM和Clang的库。\par
 
-In this chapter, you will learn how to instrument an application with sanitizers, how to use the most common sanitizer to identify a wide range of bugs, and how to implement fuzz testing for your application. This will help you to identify bugs that are usually not found with unit testing. You will also learn how to identify performance bottlenecks in your application, running the static analyzer to identify problems normally not found by the compiler, and creating your own Clang-based tool with which you can extend Clang with new functionality.\par
+在本章中，您将学习如何使用sanitizer来检测应用程序，如何使用最常见的sanitizer来识别各种各样的错误，以及如何为您的应用程序实现模糊测试(fuzz testing)。这将帮助您识别单元测试通常无法发现的bug。您还将学习如何在应用程序中识别性能瓶颈，运行静态分析程序来识别编译器通常没有发现的问题，以及创建您自己的(基于Clang)的工具，您可以使用它来扩展Clang的新功能。\par
 
-This chapter will cover the following topics:\par
+本章将涵盖以下内容:\par
 
 \begin{itemize}
-\item Instrumenting an application with sanitizers
-\item Finding bugs with libFuzzer
-\item Performance profiling with XRay
-\item Checking the source with the Clang Static Analyzer
-\item Creating your own Clang-based tool
+\item 使用sanitizer检查应用程序
+\item 用libFuzzer找到bug
+\item 使用xRay进行性能分析
+\item 使用Clang静态分析器检查源代码
+\item 创建基于Clang的工具
 \end{itemize}
 
-By the end of the chapter, you will know how to use various LLVM and Clang tools to identify a large category of errors in an application. You will also acquire the knowledge to extend Clang with new functionality, for example, to enforce a naming convention or to add new source analysis.\par
+在本章结束时，您将了解如何使用各种LLVM和Clang工具来识别应用程序中的错误。您还将获得使用新功能扩展Clang的知识，例如：执行命名约定或添加新的源分析。\par
 
 
 
