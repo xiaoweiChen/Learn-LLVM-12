@@ -1,24 +1,24 @@
-Our new target, located in the llvm/lib/Target/M88k directory, needs to be integrated into the build system. To make development easy, we add it as an experimental target in the llvm/CMakeLists.txt file. We replace the existing empty string with the name of our target:\par
+我们的新目标位于llvm/lib/Target/M88k目录中，需要集成到构建系统中。为了简化开发，我们将其作为实验目标添加到llvm/CMakeLists.txt文件中。将现有的空字符串替换为目标的名称:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 set(LLVM\underline{~}EXPERIMENTAL\underline{~}TARGETS\underline{~}TO\underline{~}BUILD "M88k" … )
 \end{tcolorbox}
 
-We also need to provide a llvm/lib/Target/M88k/CMakeLists.txt file to build our target. Besides listing the C++ files for the target, it also defines the generation of the source from the target description.\par
+我们还需要提供llvm/lib/Target/M88k/CMakeLists.txt来构建目标。除了列出目标的C++文件外，还定义了从目标描述生成源文件的方法。\par
 
-\begin{tcolorbox}[colback=blue!5!white,colframe=blue!75!black, title=Generating all the types of sources from the target description]
-Different runs of the llvm-tblgen tool generate different portions of C++ code. However, I recommend adding the generation of all parts to the CMakeLists.txt file. The reason for this is that it provides better checking. For example, if you make an error with the instruction encoding, then this is only caught during the generation of the code for the disassembler. So, even if you do not plan to support the disassembler, it is still worth generating the source for it.	
+\begin{tcolorbox}[colback=blue!5!white,colframe=blue!75!black, title=从目标描述生成所有类型的源]
+llvm-tblgen工具的不同运行方式，会生成C++代码的不同部分。但是，建议将所有部件的生成添加到CMakeLists.txt文件中。这样做的原因是能提供了更好的检查，例如：如果您在指令编码方面犯了错误，那么这只会在反汇编程序生成代码期间捕获。因此，即使不打算支持反汇编程序，仍值得为其生成源码。	
 \end{tcolorbox}
 
-The file looks as follows:\par
+该文件如下所示:\par
 
 \begin{enumerate}
-\item First, we define a new LLVM component named M88k:
+\item 首先，定义一个名为M88k的新LLVM组件:
 \begin{tcolorbox}[colback=white,colframe=black]
 add\underline{~}llvm\underline{~}component\underline{~}group(M88k)
 \end{tcolorbox}
 
-\item Next, we name the target description file, add statements to generate the various source pieces with TableGen, and define a public target for it:
+\item 接下来，命名目标描述文件，添加语句以使用TableGen生成各种源片段，并为其定义一个公共目标:
 \begin{tcolorbox}[colback=white,colframe=black]
 set(LLVM\underline{~}TARGET\underline{~}DEFINITIONS M88k.tdtablegen(LLVM \\
 M88kGenAsmMatcher.inc -gen-asm-matcher) \\
@@ -34,7 +34,7 @@ tablegen(LLVM M88kGenSubtargetInfo.inc -gen-subtarget) \\
 add\underline{~}public\underline{~}tablegen\underline{~}target(M88kCommonTableGen)
 \end{tcolorbox}
 
-\item We must list all the source files the new component is made of:
+\item 必须列出新组件的所有源文件:
 \begin{tcolorbox}[colback=white,colframe=black]
 add\underline{~}llvm\underline{~}target(M88kCodeGen \\
 \hspace*{0.5cm}M88kAsmPrinter.cpp M88kFrameLowering.cpp \\
@@ -43,7 +43,7 @@ add\underline{~}llvm\underline{~}target(M88kCodeGen \\
 \hspace*{0.5cm}M88kTargetMachine.cpp )
 \end{tcolorbox}
 
-\item Last, we include the directories with the MC and disassembler classes in the build:
+\item 最后，在构建中包含包含MC和反汇编类的目录:
 \begin{tcolorbox}[colback=white,colframe=black]
 add\underline{~}subdirectory(MCTargetDesc) \\
 add\underline{~}subdirectory(Disassembler)
@@ -51,25 +51,25 @@ add\underline{~}subdirectory(Disassembler)
 
 \end{enumerate}
 
-Now we are ready to compile the LLVM with the new backend target. On the build directory, we can simply run this:\par
+现在我们准备用新的后端目标编译LLVM。在构建目录下，可以运行如下代码:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ ninja
 \end{tcolorbox}
 
-This detects the changed CmakeLists.txt file, runs the configuration step again, and compiles the new backend. To check that all went well, you can run this:\par
+这将检测更改的CMakeLists.txt文件，再次运行配置步骤，并编译新的后端。要检查是否一切正常，可以运行以下命令:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ bin/llc –version
 \end{tcolorbox}
 
-The output should contain the following line in the Registered Target section:\par
+注册目标的输出应该包含以下行:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 m88k   \hspace{2cm} - M88k
 \end{tcolorbox}
 
-Hurray! We finished the backend implementation. Let's try it out. The following f1 function in LLVM IR performs a bitwise AND operation between the two parameters of the function and returns the result. Save it in the example.ll file:\par
+噢耶!我们完成了后端实现。让我们试一下。下面LLVM IR中的f1函数在函数的两个参数之间执行一个按位的AND操作并返回结果。将其保存成example.ll文件:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 target triple = "m88k-openbsd" \\
@@ -79,7 +79,7 @@ define i32 @f1(i32 \%a, i32 \%b) \{ \\
 \}
 \end{tcolorbox}
 
-Run the llc tool as follows to see the generated assembler text on the console:\par
+运行llc工具，在控制台上查看生成的汇编文本:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ llc < example.ll \\
@@ -101,10 +101,9 @@ f1: \hspace{8cm} \# @f1 \\
 \hspace*{1cm}.section\hspace{1cm}".note.GNU-stack","",@progbits
 \end{tcolorbox}
 
-The output is in valid GNU syntax. For the f1 function, and and jmp instructions are generated. The parameters are passed in the \%r2 and \%r3 registers, which are used in
-the and instruction. The result is stored in the \%r2 register, which is also the register to return 32-bit values. The return from the function is realized with a branch to the address hold in the \%r1 register, which also matches the ABI. It all looks very good!\par
+输出是有效的GNU语法。对于f1函数，将生成和和jmp指令。参数在\%r2和\%r3寄存器中传递，这两个寄存器在and指令中使用。结果存储在\%r2寄存器中，该寄存器也是返回32位值的寄存器。函数的返回通过分支到\%r1寄存器中的hold地址实现，该地址也与ABI匹配。一切看起来都很好!\par
 
-With the topics you learned about in this chapter, you can now implement your own LLVM backend. For many relatively simple CPUs such as digital signal processors (DSPs), you do not need to implement more than we did here. Of course, the implementation for the M88k CPU architecture does not yet support all features of the architecture, for example, floating-point registers. However, you now know all the important concepts applied in LLVM backend development, and with this, you will be able to add any missing parts!\par
+学习了本章中的内容，您现在可以实现自己的LLVM后端。对于许多相对简单的CPU，如：数字信号处理器(DSP)，您只需要实现这些功能就够用了。当然，M88k CPU体系结构的实现还不支持该体系架构的所有特性，例如：浮点寄存器。不过，现在您已经了解了LLVM后端开发中所有重要概念，有了这些知识，您将能够添加任何缺失的部分!\par
 
 
 

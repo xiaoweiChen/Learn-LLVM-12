@@ -1,26 +1,26 @@
-The MC layer is responsible for emitting machine code in textual or binary form. Most of the functionality is either implemented in the various MC classes and only needs to be configured, or the implementation is generated from the target description.\par
+MC层负责以文本或二进制形式发出机器码。大多数功能要么在各种MC类中实现，只需要配置，要么从目标描述生成实现。\par
 
-The initialization of the MC layer takes place in the MCTargetDesc/M88kMCTargetDesc.cpp file. The following classes are registered with the TargetRegistry singleton:\par
+MC层的初始化在MCTargetDesc/M88kMCTargetDesc.cpp中进行。以下类是在targeregistry单例中注册的:\par
 
 \begin{enumerate}
-\item M88kMCAsmInfo: This class provides basic information, such as the size of a code pointer, the direction of stack growth, the comment symbol, or the name of assembler directives.
+\item M88kMCAsmInfo: 该类提供基本信息，如代码指针的大小、堆栈增长的方向、注释符号或汇编指令的名称。
 
-\item M88MCInstrInfo: This class holds information about instructions, for example, the name of an instruction.
+\item M88MCInstrInfo: 该类包含指令的信息，例如：指令名称。
 
-\item M88kRegInfo: This class provides information about registers, for example, the name of a register, or which register is the stack pointer.
+\item M88kRegInfo: 该类提供有关寄存器的信息，例如：寄存器的名称，或哪个寄存器是堆栈指针。
 
-\item M88kSubtargetInfo: This class holds the data of the scheduling model and the methods to parse and set CPU features.
+\item M88kSubtargetInfo: 这个类保存调度模型的数据，以及解析和设置CPU特性的方法。
 
-\item M88kMCAsmBackend: This class provides helper methods to get the targetdependent relocation data for fixups. It also contains factory methods for the object writer classes.
+\item M88kMCAsmBackend: 这个类提供了助手方法来获取与目标相关的重新定位数据。它还包含对象书写器类的工厂方法。
 
-\item M88kMCInstPrinter: This class contains helper methods to textually print instructions and operands. If an operand defines a custom print method in the target description, then it must be implemented in this class.
+\item M88kMCInstPrinter：该类包含以文本形式打印指令和操作数的助手方法。如果操作数在目标描述中定义了自定义打印方法，则要在该类中实现该方法。
 
-\item M88kMCCodeEmitter: This class writes the encoding of an instruction to a stream.
+\item M88kMCCodeEmitter: 该类将指令的编码写入流。
 \end{enumerate}
 
-Depending on the scope of a backend implementation, we do not need to register and implement all of these classes. You can omit to register the MCInstPrinter subclass if you do not support textual assembler output. If you do not add support writing of object files, you can omit the MCAsmBackend and MCCodeEmitter subclasses.\par
+根据后端实现的范围，我们不需要注册和实现所有这些类。如果不支持文本汇编器输出，可以忽略注册MCInstPrinter子类。如果不添加对写入对象文件的支持，可以省略MCAsmBackend和MCCodeEmitter子类。\par
  
-We begin the file by including the generated parts and providing factory methods for it:\par
+文件开始包括生成的部分和提供它的工厂方法:\par
 
 \begin{lstlisting}[caption={}]
 #define GET_INSTRINFO_MC_DESC
@@ -50,7 +50,7 @@ static MCSubtargetInfo *createM88kMCSubtargetInfo(
 }
 \end{lstlisting}
 
-We also provide some factory methods for classes implemented in other files:\par
+我们还为在其他文件中实现的类提供了一些工厂方法:\par
 
 \begin{lstlisting}[caption={}]
 static MCAsmInfo *createM88kMCAsmInfo(
@@ -67,7 +67,7 @@ return new M88kInstPrinter(MAI, MII, MRI);
 }
 \end{lstlisting}
 
-To initialize the MC layer, we only need to register all the factory methods with the TargetRegistry singleton:\par
+为了初始化MC层，只需要将所有的工厂方法注册到TargetRegistry单例中即可:\par
 
 \begin{lstlisting}[caption={}]
 extern "C" LLVM_EXTERNAL_VISIBILITY
@@ -89,7 +89,7 @@ void LLVMInitializeM88kTargetMC() {
 }
 \end{lstlisting}
 
-Additionally, in the MCTargetDesc/M88kTargetDesc.h header file, we also need to include the header portion of the generated source, to make it available to others, too:\par
+另外，在MCTargetDesc/M88kTargetDesc.h头文件中，还需要包含生成的源文件的头文件部分:\par
 
 \begin{lstlisting}[caption={}]
 #define GET_REGINFO_ENUM
@@ -101,7 +101,7 @@ Additionally, in the MCTargetDesc/M88kTargetDesc.h header file, we also need to 
 #include "M88kGenSubtargetInfo.inc"
 \end{lstlisting}
 
-We put the source files for the registered classes all in the MCTargetDesc directory. For the first implementation, it is sufficient to provide just stubs for these classes. For example, as long as support for memory addresses is not added to the target description, no fixups will be generated. The M88kMCAsmInfo class can be very quickly implemented, as we only need to set some properties in the constructor:\par
+我们将注册类的源文件全部放在MCTargetDesc目录中。对于第一个实现，只提供这些类的部分就足够了，例如：只要不将内存地址支持添加到目标描述中，就不会生成补丁。M88kMCAsmInfo类可以很快实现，我们只需要在构造函数中设置一些属性:\par
 
 \begin{lstlisting}[caption={}]
 M88kMCAsmInfo::M88kMCAsmInfo(const Triple &TT) {
@@ -112,9 +112,9 @@ M88kMCAsmInfo::M88kMCAsmInfo(const Triple &TT) {
 }
 \end{lstlisting}
 
-Having implemented the support classes for the MC layer, we are now able to emit the machine code into files.\par
+实现了MC层的支持类之后，就可以将机器码生成到文件中了。\par
 
-In the next section, we implement the class required for disassembling, which is the reverse action: turning an object file back into assembler text.\par
+下一节中，我们实现反汇编所需的类，这是相反的操作:将对象文件转换回汇编文本。\par
 
 
 
