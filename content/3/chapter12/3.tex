@@ -1,4 +1,4 @@
-An instance of the Triple class represents the target platform LLVM is producing code for. To support a new architecture, the first task is to extend the Triple class. In the llvm/include/llvm/ADT/Triple.h file, you add a member to the ArchType enumeration and a new predicate:\par
+Triple类的一个实例表示LLVM为其生成代码的目标平台。为了支持新的体系架构，第一个任务是扩展Triple类。在llvm/include/llvm/ADT/Triple.h文件中，可向ArchType枚举添加了一个成员和一个新的谓词:\par
 
 \begin{lstlisting}[caption={}]
 class Triple {
@@ -15,7 +15,7 @@ class Triple {
 };
 \end{lstlisting}
 
-Inside the llvm/lib/Support/Triple.cpp file, there are numerous methods that use the ArchType enumeration. You need to extend all of them; for example, in the getArchTypeName() method, you need to add a new case statement:\par
+在llvm/lib/Support/Triple.cpp文件中，有许多使用ArchType枚举的地方。你需要扩展它们，例如：在getArchTypeName()方法中，添加一个新的case:\par
 
 \begin{lstlisting}[caption={}]
 	switch (Kind) {
@@ -24,7 +24,7 @@ Inside the llvm/lib/Support/Triple.cpp file, there are numerous methods that use
 	}
 \end{lstlisting}
 
-In most cases, the compiler will warn you if you forget to handle the new m88k enumeration member in one of the functions. Next, we will expand the Executable and Linkable Format (ELF) definition.\par
+在大多数情况下，如果您忘记在某个函数中处理新的m88k枚举成员，编译器会发出警告。接下来，我们将扩展可执行和可链接格式(ELF)定义。\par
 
 
 

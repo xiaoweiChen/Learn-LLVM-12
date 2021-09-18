@@ -1,28 +1,28 @@
-LLVM has a very flexible architecture. You can also add a new target backend to it. The core of a backend is the target description, from which most of the code is generated. However, it is not yet possible to generate a complete backend, and implementing the calling convention requires manually written code. In this chapter, we will learn how to add support for a historical CPU.\par
+LLVM有一个非常灵活的架构。您还可以向它添加一个新的后端,后端的核心是目标描述，大部分代码都是从它生成的。但是，还不可能生成一个完整的后端，并且实现调用规则需要进行手动编码。本章中，我们将学习如何添加对老CPU的支持。\par
 
-In this chapter, we will cover the following:\par
+在本章中，我们将学习以下内容:\par
 
 \begin{itemize}
-\item Setting the stage for a new backend introduces you to the M88k CPU architecture and shows you where to find the information you need.
+\item 在设置一个新的后端时，我们将向您介绍M88k CPU体系架构，并向您展示在哪里可以找到您需要的信息。
 
-\item Adding the new architecture to the Triple class teaches you how to make LLVM aware of a new CPU architecture.
+\item 将新的体系结构添加到Triple类中，将教会您如何让LLVM了解新的CPU体系架构。
 
-\item In Extending the ELF file format definition in LLVM, you will add support for the M88k-specific relocations to the libraries and tools that handle ELD object files.
+\item 在扩展LLVM中的ELF文件格式定义时，可以向处理ELD对象文件的库和工具中添加对m88k特定重定位的支持。
 
-\item In Creating the target description, you will develop all the parts of the target description in the TableGen language.
+\item 在创建目标描述时，您将使用TableGen语言开发目标描述的所有部分。
 
-\item In Implementing the DAG instruction selection classes, you will create the passes and supporting classes required for instruction selection.
+\item 在实现DAG指令选择类时，您将创建指令选择所需的Pass和支持的类。
 
-\item Generating assembler instructions teaches you how to implement the assembler printer, which is responsible for textual assembler generation.
+\item 生成汇编指令时，会带您了解如何实现汇编打印，生成汇编文本。
 
-\item In Emitting machine code, you learn about which additional classes you must provide to enable the machine code (MC) layer to write code to object files.
+\item 生成的机器码时，您将了解必须提供哪些附加类才能使机器码(MC)层将代码写入目标文件。
 
-\item In Adding support for disassembling, you will learn how to implement support for a disassembler.
+\item 添加反汇编支持时，您将了解如何实现对反汇编程序的支持。
 
-\item In Piecing it all together, you will integrate the source for the new backend into the build system.
+\item 将这些功能整合在一起时，就可以将新后端的源代码集成到构建系统中。
 \end{itemize}
 
-By the end of this chapter, you will know how to develop a new and complete backend. You will know about the different parts a backend is made of, giving you a deeper understanding of the LLVM architecture.\par
+在本章结束时，您将了解如何开发一个新的和完整的后端。您将了解后台的不同组成部分，从而更深入地了解LLVM体系结构。\par
 
 
 

@@ -1,13 +1,13 @@
 
-The target description is the heart of a backend implementation. In an ideal world, we could generate the whole backend from the target description. This goal has not yet been reached, and therefore, we need to extend the generated code later. Let's dissect the target description, beginning with the top-level file.\par
+目标描述是后端实现的核心。理想情况下，我们可以从目标描述生成整个后端。这个目标还没有达到，因此，需要在以后扩展生成的代码。让我们从顶层文件开始剖析目标描述。\par
 
 \hspace*{\fill} \par %插入空行
-\textbf{Implementing the top-level file of the target description}
+\textbf{实现目标描述的顶层文件}
 
-We put the files of our new backend into the llvm/lib/Target/M88k directory. The target description is in the M88k.td file:\par
+我们将新后端文件放入llvm/lib/Target/M88k目录，目标描述在M88k.td文件中:\par
 
 \begin{enumerate}
-\item In this file, we first need to include basic target description classes predefined by LLVM and then the files we are going to create in the next sections:
+\item 在这个文件中，首先需要包含由LLVM预定义的基本目标描述类，然后是在下一节中要创建的文件:
 \begin{tcolorbox}[colback=white,colframe=black]
 include "llvm/Target/Target.td" \\
 \\
@@ -18,17 +18,17 @@ include "M88kInstrFormats.td" \\
 include "M88kInstrInfo.td"
 \end{tcolorbox}
 
-\item Next, we also define the supported processor. Among other things, this translates into the parameter for the –mcpu= option:
+\item 接下来，我们还要定义受支持的处理器。除此之外，也可以转换为-mcpu=option的参数:
 \begin{tcolorbox}[colback=white,colframe=black]
 def : ProcessorModel<"mc88110", M88kSchedModel, []>;
 \end{tcolorbox}
 
-\item With all these definitions done, we now can piece our target together. We define these subclasses, in case we need to modify some of the default values. The M88kInstrInfo class holds all the information about the instructions:
+\item 完成所有这些定义后，就可以将目标拼凑在一起了。我们定义了这些子类，为了可以修改默认值。M88kInstrInfo类保存了关于指令的所有信息:
 \begin{tcolorbox}[colback=white,colframe=black]
 def M88kInstrInfo : InstrInfo;
 \end{tcolorbox}
 
-\item We define a parser for the .s assembly files, and we additionally state that register names are always be prefixed with \%:
+\item 我们为.s汇编文件定义了一个解析器，声明寄存器名称时总是以\%作为前缀:
 \begin{tcolorbox}[colback=white,colframe=black]
 def M88kAsmParser : AsmParser; \\
 def M88kAsmParserVariant : AsmParserVariant \{ \\
@@ -36,12 +36,12 @@ def M88kAsmParserVariant : AsmParserVariant \{ \\
 \}
 \end{tcolorbox}
 
-\item Next, we define a class for the assembly writer, which is responsible for writing .s assembly files:
+\item 接下来，我们为程序集编写器定义一个类，它负责编写.s汇编文件:
 \begin{tcolorbox}[colback=white,colframe=black]
 def M88kAsmWriter : AsmWriter;
 \end{tcolorbox}
 
-\item And lastly, all these records are put together to define the target:
+\item 最后，将所有这些记录放在一起来定义目标:
 \begin{tcolorbox}[colback=white,colframe=black]
 def M88k : Target \{ \\
 \hspace*{1cm}let InstructionSet = M88kInstrInfo; \\
@@ -54,14 +54,14 @@ def M88k : Target \{ \\
 
 \end{enumerate}
 
-Now that the top-level file is implemented, we create the included files, starting with the register definition in the next section.\par
+现在已经实现了顶层文件，我们将创建包含的文件，从寄存器定义开始。\par
 
 \hspace*{\fill} \par %插入空行
-\textbf{Adding the register definition}
+\textbf{添加寄存器定义}
 
-A CPU architecture usually defines a set of registers. The characteristics of these registers can vary greatly. Some architectures allow access to subregisters. For example, the x86 architecture has special register names to access only a part of a register value. Other architectures do not implement this. Besides general-purpose, floating-point, and vector registers, an architecture may also define special registers, for example, for status codes or for the configuration of floating-point operations. You need to define all this information for LLVM.\par
+CPU体系架构通常定义一组寄存器，这些寄存器的特性可以有很大的不同。一些架构允许访问子寄存器，例如：x86体系结构有特殊的寄存器名，只能访问寄存器值的一部分，其他体系结构没有实现这一点。除了通用寄存器、浮点寄存器和向量寄存器外，体系结构还可以定义特殊寄存器，例如：状态码寄存器或浮点操作配置寄存器。您需要为LLVM定义这些信息。\par
 
-The M88k architecture defines general-purpose registers, floating-point registers, and control registers. To keep the example small, we will only define the general-purpose registers. We begin with defining a super-class for the registers. The encoding for registers uses only 5 bits, so we limit the field holding the encoding. We also define that all the generated C++ code should reside in the M88k namespace:\par
+M88k体系结构定义了通用寄存器、浮点寄存器和控制寄存器。为了使示例简短，我们将只定义通用寄存器。我们从为寄存器定义一个超类开始，寄存器的编码只使用5位，这也限制了保存编码的字段。我们还定义所有生成的C++代码应该放在M88k命名空间中:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 class M88kReg<bits<5> Enc, string n> : Register<n> \{ \\
@@ -71,13 +71,13 @@ class M88kReg<bits<5> Enc, string n> : Register<n> \{ \\
 \}
 \end{tcolorbox}
 
-The M88kReg class is used for all register types. We define a special class for generalpurpose registers:\par
+M88kReg类用于所有寄存器类型，为通用寄存器定义了一个特殊的类:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 class GRi<bits<5> Enc, string n> : M88kReg<Enc, n>;
 \end{tcolorbox}
 
-Now we can define all 32 general-purpose registers:\par
+现在可以定义所有32个通用寄存器了:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 foreach I = 0-31 in \{ \\
@@ -85,58 +85,58 @@ foreach I = 0-31 in \{ \\
 \}
 \end{tcolorbox}
 
-The single registers need to be grouped in register classes. The sequence order of the registers also defines the allocation order in the register allocator. Here, we simply add all registers:\par
+单个寄存器需要分组到寄存器类中，寄存器的顺序还定义了寄存器分配器中的分配顺序。这里，我们简单地添加所有寄存器:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 def GPR : RegisterClass<"M88k", [i32], 32, \\
 \hspace*{4.5cm}(add (sequence "R\%u", 0, 31))>;
 \end{tcolorbox}
 
-And last, we need to define an operand based on the register class. The operand is used in selecting DAG nodes to match a register, and it can also be extended to denote method names for printing and matching the register in assembly code:\par
+最后，我们需要定义一个基于寄存器类的操作数。该操作数用于选择与寄存器匹配的DAG节点，它还可以扩展为在汇编代码中打印和匹配寄存器的方法名:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 def GPROpnd : RegisterOperand<GPR>;
 \end{tcolorbox}
 
-This finishes our definition of the registers. In the next section, we use these definitions to define the calling convention.\par
+这就完成了寄存器的定义。下一节中，我们将使用这些定义来定义调用规则。\par
 
 \hspace*{\fill} \par %插入空行
-\textbf{Defining the calling convention}
+\textbf{定义调用规则}
 
-A calling convention defines how parameters are passed to functions. Usually, the first parameters are passed in registers, and the rest of the parameters are passed on the stack. There must also be rules on how aggregates are passed and how values are returned from a function. From the definition given here, analyzer classes are generated, which are used later during the lowering of calls.\par
+调用规则定义了如何将参数传递给函数。通常，第一个参数在寄存器中传递，其余的参数在堆栈上传递。还必须有关于如何传递聚合和如何从函数返回值的规则。根据这里给出的定义，将生成分析程序类，稍后在底层调用时使用它们。\par
 
-You can read about the calling convention used on the M88k architecture in Chapter 3, Low-Level System Information, of the System V ABI M88k Processor supplement book. Let's translate this into the TableGen syntax:\par
+您可以在System V ABI M88k Processor手册的第3章，“低层系统信息”中阅读有关M88k架构上使用的调用规则。这里，我们把它翻译成TableGen语法:\par
 
 \begin{enumerate}
-\item We define a record for the calling convention:
+\item 我们为调用规则定义了一个记录:
 \begin{tcolorbox}[colback=white,colframe=black]
 def CC\underline{~}M88k : CallingConv<[
 \end{tcolorbox}
 
-\item The M88k architecture only has 32-bit registers, therefore values of smaller data types need to be promoted to 32 bit:
+\item M88k架构只有32位寄存器，因此较小的数据类型的值需要提升到32位:
 \begin{tcolorbox}[colback=white,colframe=black]
 \hspace*{0.5cm}CCIfType<[i1, i8, i16], CCPromoteToType<i32>>,
 \end{tcolorbox}
 
-\item The calling convention states that for aggregate return values, a pointer to the memory is passed in the r12 register:
+\item 调用规则规定，对于聚合返回值，指向内存的指针会传递到r12寄存器中:
 \begin{tcolorbox}[colback=white,colframe=black]
 \hspace*{0.5cm}CCIfSRet<CCIfType<[i32], CCAssignToReg<[R12]>>>,
 \end{tcolorbox}
 
-\item The registers r2 to r9 are used to pass parameters:
+\item 寄存器r2到r9用于传递参数:
 \begin{tcolorbox}[colback=white,colframe=black]
 \hspace*{0.5cm}CCIfType<[i32,i64,f32,f64], \\
 \hspace*{1cm}CCAssignToReg<[R2, R3, R4, R5, R6, R7, R8, \\
 \hspace*{1.5cm}R9]>>, 
 \end{tcolorbox}
 
-\item Every additional parameter is passed on the stack, in 4 bytes-aligned slots:
+\item 每个附加的参数在堆栈上进行传递，需要4字节对齐:
 \begin{tcolorbox}[colback=white,colframe=black]
 \hspace*{0.5cm}CCAssignToStack<4, 4>, \\
 >;
 \end{tcolorbox}
 
-\item An additional record defines how results are passed to the calling function. 32-bit values are passed in the r2 register, and 64-bit values use the r2 and r3 registers:
+\item 另一条记录定义如何将结果传递给调用函数。32位值在r2寄存器中传递，64位值使用r2和r3寄存器:
 \begin{tcolorbox}[colback=white,colframe=black]
 def RetCC\underline{~}M88k : CallingConv<[ \\
 \hspace*{0.5cm}CCIfType<[i32,f32], CCAssignToReg<[R2]>>, \\
@@ -144,7 +144,7 @@ def RetCC\underline{~}M88k : CallingConv<[ \\
 ]>;
 \end{tcolorbox}
 
-\item And last, a calling convention also states which registers have to be preserved by the called function:
+\item 最后，调用规则还规定了被调用函数必须保留哪些寄存器:
 \begin{tcolorbox}[colback=white,colframe=black]
 def CSR\underline{~}M88k : \\
 \hspace*{1.5cm}CalleeSavedRegs<(add (sequence "R\%d", 14, \\
@@ -153,13 +153,13 @@ def CSR\underline{~}M88k : \\
 
 \end{enumerate}
 
-If needed, you can also define multiple calling conventions. In the next section, we will have a brief look at the scheduling model.\par
+如果需要，还可以定义多个调用规则。下一节中，我们将简要介绍调度模型。\par
 
 
 \hspace*{\fill} \par %插入空行
-\textbf{Creating the scheduling model}
+\textbf{创建调度模型}
 
-The scheduling model is used by the code generation to order the instructions in an optimal way. Defining a scheduling model improves the performance of the generated code, but it is not necessary for code generation. Therefore, we only define a placeholder for the model. We add the information that the CPU can issue at most two instructions at once, and that it is an in-order CPU:\par
+使用调度模型代码生成，可以以最优方式对指令进行排序。定义一个调度模型可以提高所生成代码的性能，但它不是代码生成所必需的。因此，我们只为模型定义一个占位符。我们添加的CPU一次最多可以发出两条指令的信息，并且它是有序CPU:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 def M88kSchedModel : SchedMachineModel \{ \\
@@ -170,15 +170,14 @@ def M88kSchedModel : SchedMachineModel \{ \\
 \}
 \end{tcolorbox}
 
-You can find recipes on how to create a complete scheduling model in the talk Writing Great Schedulers on YouTube at \url{https://www.youtube.com/
-watch?v=brpomKUynEA}.\par
+你可以在YouTube上的“编写伟大的调度程序”(Writing Great Schedulers)讲座中找到关于如何创建完整调度模型的方法，网址是\url{https://www.youtube.com/watch?v=brpomKUynEA}。\par
 
-Next, we will define the instruction formats and the instructions.\par
+接下来，我们将定义指令格式和指令。\par
 
 \hspace*{\fill} \par %插入空行
-\textbf{Defining the instruction formats and the instruction information}
+\textbf{定义指令格式和指令信息}
 
-We have already looked at the instruction formats and the instruction information in Chapter 9, Instruction Selection, in the Supporting new machine instructions section. To define the instructions for the M88k architecture, we follow the same approach. First, we define a base class for the instruction records. The most important field of this class is the Inst field, which holds the encoding for the instruction. Most of the other field definitions just assign a value to a field defined in the Instruction superclass:\par
+我们已经在第9章，支持新机器指令的章节中了解了指令格式和指令信息。为了定义M88k体系结构的指令，我们采用相同的方法。首先，为指令记录定义一个基类。这个类最重要的字段是Inst字段，它保存指令的编码。大多数其他字段定义只是给指令超类中定义的字段赋值:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 class InstM88k<dag outs, dag ins, string asmstr, \\
@@ -198,9 +197,9 @@ class InstM88k<dag outs, dag ins, string asmstr, \\
 \}
 \end{tcolorbox}
 
-This base class is used for all instruction formats, so it is also used for the F\underline{~}JMP format. You take the encoding for the user manual of the processor. The class has two parameters, which must be part of the encoding. The func parameter defines bits 11 to 15 of the encoding, which defines the instruction as a jump with or without saving the return address. The next parameter is a bit that defines whether the next instruction is executed unconditionally or not. This is similar to the delay slot of the MIPS architecture.\par
+这个基类用于所有的指令格式，所以也用于F\underline{~}JMP格式。您需要根据处理器用户手册的介绍，对处理器进行编码。类有两个参数(是编码的一部分)，func参数定义了编码的第11位到第15位，它将指令定义为带有或不保存返回地址的跳转。下一个参数是一个位，它定义下一条指令是否无条件执行。这类似于MIPS架构的延迟槽。\par
 
-The class also defines the rs2 field, which holds the encoding of the register holding the target address. The other parameters are the DAG input and output operand, the textual assembler string, a DAG pattern used to select this instruction, and an itinerary class for the scheduler model:\par
+该类还定义了rs2字段，该字段保存保存目标地址的寄存器的编码。其他参数包括DAG输入和输出操作数、文本汇编字符串、用于选择该指令的DAG模式，以及用于调度程序模型的itinerary类:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 class F\underline{~}JMP<bits<5> func, bits<1> next, \\
@@ -218,9 +217,9 @@ class F\underline{~}JMP<bits<5> func, bits<1> next, \\
 \}
 \end{tcolorbox}
 
-And with this, we can finally define the instruction. A jump instruction is the last instruction in a basic block, so we need to set the isTerminator flag. Because control flow can't fall through this instruction, we also have to set the isBarrier flag. We take the values for the func and next parameters from the user manual of the processor.\par
+有了这个，就可以定义指令了。跳转指令是基本块中的最后一条指令，因此需要设置isTerminator标志。因为控制流不能通过这条指令，所以还必须设置isBarrier标志。我们从处理器的用户手册中获取func和next参数的值。\par
 
-The input DAG operand is a general-purpose register and refers to the operand from the preceding register's information. The encoding is stored in the rs2 field, from the preceding class definition. The output operand is empty. The assembler string gives the textual syntax of the instruction and also refers to the register operand. The DAG pattern uses the predefine brind operator. This instruction is selected if the DAG contains an indirect branch node with the target address hold in a register:\par
+输入DAG操作数是一个通用寄存器，它引用前面寄存器的信息中的操作数。编码存储在rs2字段中，来自前面的类定义，输出操作数为空。汇编字符串给出指令的文本语法，也引用寄存器操作数。DAG模式使用预定义的brind操作符。如果DAG包含一个间接分支节点，目标地址保存在寄存器中，则选择此指令:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 let isTerminator = 1, isBarrier = 1 in \\
@@ -228,11 +227,11 @@ let isTerminator = 1, isBarrier = 1 in \\
 \hspace*{4cm}"jmp \$rs2", [(brind GPROpnd:\$rs2)]>;
 \end{tcolorbox}
 
-We need to define records for all instructions in this way.\par
+我们需要以这种方式为所有指令进行定义。\par
 
-In this file, we also implement other necessary patterns for instruction selection. A typical application is a constant synthesis. The M88k architecture has 32 bit-wide registers, but the instructions with immediate values as operands support only 16 bit-wide constants. As a consequence, operations such as a bitwise and between a register and a 32-bit constant have to be split into two instructions that use 16-bit constants.\par
+这个文件中，我们还实现了用于指令选择的其他模式。一个典型的应用是不断的合成，M88k体系架构是32位的，但可以将作为操作数的指令也能支持16位范围的常量。因此，诸如按位运算以及寄存器和32位常量之间的运算，必须被分割成两个使用16位常量的指令。\par
 
-Luckily, a flag in the and instruction defines whether an operation applies to the lower or the upper half of the register. With operators LO16 and HI16 used to extract the lower or upper half of a constant, we can formulate a DAG pattern for an and operation between a register and a 32 bit-wide constant:\par
+幸运的是，and指令中的一个标志定义了一个操作是用于寄存器的下半部分还是上半部分。使用操作符LO16和HI16来提取一个常数的下半部分或上半部分，我们可以为一个寄存器和一个32位宽常数之间的和运算建立一个DAG模式:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 def : Pat<(and GPR:\$rs1, uimm32:\$imm), \\
@@ -240,31 +239,31 @@ def : Pat<(and GPR:\$rs1, uimm32:\$imm), \\
 \hspace*{6cm}(LO16 i32:\$imm))>;
 \end{tcolorbox}
 
-The ANDri operator is the and instruction that applies the constant to the lower half of the register, and the ANDriu operator uses the upper half of the register. Of course, before we can use these names in the pattern, we must define the instruction like we defined the jmp instruction. This pattern solves the problem using a 32-bit constant with an and operation, generating two machine instructions for it during instruction selection.\par
+ANDri运算符是将常数应用到寄存器下半部分的and指令，ANDriu运算符使用寄存器上半部分。当然，在使用这些模式之前，我们必须像定义jmp指令一样定义指令。该模式使用带有and操作的32位常量来解决问题，在指令选择期间为其生成两条机器指令。\par
 
-Not all operations can be represented by the predefined DAG nodes. For example, the M88k architecture defined bit field operations, which can be seen as generalizations of the normal and/or operations. For such operations, it is possible to introduce new node types, for example, for the set instruction:\par
+不是所有的操作都可以用预定义的DAG节点来表示，例如：M88k体系结构定义了位域操作，可以将其视为正常和/或操作的一般化。对于这样的操作，可以引入新的节点类型，例如：set指令:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 def m88k\underline{~}set : SDNode<"M88kISD::SET", SDTIntBinOp>;
 \end{tcolorbox}
 
-This defines a new record of the SDNode class. The first argument is the C++ enumeration member that denotes the new operation. The second parameter is the so-called type profile and defines the type and number of parameters and the result type. The predefined SDTIntBinOp class defines two integer parameters and an integer result type, which is suitable for this operation. You can look up the predefined classes in the llvm/include/llvm/Target/TargetSelectionDAG.td file. If there is no suitable predefined type profile, then you can define a new one.\par
+这定义了一个SDNode类的新记录。第一个参数是表示新操作的C++枚举成员。第二个参数是所谓的类型概要文件，它定义了参数的类型、数量和结果类型。预定义的SDTIntBinOp类定义了两个整型参数和一个整型结果类型，适合此操作。可以在llvm/include/llvm/Target/TargetSelectionDAG.td文件中查找预定义的类。如果没有合适的预定义类型说明文件，那么可以定义一个新的。\par
 
-For calling functions, LLVM requires certain definitions that cannot be predefined because they are not completely target-independent. For example, for returns, we need to specify a retflag record:\par
+对于调用函数，LLVM需要某些无法预定义的定义，因为它们不是完全独立于目标的，例如：对于returns，我们需要指定一个retflag记录:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 def retflag : SDNode<"M88kISD::RET\underline{~}FLAG", SDTNone, \\
 \hspace*{3cm}[SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
 \end{tcolorbox}
 
-Comparing this to m88k\underline{~}set the record, this also defines some flags for the DAG node: the chain and glue sequences are used, and the operator can take a variable number of arguments.\par
+与m88k\underline{~}set相比，这还为DAG节点定义了一些标志:使用了链和胶水序列，操作符可以接受可变数量的参数。\par
 
-\begin{tcolorbox}[colback=blue!5!white,colframe=blue!75!black, title=Implement the instructions iteratively]
+\begin{tcolorbox}[colback=blue!5!white,colframe=blue!75!black, title=以迭代的方式实现这些指令]
 	
-A modern CPU can easily have thousands of instructions. It makes sense to not implement all instructions at once. Instead, you should first concentrate on basic instructions such as logical operations and call and return instructions. This is enough to get a very basic backend working. To this base, you then add more and more instruction definitions and patterns.
+现代的CPU可以很容易地拥有数千条指令，不一次性实现所有指令是有意义的。相反，您应该首先关注基本指令，如逻辑操作和调用和返回指令。这足以使一个非常基本的后端工作，然后在这个基础上添加越来越多的指令定义和模式。
 \end{tcolorbox}
 
-This finishes our implementation of the target description. From the target description, a lot of code is automatically generated with the llvm-tblgen tool. To complete the instruction selection and other parts of the backend, we still need to develop a C++ source using the generated code. In the next section, we implement the DAG instruction selection.\par
+这就完成了目标描述的实现。从目标描述中，使用llvm-tblgen工具自动生成大量代码。为了完成指令选择和后台的其他部分，我们仍然需要使用生成的代码开发C++代码。在下一节中，我们将实现DAG指令的选择。\par
 
 
 

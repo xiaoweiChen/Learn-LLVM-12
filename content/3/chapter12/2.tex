@@ -1,12 +1,12 @@
-Whether it's needed commercially to support a new CPU or it's only for a hobby project to add support for some old architecture, adding a new backend to LLVM is a major task. The following sections outline what you need to develop a new backend. We will add a backend for the Motorola M88k architecture, which is a RISC architecture from the 1980s.\par
+无论是商业上需要支持一个新的CPU，还是只是一个业余项目需要添加对一些旧架构的支持，为LLVM添加一个新的后端都是一项重要任务。以下部分概述了开发新后端所需的内容。我们将为摩托罗拉M88k架构添加一个后端，这是一个20世纪80年代的RISC架构。\par
 
 \begin{tcolorbox}[colback=blue!5!white,colframe=blue!75!black, title=References]
-\hspace*{0.7cm}You can read more about the architecture on Wikipedia: \url{https://en.wikipedia.org/wiki/Motorola_88000}. The important information about this architecture is still available on the internet. You can find the CPU manuals with the instruction set and timing information at \url{http://www.bitsavers.org/components/motorola/88000/}, and the System V ABI M88k Processor supplement with the definitions of the ELF format and the calling convention can be found at \url{https://archive.org/details/bitsavers_attunixSysa0138776555SystemVRelease488000ABI1990_8011463}.\par
+\hspace*{0.7cm}你可以在维基百科上阅读更多关于该架构的信息:\url{https://en.wikipedia.org/wiki/Motorola_88000}。关于这个体系结构的重要信息仍然可以在互联网上找到。可以在\url{http://www.bitsavers.org/components/motorola/88000/}找到带有指令集和计时信息的CPU手册，和SystemV ABI M88k处理器补充ELF格式的定义和调用规则可以在\url{https://archive.org/details/bitsavers_attunixSysa0138776555SystemVRelease488000ABI1990_8011463}找到。\par
 
-\hspace*{0.7cm}OpenBSD, available at \url{https://www.openbsd.org/}, still supports the LUNA-88k system. On the OpenBSD system, it is easy to create a GCC cross-compiler for M88k. And with GXemul, available at \url{http://gavare.se/gxemul/}, there exists an emulator capable of running certain OpenBSD releases for the M88k architecture.
+\hspace*{0.7cm}OpenBSD(可在\url{https://www.openbsd.org/}获得)仍然支持LUNA-88k系统。在OpenBSD系统上，很容易为M88k创建一个GCC交叉编译器。GXemul可在\url{http://gavare。se/gxemul/}查看相应资料，并且其有一个模拟器能够运行针对M88k体系结构的某些OpenBSD版本。
 \end{tcolorbox}
 
-Taken together, the M88k architecture is long out of production, but we found enough information and tools to make it an interesting goal to add an LLVM backend for it. We will begin with a very basic task and extend the Triple class.\par
+总的来说，M88k体系结构已经淘汰很久了，但是我们找到了足够的信息和工具，为它添加一个LLVM后端。我们将从一个非常基本的任务开始，并扩展到Triple类。\par
 
 
 
