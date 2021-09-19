@@ -1,32 +1,31 @@
-后端的任务是从模块的IR中创建优化的机器码。IR是后端的接口，可以使用C++接口或文本形式创建。同样，IR是由AST生成的。\par
+后端的任务是从模块的IR中创建优化的机器码。IR是后端的接口，可以使用C++接口或文本形式创建。同样，IR由AST生成。\par
 
 \hspace*{\fill} \par %插入空行
 \textbf{LLVM IR的文本表示}
 
-在尝试生成LLVM IR之前，我们需要了解我们想要生成的东西。对于表达式语言的例子，计划如下。
-
+尝试生成LLVM IR之前，需要了解我们想要生成的东西。对于表达式语言的例子，计划如下。
 
 \begin{enumerate}
-	\item 向用户询问每个变量的值。
-	\item 计算表达式的值。
-	\item 打印结果。
+\item 询问每个变量的值。
+\item 计算表达式的值。
+\item 打印结果。
 \end{enumerate}
 
-为了要求用户提供一个变量的值并打印出结果，使用了两个库函数，calc\underline{~}read()和calc\underline{~}write()。对于with a: 3*a表达式，生成的IR如下：\par
+为了要求用户提供一个变量的值并打印出结果，使用了两个库函数，calc\underline{~}read()和calc\underline{~}write()。对于\textit{with a: 3*a}表达式，生成的IR如下：\par
 
 \begin{enumerate}
-\item 标准库函数必须声明，和C一样，语法也类似于C。函数名之前的类型是返回类型。由圆括号包围的类型名是参数类型。声明可以出现在文件的任何地方:
+\item 标准库函数必须声明，语法类似于C。函数名之前的类型是返回类型。由圆括号包围的类型名是参数类型。声明可以出现在文件的任何地方:
 \begin{tcolorbox}[colback=white,colframe=black]
 declare i32 @calc\underline{~}read(i8*) \\
 declare void @calc\underline{~}write(i32)
 \end{tcolorbox}
 
-\item calc/underline{~}read()函数将变量名作为参数。下面的定义了一个常数，持有a和空字节，空字节在C语言中作为字符串的结束符。
+\item calc\underline{~}read()函数将变量名作为参数。下面的定义了一个常数，持有a和空字节，空字节在C语言中作为字符串的结束符。
 \begin{tcolorbox}[colback=white,colframe=black]
 @a.str = private constant [2 x i8] c"a$\setminus$00"
 \end{tcolorbox}
 
-\item 接下来是main()函数。参数的名字被省略了，因为它们不没使用到。像C语言一样，函数的主体置于大括号中。
+\item 接下来是main()函数。省略了参数的名字，因为没使用到。像C语言一样，函数的主体置于大括号中。
 \begin{tcolorbox}[colback=white,colframe=black]
 define i32 @main(i32, i8**) \{
 \end{tcolorbox}
@@ -36,7 +35,7 @@ define i32 @main(i32, i8**) \{
 entry:
 \end{tcolorbox}
 
-\item 调用calc/underline{~}read()函数来读取a变量的值。嵌套使用getelemenptr指令进行了索引计算，以计算指向字符串常量第一个元素的指针。该函数的结果分配给未命名的 \%2 变量。
+\item 调用calc\underline{~}read()函数来读取a变量的值。嵌套使用getelemenptr指令进行了索引计算，以计算指向字符串常量第一个元素的指针。该函数的结果分配给未命名的\%2变量。
 \begin{tcolorbox}[colback=white,colframe=black]
 \hspace*{1cm}\%2 = call i32 @calc\underline{~}read(i8* getelementptr inbounds \\
 \hspace*{3.5cm}([2 x i8], [2 x i8]* @a.str, i32 0, i32
@@ -61,10 +60,10 @@ entry:
 
 \end{enumerate}
 
-LLVM IR中的每个值都是类型化的，i32表示32位的整数类型，i8*表示一个字节的指针。IR代码非常易读（除了getelementptr操作，这将在第5章，IR生成的基础知识中详细解释）。既然现在已经清楚了IR的样子，我们就从AST中生成它吧。\par
+LLVM IR中的每个值都是类型化的，i32表示32位的整数类型，i8*表示一个字节的指针。IR代码非常易读(除了getelementptr操作，这将在第5章，IR生成的基础知识中详细解释)。既然现在已经清楚了IR的样子，就使用AST生成它吧。\par
 
 \hspace*{\fill} \par %插入空行
-\textbf{从AST生成IR}
+\textbf{使用AST生成IR}
 
 该接口在CodeGen.h头文件中提供：
 
@@ -82,7 +81,7 @@ public:
 #endif
 \end{lstlisting}
 
-因为AST包含了语义分析阶段的信息，所以基本思路是用一个访问者来遍历AST。CodeGen.cpp文件的实现方式如下：
+因为AST包含了语义分析阶段的信息，所以基本思路是用访问者来遍历AST。CodeGen.cpp文件的实现方式如下：
 
 \begin{enumerate}
 \item 所需的包括在文件的顶端：
@@ -99,7 +98,7 @@ public:
 using namespace llvm;
 \end{lstlisting}
 
-\item 首先，在访问器中声明一些私有成员。每个编译单元在LLVM中由模块类表示，访问者有一个指向模块调用的指针M。为了便于生成IR，使用生成器（IRBuilder<>类型）。LLVM有一个类的层次结构来表示IR中的类型。你可以在LLVM的上下文中查找基本类型的实例，如i32。这些基本类型经常被使用。为了避免重复查找，我们缓存了需要的类型实例，它可以是VoidTy、Int32Ty、Int8PtrTy、Int8PtrPtrTy或Int32Zero。V是当前的计算值，通过树形遍历更新。最后，nameMap将一个变量名映射到由calc/underline{~}read()函数返回的值：
+\item 首先，在访问器中声明一些私有成员。每个编译单元在LLVM中由模块类表示，访问者有一个指向模块调用的指针M。为了便于生成IR，使用生成器(IRBuilder<>类型)。LLVM用类的层次结构来表示IR中的类型，可以在LLVM的上下文中查找基本类型的实例，如i32。这些基本类型会经常使用。为了避免重复查找，需要缓存类型实例，可以是VoidTy、Int32Ty、Int8PtrTy、Int8PtrPtrTy或Int32Zero。V是当前的计算值，通过树形遍历更新。最后，nameMap将一个变量名映射为由calc\underline{~}read()函数返回的值：
 \begin{lstlisting}[caption={}]
 namespace {
 class ToIRVisitor : public ASTVisitor {
@@ -127,7 +126,7 @@ public:
 	}
 \end{lstlisting}
 
-\item 对于每个函数，都必须创建一个FunctionType实例。在C++术语中，这就是一个函数原型。函数本身是用function实例定义的。首先，run()方法定义了LLVM IR中的main()函数:
+\item 对于每个函数，都必须创建一个FunctionType实例。在C++中，这就是一个函数原型。函数本身是用function实例定义的。首先，run()方法定义了LLVM IR中的main()函数:
 \begin{lstlisting}[caption={}]
 	void run(AST *Tree) {
 		FunctionType *MainFty = FunctionType::get(
@@ -137,7 +136,7 @@ public:
 			"main", M);
 \end{lstlisting}
 
-\item 然后，我们创建带有入口标签的BB基本块，并将其附加到IR构建器上。
+\item 然后，创建带有入口标签的BB基本块，并将其附加到IR构建器上。
 \begin{lstlisting}[caption={}]
 		BasicBlock *BB = BasicBlock::Create(M->getContext(),
 											"entry", MainFn);
@@ -149,7 +148,7 @@ public:
 		Tree->accept(*this);
 \end{lstlisting}
 
-\item 遍历树后，通过调用calc\underline{~}write()函数打印计算值。同样，必须创建函数原型(FunctionType的实例)。唯一的参数是当前值V:
+\item 遍历树后，通过calc\underline{~}write()函数打印计算值。同样，必须创建函数原型(FunctionType的实例)。唯一的参数是当前值V:
 \begin{lstlisting}[caption={}]
 		FunctionType *CalcWriteFnTy =
 			FunctionType::get(VoidTy, {Int32Ty}, false);
@@ -193,7 +192,7 @@ public:
 				StrText, Twine(Var).concat(".str"));
 \end{lstlisting}
 
-\item 然后，调用calcunderline{~}read()函数的IR代码被创建。在上一步骤中创建的字符串会作为参数传递:
+\item 然后，创建调用calc\underline{~}read()函数的IR代码。在上一步骤中创建的字符串会作为参数传递:
 \begin{lstlisting}[caption={}]
 			Value *Ptr = Builder.CreateInBoundsGEP(
 				Str, {Int32Zero, Int32Zero}, "ptr");
@@ -201,7 +200,7 @@ public:
 				Builder.CreateCall(ReadFty, ReadFn, {Ptr});
 \end{lstlisting}
 
-\item 返回值存储在mapNames中供以后使用:
+\item 返回值存储在mapNames中:
 \begin{lstlisting}[caption={}]
 			nameMap[Var] = Call;
 		}
@@ -260,15 +259,15 @@ void CodeGen::compile(AST *Tree) {
 \end{lstlisting}
 \end{enumerate}
 
-我们实现了编译器的前端，从读取源代码到生成IR。当然，所有这些组件必须在用户输入时协同工作，这是编译器驱动程序的任务，我们还需要实现运行时所需的功能。我们将在下一节中讨论这两个问题。\par
+我们实现了编译器的前端，从读取源代码到生成IR。当然，所有这些组件必须在用户输入时协同工作，这是编译器驱动程序的任务，现在还需要实现运行时所需的功能。我们将在下一节中讨论这两个问题。\par
 
 \hspace*{\fill} \par %插入空行
-\textbf{缺少的部分-驱动程序和运行时库}
+\textbf{驱动程序和运行时库}
 
-前几节中的所有阶段都是由Calc.cpp驱动程序结合在一起的，我们将在这里实现它。需要为输入表达式声明一个参数，初始化LLVM，调用前几节中的所有阶段。让我们来看看:
+前几节中的所有阶段都是由Calc.cpp驱动程序合在一起的，我们将在这里实现它。需要为输入表达式声明一个参数，初始化LLVM，调用前几节中的所有阶段。让我们来看看:
 
 \begin{enumerate}
-\item 首先，我们必须包含必需的头文件:
+\item 首先，必须包含必需的头文件:
 \begin{lstlisting}[caption={}]
 #include "CodeGen.h"
 #include "Parser.h"
@@ -294,7 +293,7 @@ int main(int argc, const char **argv) {
 		argc, argv, "calc - the expression compiler\n");
 \end{lstlisting}
 
-\item 接下来，我们调用词法分析器和解析器。在语法分析之后，检查是否发生了错误。如果有错，则使用返回代码退出编译器，表示失败:
+\item 接下来，使用词法分析器和解析器。语法分析之后，检查是否发生了错误。如果有错，则使用返回代码退出编译器，表示失败:
 \begin{lstlisting}[caption={}]
 	Lexer Lex(Input);
 	Parser Parser(Lex);
@@ -305,7 +304,7 @@ int main(int argc, const char **argv) {
 	}
 \end{lstlisting}
 
-\item 如果有语义错误，也会这样:
+\item 如果有语义错误，也是一样:
 \begin{lstlisting}[caption={}]
 	Sema Semantic;
 	if (Semantic.semantic(Tree)) {
@@ -338,7 +337,7 @@ void calc_write(int v)
 }
 \end{lstlisting}
 
-calc\underline{~}write()只把结果值写到终端。
+calc\underline{~}write()只把结果值输出到终端。
 
 \begin{lstlisting}[caption={}]
 int calc_read(char *s)
@@ -356,9 +355,9 @@ int calc_read(char *s)
 }
 \end{lstlisting}
 
-calc\underline{~}read()从终端读取一个整数。没有什么可以阻止用户输入字母或其他字符，所以我们必须仔细检查输入。如果输入不是数字，则应用程序退出。一种更复杂的方法是让用户意识到这个问题，并再次请求一个数字。\par
+calc\underline{~}read()从终端读取一个整数。用户可以有任意的输入，所以我们必须仔细检查输入。如果输入不是数字，则应用程序退出。一种更复杂的方法是让用户意识到这个问题，并再次请求输入数字。\par
 
-现在，我们可以试试我们的编译器。calc应用程序从一个表达式创建IR。LLVM静态编译器将IR编译为一个目标文件。然后，可以使用您喜欢的C编译器链接到小型运行时库。在Unix上，你可以输入以下内容:\par
+现在，我们可以试试我们的编译器。calc应用程序从一个表达式创建IR。LLVM静态编译器将IR编译为一个目标文件。然后，可以使用您喜欢的C编译器链接到小型运行时库。在Unix上，可以这样:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ calc "with a: a*3" | llc –filetype=obj –o=expr.o \\
@@ -378,7 +377,7 @@ calc\underline{~}read()从终端读取一个整数。没有什么可以阻止用
 \hspace*{0.5cm}The result is: 12
 \end{tcolorbox}
 
-这样，您就创建了第一个基于llvm的编译器!请花点时间研究一下这些不同的表达方式。还要检查乘法运算符是否在加法运算符之前求值，以及使用括号是否会改变求值顺序，这与基本计算器的要求一致。\par
+这样，就创建了第一个基于llvm的编译器!请花点时间研究一下这些不同的表达方式。还要检查乘法运算符是否在加法运算符之前求值，以及使用括号是否会改变求值顺序，这与基本计算器的要求一致。\par
 
 
 

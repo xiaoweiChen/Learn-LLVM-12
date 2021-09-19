@@ -1,4 +1,4 @@
-语义分析器遍历AST并检查语言的各种语义规则，例如：在使用变量之前必须声明变量，或者变量的类型必须在表达式中兼容。如果发现可以改进的情况，语义分析器还可以输出警告。对于示例表达式语言，语义分析器必须检查每个使用的变量是否声明，这是语言所需。一个可能的扩展(这里不实现)是在未使用声明的变量时打印一条警告消息。\par
+语义分析器遍历AST并检查语言的各种语义规则，例如：在使用变量之前必须声明变量，或者变量的类型必须在表达式中兼容。如果发现可以改进的情况，还可以输出警告。对于表达式语言，语义分析器必须检查每个使用的变量是否声明，这是语言所需。一个可能的扩展(这里不实现)是在未使用声明的变量时输出警告消息。\par
 
 语义分析器在Sema类中实现，语义分析由semantic()执行。下面是完整的Sema.h头文件:\par
 
@@ -16,7 +16,7 @@ class Sema {
 #endif
 \end{lstlisting}
 
-实现在Sema.cpp文件中。有趣的部分是语义分析，使用访问者实现的。其基本思想是，每个声明变量的名称存储在一个集合中。当创建时，我们可以检查每个名称是否唯一，然后检查名称是否在集合中:
+实现在Sema.cpp文件中。有趣的部分是语义分析，并使用访问者实现。其基本思想是，每个声明变量的名称存储在一个集合中。创建时，可以检查每个命名是否唯一，然后检查命名是否在集合中:
 
 \begin{lstlisting}[caption={}]
 #include "Sema.h"
@@ -39,7 +39,7 @@ namespace {
 	bool hasError() { return HasError; }
 \end{lstlisting}
 
-与Parser类中一样，使用标记来指示发生了错误。这些名字被存储在一个叫做Scope的集合中。在持有一个变量名的Factor节点中，我们检查该变量名是否在这个集合中。
+与Parser类中一样，使用标记来指示发生了错误，这些名字存储在Scope的集合中。在持有一个变量名的Factor节点中，我们检查该变量名是否在这个集合中。
 
 \begin{lstlisting}[caption={}]
 	virtual void visit(Factor &Node) override {
@@ -50,7 +50,7 @@ namespace {
 	};
 \end{lstlisting}
 
-对于BinaryOp节点，我们只需要检查两边是否存在，并且是否已经访问过:
+对于BinaryOp节点，只需要检查两边是否存在，并且是否已经访问过:
 
 \begin{lstlisting}[caption={}]
 	virtual void visit(BinaryOp &Node) override {
@@ -65,7 +65,7 @@ namespace {
 	};
 \end{lstlisting}
 
-在WithDecl节点中，集合被填充并开始遍历表达式:
+在WithDecl节点中，填充集合并开始遍历表达式:
 
 \begin{lstlisting}[caption={}]
 	virtual void visit(WithDecl &Node) override {
@@ -83,7 +83,7 @@ namespace {
 }
 \end{lstlisting}
 
-semantic()方法只会遍历树，并返回错误标志:
+semantic()方法会遍历树，并返回错误标志:
 
 \begin{lstlisting}[caption={}]
 bool Sema::semantic(AST *Tree) {
@@ -95,7 +95,7 @@ bool Sema::semantic(AST *Tree) {
 }
 \end{lstlisting}
 
-如果需要，这里可以做得更多。如果没有使用声明的变量，也可以打印警告消息。这算是给读者留的课后作业。如果语义分析没有出现错误，那么我们就可以使用AST生成LLVM IR。我们将在下一节中完成这项工作。\par
+如果没有使用声明的变量，也可以打印警告消息。这算是给读者留的课后作业。如果语义分析没有出现错误，那么就可以使用AST生成LLVM IR。我们将在下一节中完成这项工作。\par
 
 
 
