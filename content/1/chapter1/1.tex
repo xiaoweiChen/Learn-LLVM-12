@@ -1,20 +1,20 @@
-要使用LLVM，您的系统必须为常见的操作系统，如Linux、FreeBSD、macOS或Windows。使用Debug构建LLVM和Clang很容易需要数十GB的磁盘空间，因此要确保您的系统有足够的可用磁盘空间，至少应该有30GB的空余空间。\par
+要使用LLVM，您的系统必须为常见的操作系统，如Linux、FreeBSD、macOS或Windows。使用Debug构建LLVM和Clang很需要数十GB的磁盘空间，因此要确保您的系统有足够的可用磁盘空间，至少应该有30GB的空余空间。\par
 
-所需的磁盘空间很大程度上取决于所选的构建选项。例如，仅以发布模式构建LLVM核心库，而且只针对一个平台，需要大约2GB的空余空间，这是最低需求。为了减少编译时间，一个高速的CPU(比如2.5GHz时钟速度的四核CPU)和一块SSD硬盘也会很有帮助。\par
+所需的磁盘空间很大程度上取决于所选的构建选项。仅以发布模式构建LLVM核心库，而且只针对一个平台，需要大约2GB的空余空间，这是最低需求。为了减少编译时间，一个高速的CPU(比如2.5GHz时钟速度的四核CPU)和一块SSD硬盘也会很有帮助。\par
 
-甚至可以在小设备上构建LLVM，比如树莓派——只是需要花费很多时间。我在笔记本电脑上开发了本书中的示例，这台笔记本电脑配备了2.7GHz的英特尔四核CPU，具有40GB RAM和2.5TB SSD硬盘空间。这个系统非常适合当前的开发任务。\par
+甚至可以在小设备上构建LLVM，比如树莓派——只是需要花费很多时间。我在笔记本电脑上开发了本书的示例，这台笔记本电脑配备了2.7GHz的英特尔四核CPU，具有40GB RAM和2.5TB SSD硬盘空间。\par
 
-您的开发系统必须安装一些必要的软件。让我们回顾一下这些软件包的最低要求。\par
+您的开发系统必须安装一些必要的软件。让我们了解一下这些软件包的最低要求。\par
 
 \begin{tcolorbox}[colback=blue!5!white,colframe=blue!75!black, title=Note]
 Linux发行版通常包含可以使用的最新版本，版本号为LLVM 12。LLVM的最新版本可能需要这里提到的软件包的最新版本。
 \end{tcolorbox}
 
-从GitHub查看源代码，需要git(\url{https://git-scm.com/})，对版本没有要求。GitHub帮助页面推荐至少使用1.17.10.\par
+从GitHub下载源代码，需要git(\url{https://git-scm.com/})，对版本没有要求。GitHub帮助页面推荐使用1.17.10以上版本。\par
 
-LLVM项目使用CMake(\url{https://cmake.org/})作为构建文件生成器，至少为3.13.4。CMake可以为各种构建系统生成构建文件。本书中，使用Ninja(\url{https://ninja-build.org/})，是因为它速度快，适用于所有平台，建议使用最新版本1.9.0。\par
+LLVM项目使用CMake(\url{https://cmake.org/})作为构建文件生成器，至少为3.13.4。CMake可以为各种构建系统生成构建文件。本书中，使用Ninja(\url{https://ninja-build.org/})，是因为它编译速度快，适用于所有平台，建议使用最新版本1.9.0。\par
 
-显然，您还需要一个C/C++编译器。LLVM项目是用现代C++编写的，基于C++ 14标准。需要符合标准的编译器和标准库。下面的编译器可以编译LLVM 12:\par
+您还需要一个C/C++编译器。LLVM项目是用现代C++编写的，基于C++14标准。需要符合标准的编译器和标准库。下面的编译器可以编译LLVM 12:\par
 
 \begin{itemize}
 	\item gcc 5.1.0或更高版本
@@ -23,18 +23,18 @@ LLVM项目使用CMake(\url{https://cmake.org/})作为构建文件生成器，至
 	\item Visual Studio 2017或更高版本
 \end{itemize}
 
-请注意，随着LLVM项目的开发，对编译器的需求很可能会发生变化。撰写本文时，有人讨论使用C++17并放弃对Visual Studio 2017的支持。所以，您应该使用系统可用的最新编译器版本。\par
+请注意，随着LLVM项目的开发，对编译器的需求很可能会发生变化。撰写本文时，有人讨论使用C++17，并放弃对Visual Studio 2017的支持。所以，应该使用系统可用的最新编译器版本。\par
 
-Python(\url{https://python.org/})用于生成构建文件并运行测试套件，至少应该是3.6版。\par
+Python(\url{https://python.org/})用于生成构建文件并运行测试套件，版本至少应该是3.6。\par
 
-虽然在本书中没有涉及到Makefile，但可能有一些原因需要使用Make而不是Ninja。这种情况下，您需要使用GNU Make(\url{https://www.gnu.org/software/make/}) 3.79或更高版本。这两种构建工具的用法非常相似。对于这里的场景，用make替换命令中的ninja就可以了。\par
+虽然在本书没有涉及到Makefile，但可能有一些原因需要使用Make而不是Ninja。这种情况下，您需要使用GNU Make(\url{https://www.gnu.org/software/make/}) 3.79或更高版本。这两种构建工具的用法非常相似。对于这里的场景，用make替换命令中的ninja就可以了。\par
 
-要安装必备软件，最简单的方法是使用操作系统中的包管理器。在下面的部分中，将为主流的操作系统安装软件准备相应的命令行。\par
+要安装必备软件，最简单的方法是使用操作系统中的包管理器。下面将为主流的操作系统安装软件准备相应的命令行。\par
 
 \hspace*{\fill} \par %插入空行
 \textbf{Ubuntu}
 
-Ubuntu 20.04使用APT包管理器。大多数基础设施已经安装完毕，只缺少开发工具。输入以下命令，一次安装所有的软件包:\par
+Ubuntu 20.04使用APT包管理器。大多数基础设施已经安装完毕，只缺少开发工具。输入以下命令:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ sudo apt install –y gcc g++ git cmake ninja-build
@@ -43,7 +43,7 @@ Ubuntu 20.04使用APT包管理器。大多数基础设施已经安装完毕，�
 \hspace*{\fill} \par %插入空行
 \textbf{Fedora和RedHat}
 
-Fedora 33和RedHat Enterprise Linux 8.3的包管理器称为DNF。和Ubuntu一样，大多数基本实用程序都已经安装好了。输入以下命令，一次安装所有的软件包:\par
+Fedora 33和RedHat Enterprise Linux 8.3的包管理器称为DNF。和Ubuntu一样，大多数基本实用程序都已经安装好了。输入以下命令:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ sudo dnf install –y gcc gcc-c++ git cmake ninja-build
@@ -52,7 +52,7 @@ Fedora 33和RedHat Enterprise Linux 8.3的包管理器称为DNF。和Ubuntu一�
 \hspace*{\fill} \par %插入空行
 \textbf{FreeBSD}
 
-在FreeBSD 12或更高版本上，您必须使用PKG包管理器。FreeBSD与基于linux的系统的不同之处在于，Clang是首选编译器。输入以下命令，一次安装所有的软件包:\par
+在FreeBSD 12或更高版本上，您必须使用PKG包管理器。FreeBSD与基于linux的系统的不同之处在于，Clang是首选编译器。输入以下命令:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ sudo pkg install –y clang git cmake ninja
@@ -61,7 +61,7 @@ Fedora 33和RedHat Enterprise Linux 8.3的包管理器称为DNF。和Ubuntu一�
 \hspace*{\fill} \par %插入空行
 \textbf{OS X}
 
-对于OS X上的开发，最好从Apple商店安装Xcode。虽然这本书中没有使用XCode IDE，但它附带了所需的C/C++编译器和支持的实用程序。要安装其他工具，可以使用Homebrew软件包管理器(\url{https://brew.sh/})。要一次安装所有的软件包，输入以下命令:\par
+对于OS X上的开发，最好从Apple商店安装Xcode。虽然本书中没有使用XCode IDE，但它附带了所需的C/C++编译器和实用程序。要安装其他工具，可以使用Homebrew软件包管理器(\url{https://brew.sh/})。输入以下命令:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 	\$ brew install git cmake ninja
@@ -70,7 +70,7 @@ Fedora 33和RedHat Enterprise Linux 8.3的包管理器称为DNF。和Ubuntu一�
 \hspace*{\fill} \par %插入空行
 \textbf{Windows}
 
-和OS X一样，Windows没有包管理器。安装所有软件的最简单方法是使用Chocolately(\url{https://chocolatey.org/})包管理器。输入以下命令，要一次安装所有的软件包:\par
+和OS X一样，Windows没有包管理器。安装所有软件的最简单方法是使用Chocolately(\url{https://chocolatey.org/})包管理器。输入以下命令:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ choco install visualstudio2019buildtools cmake ninja git\
@@ -92,7 +92,7 @@ LLVM项目使用Git进行版本控制。如果没有使用过Git，那么应该�
 	\$ git config --global user.name "Jane"
 \end{tcolorbox}
 
-通常情况下，Git使用vi编辑器提交消息。如果您更喜欢使用另一种编辑器，那么您可以以类似的方式更改配置。例如，要使用nano编辑器，可以输入以下命令:\par
+通常情况下，Git使用vi编辑器提交消息。如果您更喜欢使用另一种编辑器，可以以类似的方式更改配置，例如：要使用nano编辑器:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 	\$ git config --global core.editor nano

@@ -1,65 +1,65 @@
-准备好构建工具后，您现在可以从GitHub签出所有的LLVM项目。所有平台上执行此操作的命令本质上是相同的。但在Windows上，建议关闭对行结束符的自动转译。\par
+准备好构建工具后，就可以从GitHub签出所有的LLVM项目。所有平台上执行此操作的命令基本相同。但在Windows上，建议关闭对行结束符的自动转译。\par
 
 我们分三部分来回顾这个过程:克隆存储库、创建构建目录和生成构建系统文件。\par
 
 \hspace*{\fill} \par %插入空行
 \textbf{克隆代码库}
 
-在所有非windows平台上，输入以下命令克隆存储库:\par
+在所有非Windows平台上，输入以下命令克隆代码库:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
-	\$ git clone https://github.com/llvm/llvm-project.git
+\$ git clone https://github.com/llvm/llvm-project.git
 \end{tcolorbox}
 
-在Windows上，您必须添加选项以禁用自动转译行结束符。在这里输入以下内容:\par
+在Windows上，必须添加选项以禁用自动转译行结束符。在这里输入以下内容:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
-	\$ git clone --config core.autocrlf=false\ https://github.com/llvm/llvm-project.git
+\$ git clone --config core.autocrlf=false\ https://github.com/llvm/llvm-project.git
 \end{tcolorbox}
 
-这个git命令将最新的源代码从GitHub克隆到一个名为llvm-project的本地目录中。现在，用以下命令将当前目录更改为新的llvm-project目录:\par
+这将最新的源代码从GitHub克隆到一个名为llvm-project的本地目录中。现在，进入llvm-project目录:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
-	\$ cd llvm-project
+\$ cd llvm-project
 \end{tcolorbox}
 
-这个目录包含所有的LLVM项目，每个项目都在它自己的单独目录中。最值得注意的是，LLVM核心库位于LLVM子目录中。LLVM项目使用分支来进行后续版本开发(“release/12.x”)和标记(“llvmorg-12.0.0”)来标记某个版本。通过前面的clone命令，您可以获得当前的开发状态。本书使用LLVM 12。要查看LLVM 12的第一个版本，输入以下命令:\par
+这个目录包含所有的LLVM项目，每个项目都有自己的目录。最值得注意的是，LLVM核心库位于LLVM子目录中。LLVM项目使用分支来进行后续版本开发(“release/12.x”)和标记(“llvmorg-12.0.0”)来标记某个版本。通过前面的clone命令，可以获得当前的开发状态。本书使用LLVM 12。要查看LLVM 12的第一个版本，输入以下命令:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
-	\$ git checkout -b llvmorg-12.0.0
+\$ git checkout -b llvmorg-12.0.0
 \end{tcolorbox}
 
-这样，您就克隆了整个存储库并签出了一个标记。这是最灵活的方法。\par
+这样，就克隆了整个存储库，检出到对应的标记。\par
 
-Git还允许只克隆一个分支或标记(包括历史记录)。使用git clone—branch llvmorg-12.0.0 https://github.com/llvm/llvm-project。使用-depth=1选项，可以防止历史信息的克隆。这节省了时间和空间，但显然也限制了你能在本地可以做什么。\par
+Git还允许只克隆一个分支或标记(包括历史记录)。使用git clone \verb|--|branch llvmorg-12.0.0 https://github.com/llvm/llvm-project。使用-depth=1选项，可以防止历史信息的克隆。这节省了时间和空间，但显然也限制了你能在本地可以做什么。\par
 
-下一步就是创建一个构建目录。\par
+下一步就是创建构建目录。\par
 
 \hspace*{\fill} \par %插入空行
 \textbf{创建构建目录}
 
-与许多其他项目不同，LLVM不支持内联构建，需要单独的build目录。这可以很容易地在llvm-project目录中创建。使用以下命令进入这个目录:\par
+与许多其他项目不同，LLVM不支持内联构建，需要单独的构建目录。可以在llvm-project目录中创建一个目录。先进入llvm-project目录:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
-	\$ cd llvm-project
+\$ cd llvm-project
 \end{tcolorbox}
 
 然后，为了简单起见，创建一个名为build的构建目录。Unix和Windows系统的命令是不同,在类Unix系统上，应该使用以下命令:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
-	\$ mkdir build
+\$ mkdir build
 \end{tcolorbox}
 
 在Windows上，应该使用以下命令:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
-	\$ md build
+\$ md build
 \end{tcolorbox}
 
 然后，切换到构建目录:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
-	\$ cd build
+\$ cd build
 \end{tcolorbox}
 
 现在，您可以在这个目录中使用CMake工具创建构建系统文件了。\par
@@ -70,61 +70,61 @@ Git还允许只克隆一个分支或标记(包括历史记录)。使用git clone
 要生成将使用Ninja编译LLVM和Clang的构建系统文件，请运行以下命令:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
-	\$ cmake –G Ninja -DLLVM\underline{~}ENABLE\underline{~}PROJECTS=clang ../llvm
+\$ cmake –G Ninja -DLLVM\underline{~}ENABLE\underline{~}PROJECTS=clang ../llvm
 \end{tcolorbox}
 
 \begin{tcolorbox}[colback=blue!5!white,colframe=blue!75!black,title=Tip]
-	在Windows上，反斜杠字符$\setminus$是目录名分隔符，CMake会自动将Unix分隔符/转换为Windows分隔符。
+在Windows上，反斜杠字符$\setminus$是目录名分隔符，CMake会自动将Unix分隔符/转换为Windows分隔符。
 \end{tcolorbox}
 
 -G选项告诉CMake要为哪个系统生成构建文件。最常用的选项如下:\par
 
 \begin{itemize}
-	\item Ninja: 对应Ninja的构建系统
-	\item Unix Makefiles: 对应GNU Make
-	\item Visual Studio 15 VS2017和Visual Studio 16 VS2019: 对应Visual Studio和MS Build
-	\item Xcode: 对应Xcode工程
+\item Ninja: 对应Ninja的构建系统
+\item Unix Makefiles: 对应GNU Make
+\item Visual Studio 15 VS2017和Visual Studio 16 VS2019: 对应Visual Studio和MS Build
+\item Xcode: 对应Xcode工程
 \end{itemize}
 
-可以使用-D选项设置各种变量来影响生成过程。通常，以CMAKE\underline{~}(由CMAKE定义)或LLVM\underline{~}(由LLVM定义)作为前缀。使用LLVM\underline{~}ENABLE\underline{~}PROJECTS=clang变量设置，CMake为LLVM之外的clang生成构建文件。命令的最后一部分告诉CMake在哪里可以找到LLVM核心库源代码。下一节中会有更多的相关内容。\par
+可以使用-D选项设置各种变量来影响生成过程。通常，以CMAKE\underline{~}(由CMAKE定义)或LLVM\underline{~}(由LLVM定义)作为前缀。使用LLVM\underline{~}ENABLE\underline{~}PROJECTS=clang变量设置，CMake为LLVM之外的Clang生成构建文件。命令的最后一部分告诉CMake在哪里可以找到LLVM核心库源代码。下一节中会有更多的相关内容。\par
 
 当生成了构建文件，LLVM和Clang可以用以下命令编译:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
-	\$ ninja
+\$ ninja
 \end{tcolorbox}
 
 根据硬件资源的不同，该命令的运行时间在15分钟(具有大量CPU内核、内存和快速存储的服务器)到数小时(内存有限的双核Windows笔记本)之间。默认情况下，Ninja使用了所有可用的CPU核。这有利于提高编译速度，但可能会阻止其他任务的运行。例如，在Windows笔记本上，Ninja在运行时几乎不能上网。幸运的是，可以使用-j选项限制资源的使用。\par
 
-让我们假设您有四个可用的CPU核，而Ninja应该只使用两个(因为您有并行任务要运行)。在这里，您应该使用以下命令进行编译:\par
+假设您有四个可用的CPU核，而Ninja应该只使用两个(因为有并行任务要运行)。在这里，应该使用以下命令进行编译:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
-	\$ ninja –j2
+\$ ninja –j2
 \end{tcolorbox}
 
 当编译完成，可以运行测试套件，以检查是否一切正常:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
-	\$ ninja check-all
+\$ ninja check-all
 \end{tcolorbox}
 
-同样，该命令的运行时因可用硬件资源的不同而有很大差异。Ninja检查目标运行所有测试用例。为每个包含测试用例的目录生成目标。使用check-llvm(而不是check-all)是运行LLVM测试，而不是Clang测试;check-llvm-codegen只运行来自LLVM的CodeGen目录中的测试(即llvm/test/CodeGen目录)。\par
+同样，该命令的运行时因可用硬件资源的不同而有很大差异。Ninja检查目标运行所有测试用例，为每个包含测试用例的目录生成目标。使用check-llvm(而不是check-all)是运行LLVM测试，而不是Clang测试，check-llvm-codegen只运行来自LLVM的CodeGen目录中的测试(即llvm/test/CodeGen目录)。\par
 
-也可以做一个快速的手动检查。您将使用的LLVM应用程序是llc，LLVM编译器。如果你使用-version选项，会显示它的LLVM版本，主机CPU，以及它所支持的所有架构:\par
+也可以做一个快速的手动检查。使用的LLVM的llc，即LLVM编译器。如果使用-version选项，会显示它的LLVM版本，主机CPU，以及它所支持的所有架构:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
-	\$ bin/llc -version
+\$ bin/llc -version
 \end{tcolorbox}
 
 如果您在编译LLVM时有困难，那么可以参考LLVM系统文档入门中的常见问题部分(\url{https://llvm.org/docs/GettingStarted.html\#common-problems})，以获得常见问题的解决方案。\par
 
-最后，安装二进制文件:\par
+最后，安装可执行文件:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
-	\$ ninja install
+\$ ninja install
 \end{tcolorbox}
 
-在类unix系统上，安装目录是/usr/local。在Windows下，使用C:$\setminus$Program Files$\setminus$LLVM。当然，这是可以修改的，下一节将说明如何操作。\par
+在类Unix系统上，安装目录是/usr/local。在Windows下，使用C:$\setminus$Program Files$\setminus$LLVM。当然可以修改，下一节将说明如何操作。\par
 
 
 

@@ -1,4 +1,4 @@
-CMake系统使用CMakeLists.txt文件对项目进行描述。顶层文件在llvm目录中，也就是llvm/CMakeLists.txt。其他目录还包含CMakeLists.txt文件，在构建文件生成期间会递归地包含这些文件。\par
+CMake系统使用CMakeLists.txt文件对项目进行描述。顶层文件在llvm目录中，也就是llvm/CMakeLists.txt。其他目录还包含CMakeLists.txt，在构建文件生成期间会递归地包含这些文件。\par
 
 根据项目描述中提供的信息，CMake检查已经安装了哪些编译器，检测库和符号，并创建构建系统文件，如build.niija或Makefile(取决于选择的生成器)。还可以定义可重用的模块，例如检测LLVM是否已安装的函数。这些脚本被放置在特殊的cmake目录(llvm/cmake)中，在生成过程中会自动搜索该目录。\par
 
@@ -7,88 +7,89 @@ CMake系统使用CMakeLists.txt文件对项目进行描述。顶层文件在llvm
 \hspace*{\fill} \par %插入空行
 \textbf{CMake定义的变量}
 
-有些变量是用环境变量的值初始化的。最值得注意的是CC和CXX，它们定义了用于构建的C和C++编译器。CMake尝试使用当前的shell搜索路径自动定位C和C++编译器，并选择找到的第一个编译器。如果你安装了几个编译器，比如gcc和Clang或不同版本的Clang，那么默认找到的可能不是你想要构建LLVM的编译器。\par
+有些变量是用环境变量的值初始化的。最值得注意的是CC和CXX，它们定义了用于构建的C和C++编译器。CMake尝试使用当前的shell搜索路径自动定位C和C++编译器，并选择找到的第一个编译器。如果你安装了多个编译器，比如：gcc和Clang或不同版本的Clang，那么默认找到的可能不是预期构建LLVM的编译器。\par
 
-假设您想使用clang9作为C编译器，使用clang++9作为c++编译器。在这里，你可以在Unix shell中调用CMake，方法如下:\par
+假设您想使用clang9作为C编译器，使用clang++9作为C++编译器。可以在Unix shell中使用CMake:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
-	\$ CC=clang9 CXX=clang++9 cmake ../llvm
+\$ CC=clang9 CXX=clang++9 cmake ../llvm
 \end{tcolorbox}
 
-它设置cmake调用的环境变量的值。如果需要，您可以为编译器可执行文件指定绝对路径。\par
+它会设置cmake调用的环境变量的值。如果需要，可以为编译器指定绝对路径。\par
 
-CC是CMAKE\underline{~}C\underline{~}COMPILER CMAKE变量的默认值，而CXX是CMAKE\underline{~}CXX\underline{~}COMPILER CMAKE变量的默认值。您可以直接设置CMake变量，而不是使用环境变量。这相当于前面的调用:\par
+CC是CMAKE\underline{~}C\underline{~}COMPILER cmake变量的默认值，而CXX是CMAKE\underline{~}CXX\underline{~}COMPILER cmake变量的默认值。您可以直接设置CMake变量，而不使用环境变量。这与前面的调用相同:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
-	\$ cmake –DCMAKE\underline{~}C\underline{~}COMPILER=clang9$\setminus$\\
-	\hspace*{1cm}-DCMAKE\underline{~}CXX\underline{~}COMPILER=clang++9 ../llvm
+\$ cmake –DCMAKE\underline{~}C\underline{~}COMPILER=clang9$\setminus$\\
+\hspace*{1cm}-DCMAKE\underline{~}CXX\underline{~}COMPILER=clang++9 ../llvm
 \end{tcolorbox}
 
 CMake定义的其他常用变量如下:\par
 
 \begin{itemize}
-	\item CMAKE\underline{~}INSTALL\underline{~}PREFIX:在安装过程中添加到每个路径上的路径前缀。在Unix上默认为/usr/local，在Windows上默认为C:$\setminus$Program Files$\setminus$。如果要在/opt/LLVM目录下安装LLVM，必须指定-DCMAKE\underline{~}INSTALL\underline{~}PREFIX=/opt/LLVM。二进制文件复制到/opt/llvm/bin，库文件被复制到/opt/llvm/lib，以此类推。
-	\item CMAKE\underline{~}BUILD\underline{~}TYPE:不同类型的构建需要不同的设置。例如，调试构建需要指定用于生成调试符号的选项，并且通常是针对系统库的调试版本进行链接。相比之下，发布版本使用针对库的生产版本的优化标志和链接。此变量仅用于只能处理一种构建类型的构建系统，如Ninja或Make。对于IDE构建系统，您必须使用IDE的机制在构建类型之间进行切换。一些可能的值如下:\par
-	DEBUG: 使用调试符号构建\par
-	RELEASE: 以速度优化为主的构建\par
-	RELWITHDEBINFO: 使用调试符号的发布构建\par
-	MINSIZEREL: 以优化大小为主的构建\par
-	默认的构建类型是DEBUG。要构建为发布版本，必须指定 -DCMAKE\underline{~}BUILD\underline{~}TYPE=RELE\allowbreak ASE。\par
-	\item CMAKE\underline{~}C\underline{~}FLAGS和CMAKE\underline{~} FLAGS:当我们编译C和C++源文件时，这些是额外的标志。初始值取自CFLAGS和CXXFLAGS环境变量，可以替代变量使用。
-	\item CMAKE\underline{~}MODULE\underline{~}PATH:指定在CMAKE模块中搜索的附加目录。在搜索默认目录之前搜索指定的目录。以分号分隔的目录列表。
-	\item PYTHON\underline{~}EXECUTABLE:如果没有找到PYTHON解释器，或者如果你安装了多个版本的PYTHON解释器。在CMake选择了错误的解释器时，可以将该变量设置为正确PYTHON二进制文件的路径。这个变量只有在包含了CMake的Python模块时才会生效(对于LLVM也是如此)。
+\item CMAKE\underline{~}INSTALL\underline{~}PREFIX:在安装过程中添加到每个路径上的路径前缀。Unix上默认为\allowbreak /usr/local，Windows上默认为C:$\setminus$Program Files$\setminus$。如果要在/opt/LLVM目录下安装LLVM，必须指定-DCMAKE\underline{~}INSTALL\underline{~}PREFIX=/opt/LLVM。可执行文件复制到/opt/llvm/bin，库文件复制到/opt/llvm/lib，以此类推。
+
+\item CMAKE\underline{~}BUILD\underline{~}TYPE:不同类型的构建需要不同的设置，例如：调试构建需要指定用于生成调试符号的选项，并且通常是针对系统库的调试版本进行链接。相比之下，发布版本使用针对库的生产版本的优化标志和链接。此变量仅用于只能处理一种构建类型的构建系统，如Ninja或Make。对于IDE构建系统，必须使用IDE的机制在构建类型之间进行切换。可能的值如下:\par
+DEBUG: 使用调试符号构建\par
+RELEASE: 以速度优化为主的构建\par
+RELWITHDEBINFO: 使用调试符号的发布构建\par
+MINSIZEREL: 以优化生成文件大小为主的构建\par
+默认的构建类型是DEBUG。要构建为发布版本，必须指定 -DCMAKE\underline{~}BUILD\underline{~}TYPE=RELE\allowbreak ASE。\par
+
+\item CMAKE\underline{~}C\underline{~}FLAGS和CMAKE\underline{~} FLAGS:当我们编译C和C++源文件时，这些是额外的标志。初始值取自CFLAGS和CXXFLAGS环境变量，可以替代变量使用。
+
+\item CMAKE\underline{~}MODULE\underline{~}PATH:指定在CMAKE模块中搜索的附加目录。在搜索默认目录之前搜索指定的目录，以分号分隔的目录列表。
+
+\item PYTHON\underline{~}EXECUTABLE:如果没有找到PYTHON解释器，或者如果安装了多个版本的PYTHON解释器。在CMake选择了错误的解释器时，可以将该变量设置为正确PYTHON二进制文件的路径。这个变量只有在包含了CMake的Python模块时才会生效(对于LLVM也是如此)。
 \end{itemize}
 
 CMake为变量提供了内置帮助。\verb|--|help-variable var选项打印var变量的帮助信息。例如，您可以输入以下命令来获取CMAKE\underline{~}BUILD\underline{~} type的帮助:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
-	\$ cmake \verb|--|help-variable CMAKE\underline{~}BUILD\underline{~}TYPE
+\$ cmake \verb|--|help-variable CMAKE\underline{~}BUILD\underline{~}TYPE
 \end{tcolorbox}
 
-也可以用下面的命令列出所有的变量:\par
+也可以用下面的命令列出所有的变量(这个清单很长):\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
-	\$ cmake \verb|--|help-variablelist
+\$ cmake \verb|--|help-variablelist
 \end{tcolorbox}
-
-这个清单很长。\par
-
 
 \hspace*{\fill} \par %插入空行
 \textbf{LLVM定义的变量}
 
-LLVM定义的变量的工作方式与CMake定义的变量相同，只是没有内置帮助。常用的变量如下:\par
+LLVM定义的变量的工作方式与CMake定义的变量相同，但没有内置帮助。常用的变量如下:\par
 
 \begin{itemize}
-	\item LLVM\underline{~}TARGETS\underline{~}TO\underline{~}BUILD: LLVM支持不同的CPU架构。默认情况下，构建所有目标。使用此变量指定要构建的目标列表，由分号分隔。目前的目标是AArch64、AMDGPU、ARM、BPF、Hexagon、Lanai、Mips、MSP430、NVPTX、PowerPC、RISCV、Sparc、SystemZ、WebAssembly、X86、XCore。All可以作为All目标的简写，并且名称区分大小写。要只启用PowerPC和SystemZ目标，必须指定-DLLVM\underline{~}TARGETS\underline{~}To\underline{~}BUILD="PowerPC;SystemZ"。
+\item LLVM\underline{~}TARGETS\underline{~}TO\underline{~}BUILD: LLVM支持不同的CPU架构。默认情况下，构建所有目标。使用此变量指定要构建的目标列表，由分号分隔。目前支持的目标有AArch64、AMDGPU、ARM、BPF、Hexagon、Lanai、Mips、MSP430、NVPTX、PowerPC、RISCV、Sparc、SystemZ、WebAssembly、X86、XCore。All可以作为All目标的简写，并且名称区分大小写。若要只启用PowerPC和SystemZ目标，必须指定-DLLVM\underline{~}TARGETS\underline{~}To\underline{~}BUILD="PowerPC;SystemZ"。
 	
-	\item LLVM\underline{~}ENABLE\underline{~}PROJECTS:这是一个要构建的项目列表，由分号分隔。项目的源代码必须与llvm目录在同一级别(并排布局)。当前列表是clang, clangtools-extra, compiler-rt, debuginfo-tests, lib, libclc, libcxx, libcxxabi, libunwind, lld, lldb, llgo, mlir, openmp, parallel-libs, polly和pstl。All可以作为此列表中的所有项目的简写。要和LLVM一起构建Clang和llgo，必须指定-DLLVM\underline{~}ENABLE\underline{~}PROJECT="Clang;llgo"。
+\item LLVM\underline{~}ENABLE\underline{~}PROJECTS:这是一个要构建的项目列表，由分号分隔。项目的源代码必须与llvm目录在同一级别(并排布局)。当前列表是clang, clangtools-extra, compiler-rt, debuginfo-tests, lib, libclc, libcxx, libcxxabi, libunwind, lld, lldb, llgo, mlir, openmp, parallel-libs, polly和pstl。All可以作为此列表中的所有项目的简写。要和LLVM一起构建Clang和llgo，必须指定-DLLVM\underline{~}ENABLE\underline{~}PROJECT="Clang;llgo"。
 	
-	\item LLVM\underline{~}ENABLE\underline{~} assertion:如果设置为ON，则启用断言检查。这些检查有助于发现错误，在开发过程中非常有用。对于DEBUG版本，默认值为ON，否则为OFF。要打开断言检查(例如，对于RELEASE版本)，必须指定-DLLVM \underline{~}ENABLE\underline{~}ASSERTIONS=ON。
+\item LLVM\underline{~}ENABLE\underline{~}ASSERTIONS:如果设置为ON，则启用断言检查。这些检查有助于发现错误，在开发过程中非常有用。对于DEBUG版本，默认值为ON，否则为OFF。要打开断言检查(对于RELEASE版本)，必须指定-DLLVM\underline{~}ENABLE\underline{~}ASSERTIONS=ON。
 	
-	\item LLVM\underline{~}ENABLE\underline{~}EXPENSIVE\underline{~}CHECKS:这启用了一些检查，这真的会降低编译速度或消耗大量内存。默认值为“OFF”。要打开这些检查，必须指定-DLLVM\underline{~}ENABLE\underline{~}EXPENSIVE\underline{~} checks=ON。
+\item LLVM\underline{~}ENABLE\underline{~}EXPENSIVE\underline{~}CHECKS:这启用了一些检查，会降低编译速度或消耗大量内存，默认值为OFF。要打开这些检查，必须设置-DLLVM\underline{~}ENABLE\underline{~}EXPENSIVE\underline{~}CHECKS=ON。
 	
-	\item LLVM\underline{~}APPEND\underline{~}VC\underline{~}REV: llc等LLVM工具显示它们所基于的LLVM版本(如果提供了version命令行选项)。此版本信息基于LLVM\underline{~}REVISION C宏。默认情况下，不仅LLVM版本，而且最新提交的Git哈希也是版本信息的一部分。如果您正在跟踪主分支的开发，这将非常方便，因为它清楚地表明了该工具是基于哪个Git提交的。如果这不是必需的，可以使用-DLLVM \underline{~}APPEND\underline{~}VC\underline{~}REV=OFF来关闭。
+\item LLVM\underline{~}APPEND\underline{~}VC\underline{~}REV: llc等LLVM工具显示它们所基于的LLVM版本(如果提供了version命令行选项)。此版本信息基于LLVM\underline{~}REVISION C宏。默认情况下，不仅LLVM版本，最新提交的Git哈希值也是版本信息的一部分。如果您正在跟踪主分支的开发，这将非常方便，因为它清楚地表明了该工具是基于哪个Git提交的。如果不是必需的，可以使用-DLLVM\underline{~}APPEND\underline{~}VC\underline{~}REV=OFF关闭。
 	
-	\item LLVM\underline{~}ENABLE\underline{~}THREADS:如果检测到线程库(通常是pthreads库)，LLVM会自动包含线程支持。在本例中，LLVM假定编译器支持线程本地存储(TLS)。如果你不想要线程支持或者你的编译器不支持TLS，那么你可以使用-DLLVM\underline{~}ENABLE\underline{~}THREADS=OFF来关闭它。
+\item LLVM\underline{~}ENABLE\underline{~}THREADS:如果检测到线程库(通常是pthreads库)，LLVM会自动包含线程支持。本例中，LLVM假定编译器支持\textbf{线程本地存储(TLS)}。如果不想要线程支持或者你的编译器不支持TLS，那么可以使用-DLLVM\underline{~}ENABLE\underline{~}THREADS=OFF来关闭它。
 	
-	\item LLVM\underline{~}ENABLE\underline{~}EH:LLVM项目不使用C++异常处理，所以默认关闭异常支持。此设置可能与您的项目正在链接的其他库不兼容。如果需要，可以通过指定-DLLVM\underline{~}enable\underline{~}EH=ON来启用异常支持。
+\item LLVM\underline{~}ENABLE\underline{~}EH:LLVM项目不使用C++异常处理，所以默认关闭异常支持。此设置可能与您的项目正在链接的其他库不兼容。如果需要，可以通过指定-DLLVM\underline{~}ENABLE\underline{~}EH=ON来启用异常支持。
 	
-	\item LLVM\underline{~}ENABLE\underline{~}RTTI:LLVM使用一个轻量级的、自构建的系统来提供运行时类型信息。默认情况下，C++ RTTI的生成是关闭的。与异常处理支持一样，这可能与其他库不兼容。要开启C++ RTTI的生成，必须指定-DLLVM \underline{~}ENABLE\underline{~}RTTI=ON。
+\item LLVM\underline{~}ENABLE\underline{~}RTTI:LLVM使用一个轻量级的、自构建的系统来提供运行时类型信息。默认情况下，C++ RTTI的生成是关闭的。与异常处理支持一样，这可能与其他库不兼容。要开启C++ RTTI的生成，必须设置-DLLVM\underline{~}ENABLE\underline{~}RTTI=ON。
 	
-	\item LLVM\underline{~}ENABLE\underline{~}WARNINGS:如果可能的话，编译LLVM应该不会产生任何警告消息。因此，默认情况下，打印警告消息的选项是打开的。要关闭它，必须指定-DLLVM \underline{~}ENABLE\underline{~}WARNI\allowbreak NGS=OFF。
+\item LLVM\underline{~}ENABLE\underline{~}WARNINGS:如果可能的话，编译LLVM应该不会产生任何警告消息。默认情况下，打印警告消息的选项是打开的。要关闭它，必须设置-DLLVM\underline{~}ENABLE\underline{~}WARNINGS\allowbreak =OFF。
 	
-	\item LLVM\underline{~}ENABLE\underline{~}PEDANTIC:LLVM源文件应该符合C/ C++语言标准。因此，默认情况下启用了对源的学究式检查。如果可能，也禁用编译器特定的扩展。要关闭此设置，必须指定-DLLVM \underline{~}ENABLE\underline{~}PEDANTIC=OFF。
+\item LLVM\underline{~}ENABLE\underline{~}PEDANTIC:LLVM源文件应该符合C/C++标准。因此，默认情况下启用了对源的学究式检查。如果可能，也禁用编译器特定的扩展。要关闭此设置，必须指定-DLLVM\underline{~}\allowbreak ENABLE\underline{~}PEDANTIC=OFF。
 	
-	\item LLVM\underline{~}ENABLE\underline{~}WERROR:如果设置为ON，则所有警告都视为错误——一旦发现警告，编译就会中止。它有助于在源代码中找到所有剩余的警告。缺省情况下，它是关闭的。要打开它，必须指定-DLLVM\underline{~}ENABLE\underline{~}WERROR=ON。
+\item LLVM\underline{~}ENABLE\underline{~}WERROR:如果设置为ON，则所有警告都视为错误——发现警告，编译就会中止。它有助于在源代码中找到所有剩余的警告。默认情况下，是关闭的。要打开它，必须指定-DLLVM\underline{~}ENABLE\underline{~}WERROR=ON。
 	
-	\item LLVM\underline{~}OPTIMIZED\underline{~}TABLEGEN:通常，TABLEGEN工具与LLVM的其他部分使用相同的选项构建。同时，tablegen用于生成大部分代码生成器。因此，tablegen在调试构建中要慢得多，从而显著增加了编译时间。如果将此选项设置为ON，则tablegen编译时会启用优化，即使是在调试构建中，也可能会减少编译时间。默认为OFF。要打开此选项，必须指定-DLLVM \underline{~}OPTIMIZED\underline{~}TABLEGEN=ON。
+\item LLVM\underline{~}OPTIMIZED\underline{~}TABLEGEN:通常，TABLEGEN工具与LLVM的其他部分使用相同的选项构建。同时，tablegen用于生成大部分代码生成器。因此，tablegen在调试构建中要慢得多，从而显著增加了编译时间。如果将此选项设置为ON，则tablegen编译时会启用优化，即使是在调试构建中，也可能会减少编译时间，默认为OFF。要打开此选项，必须指定-DLLVM\underline{~}OPTIMIZED\underline{~}TABLEGEN=ON。
 	
-	\item LLVM\underline{~}USE\underline{~}SPLIT\underline{~}DWARF:如果构建编译器是gcc或Clang，那么打开这个选项将指示编译器在单独的文件中生成DWARF调试信息。减小的对象文件大小大大减少了调试构建的链接时间，默认为OFF。要开启此功能，必须指定-LLVM\underline{~}USE\underline{~}SPLIT\underline{~}DWARF=ON。
+\item LLVM\underline{~}USE\underline{~}SPLIT\underline{~}DWARF:如果构建编译器是gcc或Clang，那么打开这个选项编译器将在单独的文件中生成DWARF调试信息。减小的对象文件大小大大减少了调试构建的链接时间，默认为OFF。要开启此功能，必须指定-LLVM\underline{~}USE\underline{~}SPLIT\underline{~}DWARF=ON。
 
 \end{itemize}
 
-LLVM定义了更多的CMake变量。可以在CMake的LLVM文档中找到完整的列表 (\url{https://releases.llvm.org/12.0.0/docs/CMake.html\#llvm-specific-variables}). 前面的列表只包含您可能需要了解的内容。\par
+LLVM定义了更多的CMake变量。可以在CMake的LLVM文档中找到完整的列表 (\url{https://releases.llvm.org/12.0.0/docs/CMake.html\#llvm-specific-variables}). 前面的列表只包含常用的一些。\par
 
 
 
