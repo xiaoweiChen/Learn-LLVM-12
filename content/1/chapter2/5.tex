@@ -1,92 +1,92 @@
 
-今天，许多小型计算机(如树莓派)在使用，只有有限的资源。在这样的计算机上运行编译器通常是不可能的，或者需要太多的运行时间。因此，编译器的一个常见需求是为不同的CPU体系结构生成代码，并创建可执行文件的整个过程称为交叉编译。在前一节中，您创建了一个基于LLVM库的小型示例应用程序。现在，我们将使用这个应用程序并为不同的目标编译它。\par
+今天，许多小型计算机(如树莓派)在使用，只有有限的资源。在这样的计算机上运行编译器通常是不可能的，或者需要太多的运行时间。因此，编译器的一个常见需求是为不同的CPU体系结构生成代码，并创建可执行文件的整个过程称为\textbf{交叉编译}。前一节中，创建了一个基于LLVM库的小型示例应用。现在，我们将使用这个程序，并为不同的目标编译它。\par
 
 使用交叉编译，涉及到两个系统:编译器在主机系统上运行，并为目标系统生成代码。为了表示这些系统，我们使用了所谓的“三元组表达式”。这是一个配置字符串，通常由CPU架构、供应商和操作系统组成。通常还会添加更多关于环境的信息。例如，x86\underline{~}64-pc-win32用于运行在64位x86 CPU上的Windows系统。CPU架构是x86\underline{~}64, pc是通用供应商，win32是操作系统。各部分用连字符连接。在ARMv8 CPU上运行的Linux系统使用aarch64-unknown-linux-gnu作为三元组表达式。aarch64是CPU架构。操作系统是linux，运行gnu环境。没有基于linux的系统供应商，所以这一部分是未知的。对于特定目的而言，那些不为人所知或不重要的部分通常会被省略，则aarch64-linux-gnu描述了相同的Linux系统。\par
 
-让我们假设您的开发机器在x86 64位CPU上运行Linux，并且您希望交叉编译到一个运行Linux的ARMv8 CPU系统。主机表示为x86\underline{~}64-linux-gnu，目标三元组表达式是aarch64-linux-gnu。不同的系统有不同的特点，您的应用程序必须以可移植的方式编写，否则失败的原因会很难查找。常见的陷阱如下:\par
+假设您的开发机器在x86 64位CPU上运行Linux，并且您希望交叉编译到一个运行Linux的ARMv8 CPU系统。主机表示为x86\underline{~}64-linux-gnu，目标三元组表达式是aarch64-linux-gnu。不同的系统有不同的特点，应用程序必须以可移植的方式编写，否则失败的原因会很难查找。常见的陷阱如下:\par
 
 \begin{itemize}
-	\item \textbf{字节顺序}:多字节值存储在内存中的顺序可以不同。
-	\item \textbf{指针大小}:指针的大小随CPU架构的不同而不同(通常为16位、32位或64位)。C类型int可能不够大，无法保存指针。
-	\item \textbf{类型差异}:数据类型通常与硬件密切相关。long double类型可以使用64位(ARM)、80位(X86)或128位(ARMv8)。PowerPC系统可以对长双精度使用双精度算法，它通过使用两个64位双精度值的组合来提供更高的精度。
+\item \textbf{字节顺序}:多字节值存储在内存中的顺序可以不同。
+\item \textbf{指针大小}:指针的大小随CPU架构的不同而不同(通常为16位、32位或64位)。C类型int可能不够大，无法保存指针。
+\item \textbf{类型差异}:数据类型通常与硬件密切相关。long double类型可以使用64位(ARM)、80位(X86)或128位(ARMv8)。PowerPC系统可以对长双精度使用双精度算法，它通过使用两个64位双精度值的组合来提供更高的精度。
 \end{itemize}
 
-如果您不注意这些要点，那么即使应用程序在您的主机系统上完美地运行，它也可能在目标平台上表现惊人，或者会崩溃。LLVM库在不同的平台上进行了测试，并包含了针对上述问题的可移植解决方案。\par
+如果不注意这些要点，那么即使应用在您的主机系统上完美地运行，也可能在目标平台上表现惊人，或者会崩溃。LLVM库在不同的平台上进行了测试，并包含了针对上述问题的可移植解决方案。\par
 
 交叉编译时，需要使用以下工具:\par
 
 \begin{itemize}
-	\item 为目标生成代码的编译器
-	\item 可生成二进制文件的链接器
-	\item 目标的头文件和库
+\item 为目标生成代码的编译器
+\item 可生成二进制文件的链接器
+\item 目标的头文件和库
 \end{itemize}
 
-Ubuntu和Debian发行版都有支持交叉编译的软件包。在下面的设置中，我们将利用这一点。gcc和g++编译器、ld链接器和库都可以作为生成ARMv8代码和可执行文件的预编译二进制文件使用。要安装所有这些包，输入以下命令:\par
+Ubuntu和Debian发行版都有支持交叉编译的软件包。下面的设置中，我们将利用这一点。gcc和g++编译器、ld链接器和库都可以作为生成ARMv8代码和可执行文件的预编译可执行文件使用。输入以下命令:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
-	\$ sudo apt install gcc-8-aarch64-linux-gnu $\setminus$ \\
-	\hspace*{1cm}g++-8-aarch64-linux-gnu binutils-aarch64-linux-gnu $\setminus$ \\
-	\hspace*{1cm}libstdc++-8-dev-arm64-cross
+\$ sudo apt install gcc-8-aarch64-linux-gnu $\setminus$ \\
+\hspace*{1cm}g++-8-aarch64-linux-gnu binutils-aarch64-linux-gnu $\setminus$ \\
+\hspace*{1cm}libstdc++-8-dev-arm64-cross
 \end{tcolorbox}
 
-新文件安装在/usr/aarch64-linux-gnu目录下。directory目标系统的(逻辑)根目录。它包含通常的bin、lib和include目录，并且交叉编译器(aarch64-linux-gnu-gcc-8和aarch64-linux-gnu-g++-8)知道这个目录。\par
+新文件安装在/usr/aarch64-linux-gnu目录下。directory目标系统的(逻辑)根目录，它包含通常的bin、lib和include目录，并且交叉编译器(aarch64-linux-gnu-gcc-8和aarch64-linux-gnu-g++-8)知道这个目录。\par
 
 \begin{tcolorbox}[colback=blue!5!white,colframe=blue!75!black, title=在其他系统上交叉编译]
-如果您的发行版没有附带所需的工具链，那么您可以从源代码构建它。必须配置gcc和g++编译器来生成目标系统的代码，binutils工具需要处理目标系统的文件。此外，C和C++库需要用这个工具链来编译。该步骤因所使用的操作系统以及主机和目标体系结构而异。可以通过网页上，搜索gcc cross-compile <architecture>，从而找到找到相应的指令。
+如果您的发行版没有附带所需的工具链，那么可以从源代码构建。必须配置gcc和g++编译器来生成目标系统的代码，binutils工具需要处理目标系统的文件。此外，C和C++库需要用这个工具链来编译。该步骤因所使用的操作系统以及主机和目标体系结构而异。可以通过网页上，搜索gcc cross-compile <architecture>，从而找到找到相应的指令。
 \end{tcolorbox}
 
-通过这些准备，您几乎已经准备好交叉编译示例应用程序(包括LLVM库)了，除了一个小细节外。LLVM在构建过程中使用tablegen工具。交叉编译期间，为目标体系结构编译所有内容，包括此工具。可以在第1章“安装LLVM”中使用llvm-tblgen，也可以只编译这个工具。假设你在包含GitHub存储库克隆的目录下，输入如下:\par
+通过这些准备，已经准备好交叉编译示例应用程序(包括LLVM库)了，除了一个小细节外。LLVM在构建过程中使用tablegen工具。交叉编译期间，为目标体系结构编译所有内容，包括此工具。可以在第1章“安装LLVM”中使用llvm-tblgen，也可以只编译这个工具。假设从GitHub克隆代码目录下，键入如下命令:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
-	\$ mkdir build-host \\
-	\$ cd build-host \\
-	\$ cmake -G Ninja $\setminus$ \\
-	\hspace*{1cm}-DLLVM\underline{~}TARGETS\underline{~}TO\underline{~}BUILD="X86" $\setminus$ \\
-	\hspace*{1cm}-DLLVM\underline{~}ENABLE\underline{~}ASSERTIONS=ON $\setminus$ \\
-	\hspace*{1cm}-DCMAKE\underline{~}BUILD\underline{~}TYPE=Release $\setminus$ \\
-	\hspace*{1cm}../llvm-project/llvm \\
-	\$ ninja llvm-tblgen \\
-	\$ cd ..
+\$ mkdir build-host \\
+\$ cd build-host \\
+\$ cmake -G Ninja $\setminus$ \\
+\hspace*{1cm}-DLLVM\underline{~}TARGETS\underline{~}TO\underline{~}BUILD="X86" $\setminus$ \\
+\hspace*{1cm}-DLLVM\underline{~}ENABLE\underline{~}ASSERTIONS=ON $\setminus$ \\
+\hspace*{1cm}-DCMAKE\underline{~}BUILD\underline{~}TYPE=Release $\setminus$ \\
+\hspace*{1cm}../llvm-project/llvm \\
+\$ ninja llvm-tblgen \\
+\$ cd ..
 \end{tcolorbox}
 
 这些步骤现在应该很熟悉了。创建并输入构建目录。CMake命令仅为X86目标创建LLVM构建文件。为了节省空间和时间，已经完成了发布构建，但支持断言以捕获可能的错误。只有llvmtblgen工具是用Ninja编译的。\par
 
-有了llvm-tblgen工具，现在就可以开始交叉编译了。CMake命令行非常长，因此您可能需要将该命令存储在脚本文件中。与之前的版本不同的是，需要提供更多的信息:\par
+有了llvm-tblgen工具，就可以开始交叉编译了。CMake命令行非常长，因此可能需要将该命令存储在脚本文件中。与之前的版本不同的是，需要提供更多的信息:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
-	\$ mkdir build-target \\
-	\$ cd build-target \\
-	\$ cmake -G Ninja $\setminus$ \\
-	\hspace*{1cm}-DCMAKE\underline{~}CROSSCOMPILING=True $\setminus$ \\
-	\hspace*{1cm}-DLLVM\underline{~}TABLEGEN=../build-host/bin/llvm-tblgen $\setminus$ \\
-	\hspace*{1cm}-DLLVM\underline{~}DEFAULT\underline{~}TARGET\underline{~}TRIPLE=aarch64-linux-gnu $\setminus$ \\
-	\hspace*{1cm}-DLLVM\underline{~}TARGET\underline{~}ARCH=AArch64 $\setminus$ \\
-	\hspace*{1cm}-DLLVM\underline{~}TARGETS\underline{~}TO\underline{~}BUILD=AArch64 $\setminus$ \\
-	\hspace*{1cm}-DLLVM\underline{~}ENABLE\underline{~}ASSERTIONS=ON $\setminus$ \\
-	\hspace*{1cm}-DLLVM\underline{~}EXTERNAL\underline{~}PROJECTS=tinylang $\setminus$ \\
-	\hspace*{1cm}-DLLVM\underline{~}EXTERNAL\underline{~}TINYLANG\underline{~}SOURCE\underline{~}DIR=../tinylang $\setminus$ \\
-	\hspace*{1cm}-DCMAKE\underline{~}INSTALL\underline{~}PREFIX=../target-tinylang $\setminus$ \\	\hspace*{1cm}-DCMAKE\underline{~}BUILD\underline{~}TYPE=Release $\setminus$ \\
-	\hspace*{1cm}-DCMAKE\underline{~}C\underline{~}COMPILER=aarch64-linux-gnu-gcc-8 $\setminus$ \\
-	\hspace*{1cm}-DCMAKE\underline{~}CXX\underline{~}COMPILER=aarch64-linux-gnu-g++-8 $\setminus$ \\
-	\hspace*{1cm}../llvm-project/llvm \\
-	\$ ninja
+\$ mkdir build-target \\
+\$ cd build-target \\
+\$ cmake -G Ninja $\setminus$ \\
+\hspace*{1cm}-DCMAKE\underline{~}CROSSCOMPILING=True $\setminus$ \\
+\hspace*{1cm}-DLLVM\underline{~}TABLEGEN=../build-host/bin/llvm-tblgen $\setminus$ \\
+\hspace*{1cm}-DLLVM\underline{~}DEFAULT\underline{~}TARGET\underline{~}TRIPLE=aarch64-linux-gnu $\setminus$ \\
+\hspace*{1cm}-DLLVM\underline{~}TARGET\underline{~}ARCH=AArch64 $\setminus$ \\
+\hspace*{1cm}-DLLVM\underline{~}TARGETS\underline{~}TO\underline{~}BUILD=AArch64 $\setminus$ \\
+\hspace*{1cm}-DLLVM\underline{~}ENABLE\underline{~}ASSERTIONS=ON $\setminus$ \\
+\hspace*{1cm}-DLLVM\underline{~}EXTERNAL\underline{~}PROJECTS=tinylang $\setminus$ \\
+\hspace*{1cm}-DLLVM\underline{~}EXTERNAL\underline{~}TINYLANG\underline{~}SOURCE\underline{~}DIR=../tinylang $\setminus$ \\
+\hspace*{1cm}-DCMAKE\underline{~}INSTALL\underline{~}PREFIX=../target-tinylang $\setminus$ \\	\hspace*{1cm}-DCMAKE\underline{~}BUILD\underline{~}TYPE=Release $\setminus$ \\
+\hspace*{1cm}-DCMAKE\underline{~}C\underline{~}COMPILER=aarch64-linux-gnu-gcc-8 $\setminus$ \\
+\hspace*{1cm}-DCMAKE\underline{~}CXX\underline{~}COMPILER=aarch64-linux-gnu-g++-8 $\setminus$ \\
+\hspace*{1cm}../llvm-project/llvm \\
+\$ ninja
 \end{tcolorbox}
 
-同样，创建一个构建目录并进入。一些CMake参数之前没有使用过，需要解释一下:\par
+同样，创建构建目录并进入。一些CMake参数之前没有使用过，需要解释一下:\par
 
 \begin{itemize}
-	\item CMAKE\underline{~}CROSSCOMPILING设置为ON，则告诉CMake我们正在交叉编译。
-	\item LLVM\underline{~}TABLEGEN指定llvm-tblgen工具要使用的路径。这来自上一个构建。
-	\item LLVM\underline{~}DEFAULT\underline{~}TARGET\underline{~}TRIPLE是目标架构的三元组表达式。
-	\item LLVM\underline{~}TARGET\underline{~}ARCH使用即时(JIT)代码生成，默认为主机的架构。对于交叉编译，必须将其设置为目标架构。
-	\item LLVM\underline{~}TARGETS\underline{~}TO\underline{~}BUILD是一个目标列表，LLVM应该包含这些目标的代码生成器。该列表至少应该包括目标体系结构。
-	\item CMAKE\underline{~}C\underline{~}COMPILER和CMAKE\underline{~}CXX\underline{~}COMPILER指定编译所用的C和C++编译器。交叉编译器的二进制文件是用目标三元表达式，CMake无法自动找到。
+\item CMAKE\underline{~}CROSSCOMPILING设置为ON，则告诉CMake我们正在交叉编译。
+\item LLVM\underline{~}TABLEGEN指定llvm-tblgen工具要使用的路径。这来自上一个构建。
+\item LLVM\underline{~}DEFAULT\underline{~}TARGET\underline{~}TRIPLE是目标架构的三元组表达式。
+\item LLVM\underline{~}TARGET\underline{~}ARCH使用即时(JIT)代码生成，默认为主机的架构。对于交叉编译，必须将其设置为目标架构。
+\item LLVM\underline{~}TARGETS\underline{~}TO\underline{~}BUILD是一个目标列表，LLVM应该包含这些目标的代码生成器。该列表至少应该包括目标体系结构。
+\item CMAKE\underline{~}C\underline{~}COMPILER和CMAKE\underline{~}CXX\underline{~}COMPILER指定编译所用的C和C++编译器。交叉编译器的二进制文件是用目标三元表达式，CMake无法自动找到。
 \end{itemize}
 
 使用其他参数，发布版本将请求启用断言进行构建，我们的tinylang应用程序将作为LLVM的一部分构建(如上一节所示)。编译过程完成后，可以使用file命令检查是否真的为ARMv8创建了一个二进制文件。运行\$ file bin/tinylang，检查输出是否显示它是ARM aarch64架构的ELF 64位对象。\par
 
 \begin{tcolorbox}[colback=blue!5!white,colframe=blue!75!black, title=使用clang进行交叉编译]
-由于LLVM为不同的体系结构生成代码，显然可以使用clang进行交叉编译。这里的障碍是，LLVM不提供所有所需的组件，例如：C库缺失。因此，您必须混合使用LLVM和GNU工具，因此您需要告诉CMake更多关于您正在使用的环境的信息。\verb|--|target=<target-triple>(为不同的目标启用代码生成)，\verb|--|sysroot=<path>(目标的根目录的路径，参见前面)、-I(搜索头文件的路径)和-L(搜索库的路径)。在CMake运行期间，会编译一个小的应用程序。如果设置有问题，CMake会报错。这个步骤足以检查您是否有一个正确的工作环境。常见的问题包括选择错误的头文件，由于不同的库名导致的链接失败，以及错误的搜索路径。
+由于LLVM为不同的体系结构生成代码，显然可以使用clang进行交叉编译。这里的障碍是，LLVM不提供所有所需的组件，例如：C库缺失。因此，必须混合使用LLVM和GNU工具，因此需要告诉CMake更多关于正在使用的环境的信息。\verb|--|target=<target-triple>(为不同的目标启用代码生成)，\verb|--|sysroot=<path>(目标的根目录的路径，参见前面)、-I(搜索头文件的路径)和-L(搜索库的路径)。在CMake运行期间，会编译一个小的应用程序。如果设置有问题，CMake会报错。这个步骤足以检查您是否有一个正确的工作环境。常见的问题包括选择错误的头文件，由于不同的库名导致的链接失败，以及错误的搜索路径。
 \end{tcolorbox}
 
 交叉编译非常复杂。有了本节的说明，您将能够针对选择的目标架构交叉编译相应的应用程序。\par

@@ -1,34 +1,34 @@
-在第1章，安装LLVM中，您克隆了LLVM库。这个存储库包含所有LLVM顶层项目，可以分为以下几类:\par
+在第1章中，您克隆了LLVM库。这个库包含所有LLVM顶层项目，可以分为以下几类:\par
 
 \begin{itemize}
-	\item LLVM核心库和附加内容
-	\item 编译器和工具
-	\item 运行时库
+\item LLVM核心库和附加内容
+\item 编译器和工具
+\item 运行时库
 \end{itemize}
 
-在下一节中，我们将进一步研究这些。\par
+下一节中，我们将进一步研究这些。\par
 
 \hspace*{\fill} \par %插入空行
 \textbf{LLVM核心库和附加内容}
 
-LLVM核心库位于llvm目录中。这个项目为主流的CPU提供了一组带有优化器和代码生成的库，还提供基于这些库的工具。LLVM静态编译器llc将LLVM\textbf{中间表示(IR)}编写的文件作为输入，并将其编译为位码、汇编器输出或二进制对象文件。像llvm-objdump和llvm-dwarfdump这样的工具允许您检查目标文件，而像llvm-ar这样的工具允许您从一组目标文件创建归档文件，还包括帮助开发LLVM本身的工具。例如，bugpoint工具可以帮助您找到LLVM中崩溃的最小测试用例。llvm-mc可以对机器代码进行操作:该工具对机器指令进行汇编和反汇编，这对添加新的指令很有帮助。\par
+LLVM核心库位于llvm目录中。为主流的CPU提供了一组带有优化器和代码生成的库，还提供基于这些库的工具。LLVM静态编译器llc将LLVM\textbf{中间表示(IR)}编写的文件作为输入，并将其编译为位码、汇编器输出或二进制对象文件。像llvm-objdump和llvm-dwarfdump这样的工具允许检查目标文件，而像llvm-ar这样的工具允许从一组目标文件创建静态库，还包括帮助开发LLVM本身的工具，例如：bugpoint工具可以帮助找到LLVM中崩溃的最小测试用例。llvm-mc可以对机器代码进行操作:该工具可以对机器指令进行汇编和反汇编，这对添加新的指令很有帮助。\par
 
 LLVM核心库由C++编写的。此外，还提供了C接口和Go、Ocaml和Python接口。\par
 
-Polly项目位于polly目录中，向LLVM添加了另一组优化。它基于一种叫做\textbf{多面体模型}的数学表示，使用这种方法，可以进行复杂的优化，如使用缓存局部优化的循环。MLIR项目旨在为LLVM提供一个多级中间表示。\par
+Polly项目位于polly目录中，向LLVM添加了另一组优化。它基于一种叫做\textbf{多面体模型}的数学表示，使用这种方法，可以进行复杂的优化，如使用缓存局部优化的循环。MLIR项目旨在为LLVM提供多级中间表示。\par
 
-\textbf{MLIR}项目旨在为LLVM提供\textbf{多级的中间表示}。LLVM IR已经属于底层，并包括源语言的某些信息(这些信息在编译器生成IR时丢失了)。MLIR使LLVM IR具有可扩展性，并在特定领域的表示中捕获该信息，可以在mlir目录中找到相应的源码。\par
+\textbf{MLIR}旨在为LLVM提供\textbf{多级的间表示}。LLVM IR已经属于底层，并包括源语言的某些信息(这些信息在编译器生成IR时丢失了)。MLIR使LLVM IR具有可扩展性，并在特定领域可以捕获该信息，可以在mlir目录中找到相应的源码。\par
 
 \hspace*{\fill} \par %插入空行
 \textbf{编译器和工具}
 
-名为clang(\url{http://clang.llvm.org/})的C/C++/Objective-C/Object-C++编译器是LLVM项目的一部分，源码位于clang目录中。它提供了一组库，用于从C、C++、Objective-C和Objective-C++源码进行词法分析、解析、语义分析和生成LLVM IR。小工具clang是基于这些库的编译器驱动程序。另一个有用的工具是clang-format，可以根据用户提供的规则格式化C/C++源码文件和片段。\par
+名为Clang(\url{http://clang.llvm.org/})的C/C++/Objective-C/Object-C++编译器是LLVM项目的一部分，源码位于clang目录中。它提供了一组库，用于从C、C++、Objective-C和Objective-C++源码进行词法分析、解析、语义分析和生成LLVM IR。Clang是基于这些库的编译器驱动程序。另一个工具是clang-format，可以根据用户提供的规则格式化C/C++源码。\par
 
 Clang的目标是兼容GCC(GNU C/C++编译器)和CL(Microsoft C/C++编译器)。\par
 
-C/C++的其他工具由同名目录下的clang-tools-extra项目提供。这里最值得注意的是clang-tidy，它是C/C++的Lint样式检查器。clang-tidy使用clang库来解析源代码，并使用静态分析检查源代码。与编译器相比，工具可以捕获更多的潜在错误，但会耗费更多的运行时间。\par
+C/C++的其他工具由同名目录下的clang-tools-extra项目提供。值得注意的是clang-tidy，它是C/C++的Lint样式检查器。clang-tidy使用clang库来解析源代码，并使用静态分析检查源代码。与编译器相比，工具可以捕获更多的潜在错误，但会增加运行时间。\par
 
-Llgo是一个用于Go编程语言的编译器，位于Llgo目录下。它是用Go编写的，并使用来自LLVM核心库的Go绑定来与LLVM接口。Llgo的目标是与参考编译器(\url{https://golang.org/})兼容，但目前唯一支持的架构是64位x86 Linux。该项目似乎没有维护，并可能在未来删除。\par
+Llgo是一个用于Go编程语言的编译器，位于Llgo目录下。用Go编写的，并使用LLVM核心库的Go绑定LLVM接口。Llgo的目标是与参考编译器(\url{https://golang.org/})兼容，但目前支持的架构是64位x86 Linux。该项目似乎没有继续进行维护，并可能在未来删除。\par
 
 编译器创建的对象文件必须与运行时库链接在一起，以形成可执行文件。这是lld(\url{http://lld.llvm.org/})的任务，LLVM链接器位于lld目录中。连接器支持ELF、COFF、Mach-O和WebAssembly格式。\par
 
@@ -37,19 +37,25 @@ Llgo是一个用于Go编程语言的编译器，位于Llgo目录下。它是用G
 \hspace*{\fill} \par %插入空行
 \textbf{运行时库}
 
-除了编译器，运行时库还需要编程语言支持。所有列出的项目都位于同一个目录的顶层目录中:\par
+除了编译器，运行时库还需要编程语言支持。所有项目都位于同一个目录中:\par
 
 \begin{itemize}
-	\item compiler-rt项目提供了独立于编程语言的支持库。它包括泛型函数，例如：可在32位(i386)机上使用的64位除法、各种杀菌剂、模糊库和分析库。
-	\item libunwind库提供了基于DWARF标准的堆栈展开帮助函数。这通常用于C++等语言的异常处理。该库用C编写，函数没有绑定到特定的异常处理模型。
-	\item libcxxabi库在libunwind上实现了C++的异常处理，并为其提供了标准的C++函数。
-	\item libcxx是C++标准库的实现，包括iostreams和STL。另外，pstl项目提供了一个STL算法的并行版本。
-	\item libclc是OpenCL的运行时库。OpenCL是异构并行计算的标准，有助于将计算任务转移到GPU上。
-	\item libc旨在提供一个完整的C库。这个项目仍处于早期阶段。
-	\item OpenMP项目提供对OpenMP API的支持。OpenMP可以帮助多线程编程，例如，可以基于源代码中的注释并行化循环。
+\item compiler-rt项目提供了独立于编程语言的支持库。它包括泛型函数，例如：可在32位(i386)机上使用的64位除法、各种sanitizer、模糊库和分析库。
+
+\item libunwind库提供了基于DWARF标准的堆栈展开帮助函数。这通常用于C++等语言的异常处理。该库用C编写，函数没有绑定到特定的异常处理模型上。
+
+\item libcxxabi库在libunwind上实现了C++的异常处理，并为其提供了标准的C++函数。
+
+\item libcxx是C++标准库的实现，包括iostreams和STL。另外，pstl项目提供了并行版本的STL算法。
+
+\item libclc是OpenCL的运行时库。OpenCL是异构并行计算的标准，有助于将计算任务转移到GPU上。
+
+\item libc旨在提供一个完整的C库。这个项目仍处于早期阶段。
+
+\item OpenMP项目提供对OpenMP API的支持。OpenMP可以帮助多线程编程，例如：可以基于源代码中的注释并行化循环。
 \end{itemize}
 
-尽管这是一个很长的项目列表，但好消息是所有项目的结构都是相似的。我们将在下一节中查看通用的目录结构。\par
+尽管这是一个很长的项目列表，但所有项目的结构都是相似的。我们将在下一节中查看统一的目录结构。\par
 
 
 
