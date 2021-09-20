@@ -1,11 +1,11 @@
 
 
-我们在LLVM模块中收集编译单元的所有函数和全局变量。为了方便IR的生成，我们将前面几节中的所有函数包装在一个代码生成器类中。要获得一个工作的编译器，还需要定义要为其生成代码的目标体系结构，并添加发出代码的通道。我们将在下一章中实现所有这些，从代码生成器开始。\par
+我们在LLVM模块中收集编译单元的所有函数和全局变量。为了方便IR的生成，我们将前面几节中的所有函数包装在代码生成器类中。要获得一个编译器，还需要定义要为其生成代码的目标体系结构，并添加生成代码的Pass。我们将在下一章中实现所有这些，就先从代码生成器开始。\par
 
 \hspace*{\fill} \par %插入空行
 \textbf{包装代码生成器}
 
-IR模块是我们为编译单元生成的所有元素的大括号。在全局级别，我们遍历模块级别的声明，并创建全局变量并为过程调用代码生成。tinylang中的全局变量被映射到llvm::GobalValue类的一个实例。这个映射保存在Globals中，并可用于过程代码的生成:\par
+IR模块是我们为编译单元生成的所有元素的大括号。在全局级别，我们遍历模块级别的声明，并创建全局变量，并为过程调用代码生成。tinylang中的全局变量会映射到llvm::GobalValue类的实例。这个映射保存在Globals中，并可用于过程代码的生成:\par
 
 \begin{lstlisting}[caption={}]
 void CGModule::run(ModuleDeclaration *Mod) {
@@ -28,13 +28,13 @@ void CGModule::run(ModuleDeclaration *Mod) {
 }
 \end{lstlisting}
 
-该模块还持有LLVMContext类并缓存最常用的LLVM类型。后者需要初始化，例如：对于64位整数类型:\par
+该模块还持有LLVMContext类，并缓存最常用的LLVM类型。后者需要初始化，例如：对于64位整数类型:\par
 
 \begin{lstlisting}[caption={}]
 Int64Ty = llvm::Type::getInt64Ty(getLLVMCtx());
 \end{lstlisting}
 
-CodeGenerator类初始化LLVM IR模块，并调用该模块的代码生成。最重要的是，这个类必须知道我们为哪个目标体系结构生成代码。这个信息在llvm::TargetMachine类中传递，它在驱动程序中设置:\par
+CodeGenerator类初始化LLVM IR模块，并调用该模块的代码生成。最重要的是，这个类必须知道我们为哪个目标体系结构生成代码。这个信息在llvm::TargetMachine类中传递，在驱动程序中设置:\par
 
 \begin{lstlisting}[caption={}]
 void CodeGenerator::run(ModuleDeclaration *Mod, std::string
@@ -47,7 +47,7 @@ FileName) {
 }
 \end{lstlisting}
 
-为了方便使用，我们还为代码生成器引入了工厂方法:\par
+为了方便使用，还为代码生成器引入了工厂方法:\par
 
 \begin{lstlisting}[caption={}]
 CodeGenerator *CodeGenerator::create(llvm::TargetMachine *TM) {
@@ -55,18 +55,18 @@ CodeGenerator *CodeGenerator::create(llvm::TargetMachine *TM) {
 }
 \end{lstlisting}
 
-CodeGenerator类提供了一个创建IR代码的小接口，非常适合在编译器驱动程序中使用。在集成它之前，我们需要实现对机器码生成的支持。\par
+CodeGenerator类提供了创建IR代码的接口，非常适合在编译器驱动程序中使用。在集成之前，需要支持实现对机器码的生成。\par
 
 \hspace*{\fill} \par %插入空行
 \textbf{初始化目标机器类}
 
-现在，只缺少目标计算机的创建。在目标机器上，我们定义了用于生成代码的CPU体系结构。对于每个CPU，还可以使用一些可用的特性来影响代码生成。例如，CPU体系结构家族中较新的CPU可以支持向量指令。通过特性，我们可以打开或关闭向量指令的使用。为了支持从命令行设置所有这些选项，LLVM提供了一些支持代码。在Driver类中，我们添加了以下include变量:\par
+现在，只缺少创建目标机器类。在目标机器上，我们定义了用于生成代码的CPU体系结构。对于每个CPU，还可以使用一些可用的特性来影响代码生成，例如：CPU体系结构家族中较新的CPU可以支持向量指令。通过特性，我们可以打开或关闭向量指令的使用。为了支持从命令行设置所有这些选项，LLVM提供了一些支持代码。在Driver类中，添加了以下include变量:\par
 
 \begin{lstlisting}[caption={}]
 #include "llvm/CodeGen/CommandFlags.h"
 \end{lstlisting}
 
-这个include变量为编译器驱动程序添加了常用的命令行选项。许多LLVM工具也使用这些命令行选项，它们的好处是为用户提供了一个公共界面(只缺少指定目标三元组的选项)。由于这非常好用，所以我们添加了这个:\par
+这个include变量为编译器驱动程序添加了常用的命令行选项。许多LLVM工具也使用这些命令行选项，好处是为用户提供了一个公共界面(只缺少指定目标三元组的选项)。由于这非常好用，所以我们添加了这个:\par
 
 \begin{lstlisting}[caption={}]
 static cl::opt<std::string>
@@ -74,7 +74,7 @@ static cl::opt<std::string>
 		cl::desc("Override target triple for module"));
 \end{lstlisting}
 
-让我们创建目标机器码:\par
+创建目标机器码:\par
 
 \begin{itemize}
 \item 为了显示错误消息，应用程序的名称必须传递给函数:
@@ -83,7 +83,7 @@ llvm::TargetMachine *
 createTargetMachine(const char *Argv0) {
 \end{lstlisting}
 
-\item 我们首先收集命令行提供的所有信息。以下是代码生成器的选项、CPU的名称、应该开启(或关闭)的可能特性以及目标的“三元组”:
+\item 收集命令行提供的所有信息。以下是代码生成器的选项、CPU的名称、应该开启(或关闭)的可能特性以及目标的“三元组”:
 \begin{lstlisting}[caption={}]
 	llvm::Triple = llvm::Triple(
 		!MTriple.empty()
@@ -96,7 +96,7 @@ createTargetMachine(const char *Argv0) {
 	std::string FeatureStr = codegen::getFeaturesStr();
 \end{lstlisting}
 
-\item 然后在目标注册表中查找目标。如果发生错误，则显示错误消息并退出。一个可能的错误是，用户指定的不支持的三元组:
+\item 在目标注册表中查找目标。如果发生错误，则显示错误消息并退出。一个可能的错误是，用户指定的不支持的三元组:
 \begin{lstlisting}[caption={}]
 	std::string Error;
 	const llvm::Target *Target =
@@ -111,7 +111,7 @@ createTargetMachine(const char *Argv0) {
 	}
 \end{lstlisting}
 
-\item 在Target类的帮助下，我们使用用户请求的所有已知选项配置目标机器:
+\item 在Target类的帮助下，使用用户请求的所有已知选项配置目标机器:
 \begin{lstlisting}[caption={}]
 	llvm::TargetMachine *TM = Target->
 		createTargetMachine(
@@ -125,14 +125,14 @@ createTargetMachine(const char *Argv0) {
 
 \end{itemize}
 
-通过目标机器实例，我们可以生成针对我们选择的CPU架构的IR代码。缺少的是对程序集文本的转换或目标代码文件的生成。我们将在下一节中添加这种支持。\par
+通过目标机器实例，可以生成针对我们选择的CPU架构的IR代码。缺少的是对程序集文本的转换或目标代码文件的生成。我们将在下一节中添加这种支持。\par
 
 \hspace*{\fill} \par %插入空行
 \textbf{生成汇编程序文本和目标代码}
 
-在LLVM中，IR代码通过管道运行。每一遍执行一个任务，例如：删除死代码。我们将在第8章，优化IR中学习更多关于通道的知识。输出汇编程序代码或目标文件也实现为pass。\par
+在LLVM中，IR代码通过Pass运行。每一遍执行一个任务，例如：删除死代码。我们将在第8章，优化IR中学习更多关于Pass的内容。输出汇编程序代码或目标文件也可以实现为Pass。\par
 
-我们需要包含更多的LLVM头文件。需要llvm::legacy::PassManager类来保存“通行证”，以便将代码发送到文件。我们还希望能够输出LLVM IR代码，因此也需要一个通道来发出这个。最后，使用llvm:: ToolOutputFile类进行文件操作:\par
+需要llvm::legacy::PassManager类来保存Pass，以便将代码发送到文件。还希望能够输出LLVM IR代码，因此也需要一个Pass来做这个。最后，使用llvm:: ToolOutputFile类进行文件操作:\par
 
 \begin{lstlisting}[caption={}]
 #include "llvm/IR/IRPrintingPasses.h"
@@ -162,7 +162,7 @@ bool emit(StringRef Argv0, llvm::Module *M,
 	}
 \end{lstlisting}
 
-否则，根据用户给出的命令行选项，我们将删除输入文件名的可能扩展名，并附加.ll、.s或.o作为扩展名。FileType选项在llvm/CodeGen/CommandFlags.inc头文件中定义，我们之前包含了它。这个选项不支持发出IR代码，所以我们添加了新的选项-emit-llvm，只有在与汇编类型文件一起使用时才会生效:\par
+否则，根据用户给出的命令行选项，我们将删除输入文件名的可能扩展名，并附加.ll、.s或.o作为扩展名。FileType选项在llvm/CodeGen/CommandFlags.inc头文件中定义，我们之前包含了它。这个选项不支持发出IR代码，所以我们添加了新的选项-emit-llvm，只有在与汇编文件一起使用时才会生效:\par
 
 \begin{lstlisting}[caption={}]
 	else {
@@ -200,7 +200,7 @@ bool emit(StringRef Argv0, llvm::Module *M,
 	}
 \end{lstlisting}
 
-现在我们可以将所需的通行证添加到PassManager中。TargetMachine类有一个实用程序方法，用于添加请求的类。因此，我们只需要检查用户是否请求输出LLVM IR代码:\par
+现在我们可以将所需的Pass添加到PassManager中。TargetMachine类有一个实用程序方法，用于添加请求的类。因此，我们只需要检查用户是否请求输出LLVM IR代码:\par
 
 \begin{lstlisting}[caption={}]
 	legacy::PassManager PM;
@@ -221,7 +221,7 @@ bool emit(StringRef Argv0, llvm::Module *M,
 	PM.run(*M);
 \end{lstlisting}
 
-如果我们不显式地保留该文件，那么ToolOutputFile类会自动删除该文件。这使得错误处理更容易，因为可能有很多地方需要处理错误，而在一切顺利的情况下只需要到达一个地方。这里，我们成功地生成了代码，所以我们想保留这个文件:\par
+如果不显式地保留该文件，那么ToolOutputFile类会自动删除该文件。这使得错误处理更容易，因为可能有很多地方需要处理错误，而在一切顺利的情况下只需要到达相应的期望。这里，我们成功地生成了代码，所以想要保留这个文件:\par
 
 \begin{lstlisting}[caption={}]
 	Out->keep();
@@ -234,21 +234,21 @@ bool emit(StringRef Argv0, llvm::Module *M,
 }
 \end{lstlisting}
 
-使用我们创建的llvm::Module调用emit()方法，并调用CodeGenerator类，将按照请求生成代码。\par
+使用llvm::Module调用emit()方法，并调用CodeGenerator类，将按照请求生成代码。\par
 
-假设你在tinylang中有最大公约数算法存储在gcd.mod文件中。把它翻译成gcd.os目标文件，需要输入以下内容:\par
+假设在tinylang中有最大公约数算法存储在gcd.mod文件中。把它翻译成gcd.os目标文件，需要输入以下内容:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ tinylang –filetype=obj gcd.mod
 \end{tcolorbox}
 
-如果你想在屏幕上直接检查生成的IR代码，你可以输入以下代码:\par
+如果想在屏幕上直接检查生成的IR代码，可以输入以下代码:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ tinylang –filetype=asm –emit-llvm –o – gcd.mod
 \end{tcolorbox}
 
-让我们好好庆祝一下吧!至此，我们已经创建了一个完整的编译器，从读取源语言到发出汇编代码或目标文件。\par
+让我们好好庆祝一下吧!至此，已经创建了一个完整的编译器，从读取源语言到生成汇编代码或目标文件。\par
 
 
 
