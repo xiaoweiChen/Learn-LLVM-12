@@ -1,10 +1,10 @@
-正如前一章中所知，我们需要一个Token类和一个Lexer类。此外，需要一个TokenKind枚举来给每个令牌类一个的数字。拥有一体化的头文件和一个实现文件是无法扩展的，所以让我们重构这些内容。TokenKind枚举可以复用，并放置在Basic组件中。Token和Lexer类属于Lexer组件，但是放在不同的头文件和实现文件中。\par
+正如前一章中所知，我们需要一个Token类和一个Lexer类。此外，需要一个TokenKind枚举来给每个令牌类一个的数字。拥有一体化的头文件和一个实现文件是无法扩展的，所以需要重构这些内容。TokenKind枚举可以复用，并放置在Basic组件中。Token和Lexer类属于Lexer组件，但是放在不同的头文件和实现文件中。\par
 
-有三种不同类型的标记:关键字、标点符号和表示多值集的标记。例如CONST关键字，分号分隔符和标识符，它们表示源中的标识符，每个令牌都需要枚举的成员名。关键字和标点符号具有可以用于消息的自然显示名称。\par
+有三种不同类型的标记:关键字、标点符号和表示多值集的标记，例如：CONST关键字，分号分隔符和标识符，它们表示源中的标识符，每个令牌都需要枚举的成员名。关键字和标点符号具有可以用于消息的显示名称。\par
 
-与许多编程语言一样，关键字是标识符的子集。为了将标记分类为关键字，我们需要一个关键字过滤器，它检查所找到的标识符是否确实是关键字。这与C或C++中的行为相同，其中关键字也是标识符的子集。编程语言随着时间的推移而发展，可能会引入新的关键字。例如，原始的K\&R C语言没有使用enum关键字定义的枚举。因此，应该有指示关键字的语言级别的标志。\par
+与许多编程语言一样，关键字是标识符的子集。为了将标记分类为关键字，我们需要一个关键字过滤器，它检查所找到的标识符是否确实是关键字。这与C或C++中的行为相同，其中关键字也是标识符的子集。编程语言随着时间的推移而发展，可能会引入新的关键字，例如：K\&R C语言没有使用enum关键字定义的枚举。因此，应该有指示关键字的语言级别的标志。\par
 
-我们收集了几条信息，它们都属于TokenKind枚举的一个成员:枚举成员的标签、标点符号的拼写和关键字的标志。至于调试消息，我们将信息集中存储在一个名为include/tinylang/Basic/ tokentypes的.def文件中。def文件的内容如下所示。需要注意的是，关键字的前缀是kw\underline{~}:\par
+我们收集了几条信息，它们都属于TokenKind枚举的一个成员:枚举成员的标签、标点符号的拼写和关键字的标志。至于调试消息，我们将信息集中存储在一个名为include/tinylang/Basic/Token\allowbreak Kinds.def的文件中，文件的内容如下所示。需要注意的是，关键字的前缀是kw\underline{~}:\par
 
 \begin{lstlisting}[caption={}]
 #ifndef TOK
@@ -35,7 +35,7 @@ KEYWORD(CONST , KEYALL)
 #undef TOK
 \end{lstlisting}
 
-有了这些集中的定义，就很容易在include/tinylang/Basic/TokenKind.h文件中创建TokenKind枚举。同样，枚举也可以放在自己的命名空间tok中:\par
+有了这些集中的定义，就很容易在include/tinylang/Basic/TokenKinds.h中创建TokenKind枚举。同样，枚举也可以放在自己的命名空间tok中:\par
 
 \begin{lstlisting}[caption={}]
 #ifndef TINYLANG_BASIC_TOKENKINDS_H
@@ -79,7 +79,7 @@ static const char * const TokNames[] = {
 };
 \end{lstlisting}
 
-令牌的文本名称派生自其枚举标签的ID，其有两个特点。首先，我们需要定义两个TOK和KEYWORD宏，因为KEYWORD的默认定义不使用TOK宏。其次，会在数组的末尾添加一个nullptr值，用于计算NUM\underline{~}TOKENS枚举成员:\par
+令牌的文本名称派生自其枚举标签的ID，其有两个特点。首先，需要定义两个TOK和KEYWORD宏，因为KEYWORD的默认定义不使用TOK宏。其次，会在数组的末尾添加一个nullptr值，用于计算NUM\underline{~}TOKENS枚举成员:\par
 
 \begin{lstlisting}[caption={}]
 const char *tok::getTokenName(TokenKind Kind) {
@@ -87,7 +87,7 @@ const char *tok::getTokenName(TokenKind Kind) {
 }
 \end{lstlisting}
 
-对于getpunctuation spelling()和getKeywordSpelling()函数，我们采用了不同的方法。这些函数只返回枚举子集的有意义的值。可以通过switch语句实现，该语句默认返回nullptr值:\par
+对于getPunctuatorSpelling()getKeywordSpelling()函数，我们采用了不同的方法。这些函数只返回枚举子集的有意义的值。可以通过switch语句实现，该语句默认返回nullptr值:\par
 
 \begin{lstlisting}[caption={}]
 const char *tok::getPunctuatorSpelling(TokenKind Kind) {
@@ -113,7 +113,7 @@ const char *tok::getKeywordSpelling(TokenKind Kind) {
 注意如何定义宏从文件中检索所需的信息片段。
 \end{tcolorbox}
 
-前一章中，Token类在与Lexer类相同的头文件中声明。为了使其更加模块化，我们将把Token类放到include/Lexer/Token.h中。前面的例子中，Token存储了一个指针，指向标记的开始、长度和标记的类型，如前定义:\par
+前一章中，Token类在与Lexer类相同的头文件中声明。为了使其更加模块化，我们将把Token类放到include/Lexer/Token.h中。前面的例子中，Token存储了一个指针，指向标记的开始、长度和标记的类型:\par
 
 \begin{lstlisting}[caption={}]
 class Token {
@@ -128,7 +128,7 @@ public:
 	size_t getLength() const { return Length; }
 \end{lstlisting}
 
-SMLoc实例表示源在消息中的位置，它是使用指向令牌的指针创建的:\par
+SMLoc实例表示源在消息中的位置，它是使用指向令牌的指针创建:\par
 
 \begin{lstlisting}[caption={}]
 SMLoc getLocation() const {
@@ -136,7 +136,7 @@ SMLoc getLocation() const {
 }
 \end{lstlisting}
 
-getIdentifier()和getLiteralData()方法允许我们访问标识符和文字数据的标记文本。没有必要访问任何其他令牌类型的文本，因为这是隐式的令牌类型:\par
+getIdentifier()和getLiteralData()允许我们访问标识符和文字数据的标记文本。没有必要访问任何其他令牌类型的文本，因为这是隐式的令牌类型:\par
 
 \begin{lstlisting}[caption={}]
 	StringRef getIdentifier() {
@@ -156,7 +156,7 @@ getIdentifier()和getLiteralData()方法允许我们访问标识符和文字数�
 我们在include/Lexer/Lexer.h头文件中声明Lexer类，并将实现放在lib/Lexer/Lexer.cpp文件中。其结构与前一章的calc语言相同。这里，我们必须留意两个细节:\par
 
 \begin{itemize}
-\item 首先，有些操作符共享相同的前缀;例如，<和<=。当我们正在查看的当前字符是<时，首先检查下一个字符，然后再决定我们找到了哪个标记。记住，我们要求输入以空字节结束。因此，如果当前字符有效，则总是可以使用下一个字符:
+\item 首先，有些操作符共享相同的前缀，例如：<和<=。当我们正在查看的当前字符是<时，首先检查下一个字符，然后再决定我们找到了哪个标记。记住，我们要求输入以空字节结束。因此，如果当前字符有效，则可以使用下一个字符:
 \begin{lstlisting}[caption={}]
 case '<':
 	if (*(CurPtr + 1) == '=')
@@ -166,7 +166,7 @@ case '<':
 	break;
 \end{lstlisting}
 
-\item 另一个细节是，更多的关键词。我们该如何处理?一个简单而快速的解决方案是用关键字填充哈希表，这些关键字都存储在tokenkind.def文件中，可在实例化Lexer类时完成。这种方法还可以支持不同级别的语言，因为可以用附加的标志过滤关键字。这里，还不需要这种灵活性。头文件中，关键字过滤器定义如下，使用一个实例llvm::StringMap的哈希表:
+\item 另一个细节是，如有更多的关键词，我们该如何处理?一个简单而快速的解决方案是用关键字填充哈希表，这些关键字都存储在tokenkind.def文件中，可在实例化Lexer类时完成。这种方法还可以支持不同级别的语言，因为可以用附加的标志过滤关键字。这里，还不需要这种灵活性。头文件中，关键字过滤器定义如下，使用一个实例llvm::StringMap的哈希表:
 \begin{lstlisting}[caption={}]
 class KeywordFilter {
 	llvm::StringMap<tok::TokenKind> HashTable;

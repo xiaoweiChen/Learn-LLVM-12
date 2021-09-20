@@ -1,4 +1,4 @@
-真正的编程语言比前一章简单的calc语言更复杂。为了更详细地研究它，我将在本章和接下来的章节中使用Modula-2的子集。Modula-2设计良好，可选地支持泛型和面向对象编程(OOP)(并不是说要在本书中创建一个完整的Modula-2编译器)。因此，我将把我的子集命名为tinylang。\par
+实际的编程语言比前一章简单的calc语言更复杂。为了更详细地研究它，我将在本章和接下来的章节中使用Modula-2的子集。Modula-2设计良好，可选地支持泛型和面向对象编程(OOP)(并不是说要在本书中创建一个完整的Modula-2编译器)。因此，我将把这个子集命名为tinylang。\par
 
 让我们快速浏览一下tinylang语法的子集。在接下来的小节中，我们将从该语法派生词法分析器和解析器:\par
 
@@ -33,7 +33,7 @@ qualident : identifier ( "." identifier )* ; \\
 identList : identifier ( "," identifier)* ;
 \end{tcolorbox}
 
-为了能够一次声明多个变量，必须使用标识符列表，类型的名称可能来自另一个模。本例中以模块名作为前缀，称为限定标识符。过程需要最多详细信息:\par
+为了能够一次声明多个变量，必须使用标识符列表，类型的名称可能来自另一个模块。本例中以模块名作为前缀，称为限定标识符。而过程需要更多详细信息:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 procedureDeclaration \\
@@ -53,7 +53,7 @@ statementSequence \\
 \hspace*{0.5cm}: statement ( ";" statement )* ;
 \end{tcolorbox}
 
-如果一个语句后面跟着另一个语句，则该语句用分号分隔。同样，这只是Modula-2语句支持的子集:\par
+如果语句后面跟着另一个语句，则该语句用分号分隔。同样，Modula-2语句支持这种方式:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 statement \\
@@ -76,7 +76,7 @@ whileStatement \\
 \hspace*{0.5cm}: "WHILE" expression "DO" statementSequence "END" ;
 \end{tcolorbox}
 
-WHILE语句描述了一个由条件保护的循环。加上IF语句，我们可以用tinylang编写简单的算法。最后，没有表达式的定义:\par
+WHILE语句描述了一个由条件保护的循环。加上IF语句，就可以用tinylang编写简单的算法。最后，没有表达式的定义:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 expList \\
@@ -98,11 +98,11 @@ factor \\
 | qualident ( "(" ( expList )? ")" )? ;
 \end{tcolorbox}
 
-表达式语法与前一章的calc非常相似，只支持INTEGER和BOOLEAN数据类型。\par
+表达式语法与前一章的calc相似，只支持INTEGER和BOOLEAN数据类型。\par
 
 此外，还使用identifier和integer\underline{~}literal标记。\textbf{标识符}以字母或下划线开头，后面跟着字母、数字和下划线。\textbf{整数字面值}可以是一个十进制数字序列，也可以是一个十六进制数字序列，后面跟着字母H。\par
 
-虽然已经介绍了很多规则，但这里只涉及Modula-2的一部分!尽管如此，还是可以使用这个子集中编写小型应用程序。让我们为tinylang实现一个编译器!\par
+虽然已经介绍了很多规则，但只涉及Modula-2的一部分!尽管如此，还是可以使用这个子集中编写小型应用程序。接下来，让我们为tinylang实现一个编译器!\par
 
 
 

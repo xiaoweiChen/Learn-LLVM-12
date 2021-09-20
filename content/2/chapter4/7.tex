@@ -1,4 +1,4 @@
-手动构造词法分析器和解析器并不困难，通常会产生处理速度很快的组件。但缺点是不容易更改，特别是在解析器中。如果您正在创建一种新的编程语言的原型，那么这一点非常重要。使用特定的工具可以缓解这个问题。\par
+手动构造词法分析器和解析器并不困难，通常会产生处理速度很快的组件。但缺点是不容易更改，特别是在解析器中。如果正在创建一种新的编程语言的原型，那么这一点非常重要。使用特定的工具可以缓解这个问题。\par
 
 有许多工具可以根据规范文件生成词法分析器或解析器。在Linux中，flex (\url{https://github.com/westes/flex})和bison (\url{https://www.gnu.org/software/bison/})是常用工具。Flex从一组正则表达式生成分析器，而bison从语法描述生成解析器。通常，这两种工具会一起使用。\par
 
@@ -16,7 +16,7 @@ identifier integer\underline{~}literal string\underline{~}literal \\
 PLUS MINUS STAR SLASH
 \end{tcolorbox}
 
-我们指示bison使用\%语言指令生成C++代码。使用\%define指令，重写了代码生成的一些默认值:生成的类应该命名为Parser，并位于tinylang命名空间中。此外，表示标记类型的枚举的成员应该以T\underline{~}作为前缀。我们需要3.2或更高版本，因为其中一些变量是在这个版本中引入的。为了能够与flex交互，我们告诉bison用\%define指令编写一个Parser.h头文件。最后，我们必须使用\%令牌指令声明所有已使用的令牌。\%\%后面是具体的语法规则:\par
+我们指示bison使用\%language指令生成C++代码。使用\%define指令，重写了代码生成的一些默认值:生成的类应该命名为Parser，并位于tinylang命名空间中。此外，表示标记类型的枚举的成员应该以T\underline{~}作为前缀。我们需要3.2或更高版本，因为其中一些变量在这个版本中引入。为了能够与flex交互，我们告诉bison用\%define指令编写一个Parser.h头文件。最后，我们必须使用\%token指令声明所有已使用的令牌。\%\%后面是具体的语法规则:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \%\% \\
@@ -28,7 +28,7 @@ import \\
 \hspace*{0.5cm}| IMPORT identList SEMI ;
 \end{tcolorbox}
 
-请将这些规则与本章第一节所示的语法规范进行比较。bison不知道重复组，因此需要添加一个名为imports的新规则来对这种重复。在导入规则中，我们必须引入一个替代方法来对可选组建模。\par
+请将这些规则与本章第一节所示的语法规范进行比较。bison不知道重复组，因此需要添加一个名为imports的新规则来对这种重复。在导入规则中，必须引入一个替代方法来对可选组建模。\par
 
 我们还需要用这种风格重写tinylang语法的其他规则。例如，IF语句的规则如下:\par
 
@@ -39,9 +39,9 @@ ifStatement \\
 elseStatement : \%empty | ELSE statementSequence ;
 \end{tcolorbox}
 
-同样，我们必须引入一个新的规则来处理可选的ELSE语句。可以省略\%空指令，但这里使用的是空分支。\par
+同样，我们必须引入一个新的规则来处理可选的ELSE语句。可以省略\%empty指令，不过这里使用的是空分支。\par
 
-当我们用bison风格重写了所有语法规则，我们就可以用以下命令生成解析器:\par
+当我们用bison风格重写了所有语法规则，就可以用以下命令生成解析器:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ bison tinylang.yy
@@ -49,7 +49,7 @@ elseStatement : \%empty | ELSE statementSequence ;
 
 这就是创建与上一节中手写解析器类似解析器的全部内容!\par
 
-类似地，flex很容易使用。flex的规范是一个正则表达式和相关操作的列表，如果正则表达式匹配，则执行该列表。tinylang.l文件指定tinylang的词法分析器。与bison规范一样，它也有一个标准开头:\par
+类似地，flex很容易使用。flex的规范是一个正则表达式和相关操作的列表，如果正则表达式匹配，则执行该列表。tinylang.l文件指定tinylang的词法分析器。与bison规范一样，也有一个标准开头:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \%{ \\
@@ -62,7 +62,7 @@ hexdigit [0-9A-F] \\
 space [ $\setminus$t$\setminus$r]
 \end{tcolorbox}
 
-在\%\{\}\%里面的文本复制到flex生成的文件中，我们使用这种机制来包含由bison生成的头文件。使用\%选项指令，我们控制生成的解析器应该具有哪些特性。只读取一个文件，并且在读取完一个文件后不需要继续读取另一个文件，所以可以指定noyywrap来禁用这个特性。我们也不需要访问底层的文件流，并使用nounput和noinout禁用它。因为我们已经不需要一个交互式的解析器了，所以需要生成一个批扫描程序。。\par
+在\%\{\}\%里面的文本复制到flex生成的文件中，我们使用这种机制来包含由bison生成的头文件。使用\%option指令，我们控制生成的解析器应该具有哪些特性。只读取一个文件，并且在读取完一个文件后不需要继续读取另一个文件，所以可以指定noyywrap来禁用这个特性。我们也不需要访问底层的文件流，使用nounput和noinout禁用它。因为我们已经不需要一个交互式的解析器了，所以需要生成一个批扫描程序。\par
 
 在开头的内容中，我们还可以定义字符模式以供以后使用。在\%\%后面跟着定义部分:\par
 
@@ -96,13 +96,13 @@ space [ $\setminus$t$\setminus$r]
 
 这些操作不仅仅局限于return语句。如果您的代码有多行，那么您必须用大括号括起来\{\}。\par
 
-扫描是通过以下命令生成的:\par
+扫描通过以下命令生成:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ flex –c++ tinylang.l
 \end{tcolorbox}
 
-在语言项目中你应该使用哪种方法?解析器生成器通常生成LALR(1)解析器。LALR(1)类比LL(1)类大，可以为其构造递归下降解析器。如果您不能调整语法以适应LL(1)类，那么应该考虑使用解析器生成器，手工构造这样一个自底向上的解析器是不可行的。即使您的语法是LL(1)，解析器生成器在生成与您手工编写的代码类似的代码时也会提供更多的便利。通常，这受许多因素影响的选择。Clang使用手写解析器，而GCC使用bison生成的解析器。\par
+在语言项目中你应该使用哪种方法?解析器生成器通常生成LALR(1)解析器。LALR(1)类比LL(1)类大，可以为其构造递归下降解析器。如果不能调整语法以适应LL(1)类，那么应该考虑使用解析器生成器，手工构造一个自底向上的解析器是不可行的。即使语法是LL(1)，解析器生成器在生成与您手工编写代码类似的代码时也会提供更多的便利。通常，这受许多因素影响的选择。Clang使用手写解析器，而GCC使用bison生成的解析器。\par
 
 
 
