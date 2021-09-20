@@ -1,4 +1,4 @@
-LLVM IR中的异常处理与平台的支持密切相关。这里，我们将了解libunwind中最常见的异常处理方式。它能在C++中使用了，所以我们将首先看一个C++中的例子，其中bar()函数抛出一个int或double值，如下所示:\par
+LLVM IR中的异常处理与平台的支持密切相关。这里，我们将了解libunwind中最常见的异常处理方式。它能在C++中使用了，所以我们首先看一个C++中的例子，其中bar()函数抛出一个int或double值，如下所示:\par
 
 \begin{lstlisting}[caption={}]
 int bar(int x) {
@@ -35,7 +35,7 @@ tail call void @\underline{~~}cxa\underline{~}throw(i8* \%eh, \\
 unreachable
 \end{tcolorbox}
 
-\underline{~}ZTIi是描述int类型的信息。对于双精度类型，使用的是\underline{~}ZTId。对\underline{~~}cxa\underline{~}throw()的调用标记在尾部，因为它是这个函数中的最后一个调用，可能可以重用当前堆栈帧。\par
+\underline{~}ZTIi是描述int类型的信息。对于双精度类型，使用的是\underline{~}ZTId。对\underline{~~}cxa\underline{~}throw()的调用标记在尾部，因为它是这个函数中的最后一个调用，或许可以重用当前堆栈帧。\par
 
 到目前为止，还没有针对llvm进行任何操作。变化会发生在foo()函数中，因为对bar()的调用可能会引发异常。如果是int类型异常，则必须将控制流转移到catch子句的IR代码上。为了实现这一点，必须使用invoke 调用指令而不是call调用指令，具体的方式如下面的代码所示:\par
 
@@ -60,19 +60,21 @@ lpad: \\
 这里有三种可能的行动类型，概述如下:\par
 
 \begin{enumerate}
-	\item cleanup: 这表示清除当前状态的代码。通常，这用于调用局部对象的析构函数。如果有此标记，则在堆栈展开期间始终调用着陆垫。
-	\item catch: 这是一个类型-值对列表，表示可以处理的异常类型。如果在此列表中发现抛出的异常类型，则调用着陆垫。在foo()函数中，值是指向int类型的C++运行时的指针，类似于\underline{~~}cxa\underline{~}throw()函数的形参。
-	\item filter: 指定异常类型数组。如果在数组中找不到当前异常的异常类型，则调用着陆垫。这用于实现throw()的规范，对于foo()函数，数组只有一个成员——int类型的类型信息。
+\item cleanup: 这表示清除当前状态的代码。通常，这用于调用局部对象的析构函数。如果有此标记，则在堆栈展开期间始终调用着陆垫。
+
+\item catch: 这是一个类型-值对列表，表示可以处理的异常类型。如果在此列表中发现抛出的异常类型，则调用着陆垫。在foo()函数中，值是指向int类型的C++运行时的指针，类似于\underline{~~}cxa\underline{~}throw()函数的形参。
+	
+\item filter: 指定异常类型数组。如果在数组中找不到当前异常的异常类型，则调用着陆垫。这用于实现throw()的规范，对于foo()函数，数组只有一个成员——int类型的类型信息。
 \end{enumerate}
 
-着陆指令的结果类型是一个\{i8*， i32 \}结构。第一个元素是指向抛出异常的指针，而第二个元素是类型选择器。让我们从结构中提取这两个元素，如下所示:\par
+着陆指令的结果类型是一个\{i8*， i32 \}结构。第一个元素是指向抛出异常的指针，而第二个元素是类型选择器。让我们从结构中提取这两个元素:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \%exc.ptr = extractvalue \{ i8*, i32 \} \%exc, 0 \\
 \%exc.sel = extractvalue \{ i8*, i32 \} \%exc, 1
 \end{tcolorbox}
 
-使用数字对类型进行选择，它可以帮助我们确定为什么要调用着陆垫。如果当前异常类型与着陆指令catch部分中给出的异常类型匹配，则它具有正值。如果当前异常类型不匹配过滤器中的任何值，则该值为负值，如果应该调用清理代码，则该值为0。\par
+使用数字对类型进行选择，它可以帮助我们确定为什么要使用着陆垫。如果当前异常类型与着陆指令catch部分中给出的异常类型匹配，则它具有正值。如果当前异常类型不匹配过滤器中的任何值，则该值为负值，如果应该调用清理代码，则该值为0。\par
 
 基本上，类型选择器是类型信息表中偏移信息，该表由landingpad指令的catch和filter中给定的值构造。在优化过程中，多个着陆垫可以组合成一个，这意味着该表格的结构在IR层面上是未知的。要检索给定类型的类型选择器，需要调用@llvm.eh.typeid.for指令函数。我们需要检查类型选择器的值是否对应int的类型信息，以便执行catch (int e) \{\}块中的代码:\par
 
@@ -103,7 +105,7 @@ filterorcleanup: \\
 br i1 \%tst.blzero, label \%filter, label \%cleanup
 \end{tcolorbox}
 
-如果类型选择器的值小于0，则调用处理程序，如下所示:
+如果类型选择器的值小于0，则调用处理程序:
 
 \begin{tcolorbox}[colback=white,colframe=black]
 filter: \\
@@ -111,16 +113,16 @@ tail call void @\underline{~~}cxa\underline{~}call\underline{~}unexpected(i8* \%
 unreachable
 \end{tcolorbox}
 
-同样，处理程序不会返回。\par
+同样，处理程序不会进行返回。\par
 
-在这种情况下不需要清理工作，所以清理代码所做的全部工作就是继续执行堆栈展开器(stack unwinder)，如下所示:\par
+在这种情况下不需要清理工作，所以清理代码所做的全部工作就是继续执行堆栈展开器(stack unwinder):\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 cleanup: \\
 resume { i8*, i32 } \%exc
 \end{tcolorbox}
 
-还有一点还不清楚:libunwind驱动堆栈展开，但它并没有绑定到语言，语言依赖处理是在函数中完成的。对于Linux上的C++，相应函数称为\underline{~~}gxx\underline{~}personality\underline{~}v0()。根据平台或编译器的不同，这个名称可能有所不同。每一个需要参与堆栈展开的功能都附加了一个功能。相应函数分析函数是否捕获异常、是否有不匹配的筛选列表或是否需要清理调用。它将这些信息返回给展开器，展开器相应地进行操作。在LLVM IR中，函数的指针作为函数定义的一部分给出，如下代码片段所示:\par
+还有一点还不清楚:libunwind驱动堆栈展开，但它并没有绑定到语言，语言依赖处理是在函数中完成的。对于Linux上的C++，相应函数称为\underline{~~}gxx\underline{~}personality\underline{~}v0()。根据平台或编译器的不同，这个名称可能有所不同。每一个需要参与堆栈展开的功能都附加了一个功能，相应函数分析函数是否捕获异常、是否有不匹配的筛选列表或是否需要清理调用。它将这些信息返回给展开器，展开器相应地进行操作。在LLVM IR中，函数的指针作为函数定义的一部分给出，如下代码片段所示:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 define i32 @\underline{~}Z3fooi(i32) personality i8* bitcast \\
@@ -130,10 +132,10 @@ define i32 @\underline{~}Z3fooi(i32) personality i8* bitcast \\
 
 这样，异常处理功能就完成了。\par
 
-要在编程语言的编译器中使用异常处理，最简单的策略是利用现有的C++运行时函数。这样做还有一个好处，即可以与C++互操作。缺点是将一些C++运行时绑定到您的语言的运行时中——最明显的是内存管理。如果您想避免这种情况，需要创建自己的\underline{~}cxa\underline{~}函数，或等效函数。不过，您还是可以继续使用libunwind，因为提供了堆栈展开的机制。\par
+要在编程语言的编译器中使用异常处理，最简单的策略是利用现有的C++运行时函数。这样做还有一个好处，即可以与C++互操作。缺点是将一些C++运行时绑定到您的语言的运行时中——最明显的是内存管理。如果想避免这种情况，需要创建自己的\underline{~}cxa\underline{~}函数，或等效函数。不过，还是可以继续使用libunwind，因为提供了堆栈展开的机制。\par
 
 \begin{enumerate}
-\item 让我们看看如何创建这个IR。我们在第3章中创建了calc表达式编译器。现在，我们将扩展表达式编译器的代码生成器，以便在执行除0时处理异常。生成的IR将检查一个除数的除数是否为0，如果为true，则会引发异常。我们还将为该函数添加一个着陆垫，可以捕获异常，在控制台打印“Divide by zero!”，最后结束计算。这种简单的情况下，使用异常处理并不是那么必要，但它可以让我们集中精力于代码生成。我们将所有代码添加到CodeGenerator.cpp文件中。首先，添加所需的新字段和一些帮助器方法，需要存储\underline{~}cxa\underline{~}allocate\underline{~}exception()和\underline{~}cxa\underline{~}throw()函数的LLVM声明，包括函数类型和函数本身。需要一个GlobalVariable实例来保存类型信息。我们还需要引用包含着陆台的基本块和只包含不可达指令的基本块，如下面的代码片段所示:
+\item 了解一下如何创建IR。我们在第3章中创建了calc表达式编译器。现在，我们将扩展表达式编译器的代码生成器，以便在执行除0时处理异常。生成的IR将检查一个除数的除数是否为0，如果为true，则会引发异常。我们还将为该函数添加一个着陆垫，可以捕获异常，在控制台打印“Divide by zero!”，最后结束计算。这种简单的情况下，使用异常处理并不是那么必要，但它可以让我们集中精力于代码生成。我们将所有代码添加到CodeGenerator.cpp文件中。首先，添加所需的新字段和一些帮助器方法，需要存储\underline{~}cxa\underline{~}allocate\underline{~}exception()和\underline{~}cxa\underline{~}throw()函数的LLVM声明，包括函数类型和函数本身，需要GlobalVariable实例来保存类型信息。我们还需要引用包含着陆台的基本块和只包含不可达指令的基本块:
 \begin{lstlisting}[caption={}]
 GlobalVariable *TypeInfo = nullptr;
 FunctionType *AllocEHFty = nullptr;
@@ -144,7 +146,7 @@ BasicBlock *LPadBB = nullptr;
 BasicBlock *UnreachableBB = nullptr;
 \end{lstlisting}
 
-\item 我们还添加了一个新的辅助函数来创建用于比较两个值的IR。createICmpEq()函数接受左值和右值作为参数进行比较，它创建一个比较指令，用于测试值的相等性，并创建一个分支指令，用于相等和不相等情况下的两个基本块。这两个基本块通过TrueDest和FalseDest参数中的引用返回。新基本块的标签可以在TrueLabel和FalseLabel参数中给出。代码如下所示:
+\item 我们还添加了一个新的辅助函数来创建用于比较两个值的IR。createICmpEq()函数接受左值和右值作为参数进行比较，它创建一个比较指令，用于测试值的相等性，并创建一个分支指令，用于相等和不相等情况下的两个基本块。这两个基本块通过TrueDest和FalseDest参数中的引用返回。新基本块的标签可以在TrueLabel和FalseLabel参数中给出:
 \begin{lstlisting}[caption={}]
 void createICmpEq(Value *Left, Value *Right,
 		BasicBlock *&TrueDest,
@@ -163,7 +165,7 @@ void createICmpEq(Value *Left, Value *Right,
 }
 \end{lstlisting}
 
-\item 要使用运行时中的函数，我们需要创建几个函数声明。在LLVM中，必须构造给出签名的函数类型(以及函数本身)。我们使用createFunc()方法来创建这两个对象。函数需要引用FunctionType和Function指针、新声明函数的名称和结果类型。参数类型列表是可选的，表示变量参数列表的标志设置为false，表示参数列表中没有变量部分。代码可以在以下代码片段中看到:
+\item 要使用运行时中的函数，我们需要创建几个函数声明。在LLVM中，必须构造给出签名的函数类型(以及函数本身)。我们使用createFunc()方法来创建这两个对象。函数需要引用FunctionType和Function指针、新声明函数的名称和结果类型。参数类型列表是可选的，表示变量参数列表的标志设置为false，表示参数列表中没有变量部分:
 \begin{lstlisting}[caption={}]
 void createFunc(FunctionType *&Fty, Function *&Fn,
 					const Twine &N, Type *Result,
@@ -184,7 +186,7 @@ void createFunc(FunctionType *&Fty, Function *&Fn,
 为了生成引发异常的IR代码，添加了一个addThrow()方法。这个新方法需要初始化新字段，然后生成IR，通过\underline{~~}cxa\underline{~}函数引发异常。所引发异常的有效负载是int类型的，可以设置为任意值。下面是我们需要编码的内容:\par
 
 \begin{enumerate}
-\item 新的addThrow()方法首先检查TypeInfo字段是否已初始化。如果不是，则创建一个i8*类型的全局外部常量和一个\underline{~}ZTIi名称。它表示描述C++ int类型的C++元数据。代码如下所示:
+\item 新的addThrow()方法首先检查TypeInfo字段是否已初始化。如果不是，则创建一个i8*类型的全局外部常量和一个\underline{~}ZTIi名称。它表示描述C++ int类型的C++元数据:
 \begin{lstlisting}[caption={}]
 void addThrow(int PayloadVal) {
 	if (!TypeInfo) {
@@ -195,7 +197,7 @@ void addThrow(int PayloadVal) {
 			/*Initializer=*/nullptr, "_ZTIi");
 \end{lstlisting}
 
-\item 初始化继续使用createFunc()辅助方法为\underline{~}cxa\underline{~}allocate\underline{~}exception()和\underline{~}cxa\underline{~}throw functions()创建IR声明，如下所示:
+\item 初始化继续使用createFunc()辅助方法为\underline{~}cxa\underline{~}allocate\underline{~}exception()和\underline{~}cxa\underline{~}throw functions()创建IR声明:
 \begin{lstlisting}[caption={}]
 	createFunc(AllocEHFty, AllocEHFn,
 				"__cxa_allocate_exception", 
@@ -206,7 +208,7 @@ void addThrow(int PayloadVal) {
 				{Int8PtrTy, Int8PtrTy, Int8PtrTy});
 \end{lstlisting}
 
-\item 使用异常处理的函数需要一个特殊函数，它有助于堆栈展开。我们添加IR代码来声明C++库中的\underline{~}gxx\underline{~}personality\underline{~}v0()函数，并将其设置为当前特殊函数。当前函数不存储为字段，但可以使用Builder实例来查询当前的基本块，它将函数存储为父字段，如下面的代码片段所示:
+\item 使用异常处理的函数需要一个特殊函数，它有助于堆栈展开。我们添加IR代码来声明C++库中的\underline{~}gxx\underline{~}personality\underline{~}v0()函数，并将其设置为当前特殊函数。当前函数不存储为字段，但可以使用Builder实例来查询当前的基本块，它将函数存储为父字段:
 \begin{lstlisting}[caption={}]
 	FunctionType *PersFty;
 	Function *PersFn;
@@ -218,7 +220,7 @@ void addThrow(int PayloadVal) {
 	Fn->setPersonalityFn(PersFn);
 \end{lstlisting}
 
-\item 接下来，我们创建并填充着陆垫的基本块。首先，我们需要保存指向当前基本块的指针。然后，创建一个新的基本块，在构建器中设置它作为插入指令的基本块，并调用addLandingPad()方法。此方法生成用于处理异常的IR代码，将在下一节捕获异常中进行描述。下面的代码填充了着陆垫的基本块:
+\item 接下来，创建并填充着陆垫的基本块。首先，我们需要保存指向当前基本块的指针。然后，创建一个新的基本块，在构建器中设置它作为插入指令的基本块，并调用addLandingPad()方法。此方法生成用于处理异常的IR代码，将在下一节捕获异常中进行描述。下面的代码填充了着陆垫的基本块:
 \begin{lstlisting}[caption={}]
 	BasicBlock *SaveBB = Builder.GetInsertBlock();
 	LPadBB = BasicBlock::Create(M->getContext(),
@@ -227,7 +229,7 @@ void addThrow(int PayloadVal) {
 	addLandingPad();
 \end{lstlisting}
 
-\item 初始化部分已经完成创建保存不可达指令的基本块。同样，我们创建了一个基本块，并将其设置为构建器上的插入点。然后，向它添加一个不可访问的指令。最后，将构建器的插入点设置回已保存的SaveBB实例，以便将以下IR添加到正确的基本块中。代码如下所示:
+\item 初始化部分已经完成创建保存不可达指令的基本块。同样，我们创建了一个基本块，并将其设置为构建器上的插入点。然后，向它添加一个不可访问的指令。最后，将构建器的插入点设置回已保存的SaveBB实例，以便将以下IR添加到正确的基本块中:
 \begin{lstlisting}[caption={}]
 	UnreachableBB = BasicBlock::Create(
 		M->getContext(), "unreachable", Fn);
@@ -237,7 +239,7 @@ void addThrow(int PayloadVal) {
 }
 \end{lstlisting}
 
-\item 要引发异常，需要通过调用\underline{~~}cxa\underline{~}allocate\underline{~}exception()函数来为异常和负载分配内存。我们的异常是C++的int类型，其大小通常为4字节。我们为其创建一个常量unsigned值，并将其作为参数调用函数。函数类型和函数声明已经初始化，所以只需要创建一个调用指令，如下所示:
+\item 要引发异常，需要通过调用\underline{~~}cxa\underline{~}allocate\underline{~}exception()函数来为异常和负载分配内存。我们的异常是C++的int类型，其大小通常为4字节。我们为其创建一个常量unsigned值，并将其作为参数调用函数。函数类型和函数声明已经初始化，所以只需要创建一个调用指令:
 \begin{lstlisting}[caption={}]
 	Constant *PayloadSz =
 		ConstantInt::get(Int64Ty, 4, false);
@@ -245,7 +247,7 @@ void addThrow(int PayloadVal) {
 		AllocEHFty, AllocEHFn, {PayloadSz});
 \end{lstlisting}
 
-\item 接下来，我们将PayloadVal值存储到分配的内存中。为此，需要通过调用ConstantInt::get()函数来创建一个LLVM IR常量。指向分配内存的指针是i8*类型的，但是要存储i32类型的值，需要创建一个bitcast指令来强制转换该类型，如下所示:
+\item 接下来，我们将PayloadVal值存储到分配的内存中。为此，需要通过调用ConstantInt::get()函数来创建一个LLVM IR常量。指向分配内存的指针是i8*类型的，但是要存储i32类型的值，需要创建一个bitcast指令来强制转换该类型:
 \begin{lstlisting}[caption={}]
 	Value *PayloadPtr =
 		Builder.CreateBitCast(EH, Int32PtrTy);
@@ -254,7 +256,7 @@ void addThrow(int PayloadVal) {
 		PayloadPtr);
 \end{lstlisting}
 
-\item 最后，通过调用\underline{~~}cxa\underline{~}抛出函数引发异常。因为这个函数实际上会在处理函数中引发异常，所以我们需要使用invoke指令而不是call指令。与call指令不同，invoke指令结束一个基本块，因为它有两个后续基本块。这里，是UnreachableBB和LPadBB基本块。如果函数没有引发异常，控制流则转移到UnreachableBB基本块。由于\underline{~~}cxa\underline{~}throw()函数的设计，这种情况永远不会发生。控制流会传输到LPadBB基本块来处理异常。这样就完成了addThrow()方法的实现，如下面的代码片段所示:
+\item 最后，通过调用\underline{~~}cxa\underline{~}抛出函数引发异常。因为这个函数实际上会在处理函数中引发异常，所以我们需要使用invoke指令而不是call指令。与call指令不同，invoke指令结束一个基本块，因为它有两个后续基本块。这里，是UnreachableBB和LPadBB基本块。如果函数没有引发异常，控制流则转移到UnreachableBB基本块。由于\underline{~~}cxa\underline{~}throw()函数的设计，这种情况永远不会发生。控制流会传输到LPadBB基本块来处理异常。这样就完成了addThrow()方法的实现:
 \begin{lstlisting}[caption={}]
 	Builder.CreateInvoke(
 		ThrowEHFty, ThrowEHFn, UnreachableBB, LPadBB,
@@ -273,7 +275,7 @@ void addThrow(int PayloadVal) {
 为了生成IR代码来捕获异常，添加了一个addLandingPad()方法。生成的IR从异常中提取类型信息。如果匹配C++的int类型，则通过输出“Divide by zero!”，并从函数返回。如果类型不匹配，则只需执行一个resume指令，它将控制权转移回运行时。因为在调用层次结构中没有其他函数来处理此异常，所以运行时将终止应用程序。以下是生成IR来捕获异常需要的步骤:\par
 
 \begin{enumerate}
-\item 在生成的IR中，我们需要调用C++运行库中的\underline{~}cxa\underline{~}begin\underline{~}catch()和\underline{~}cxa\underline{~}end\underline{~}catch()函数。要打印错误消息，将使用C运行时库的puts()函数，而要从异常中获取类型信息，必须生成对llvm. eh.typeid.for指令的调用。所有的函数都需要FunctionType和Function实例，我们使用createFunc()方法创建它们，如下所示:
+\item 生成的IR中，需要调用C++运行库中的\underline{~}cxa\underline{~}begin\underline{~}catch()和\underline{~}cxa\underline{~}end\underline{~}catch()函数。要打印错误消息，将使用C运行时库的puts()函数，而要从异常中获取类型信息，必须生成对llvm.eh.typeid.for指令的调用。所有的函数都需要FunctionType和Function实例，我们使用createFunc()方法进行创建:
 \begin{lstlisting}[caption={}]
 void addLandingPad() {
 	FunctionType *TypeIdFty; Function *TypeIdFn;
@@ -301,7 +303,7 @@ void addLandingPad() {
 			Int8PtrTy));
 \end{lstlisting}
 
-\item 接下来，从返回值中提取类型选择器。通过llvm.eh.typeid.for指令，我们获取TypeInfo字段的类型ID，其表示为C++的int类型。通过这个IR，我们现在已经生成了两个需要比较的值，以决定我们是否可以处理异常:
+\item 接下来，从返回值中提取类型选择器。通过llvm.eh.typeid.for指令，我们获取TypeInfo字段的类型ID，其表示为C++的int类型。通过这个IR，我们现在已经生成了两个需要比较的值，以确定是否可以处理异常:
 \begin{lstlisting}[caption={}]
 	Value *Sel = Builder.CreateExtractValue(Exc, {1}, 
 				"exc.sel");
@@ -311,7 +313,7 @@ void addLandingPad() {
 								TypeInfo, Int8PtrTy)});
 \end{lstlisting}
 
-\item 为了生成用于比较的IR，我们调用createICmpEq()函数。这个函数还生成两个基本块，存储在TrueDest和FalseDest变量中：
+\item 为了生成用于比较的IR，调用createICmpEq()。这个函数还生成两个基本块，存储在TrueDest和FalseDest变量中：
 \begin{lstlisting}[caption={}]
 	BasicBlock *TrueDest, *FalseDest;
 	createICmpEq(Sel, Id, TrueDest, FalseDest, 
@@ -325,7 +327,7 @@ void addLandingPad() {
 	Builder.CreateResume(Exc);
 \end{lstlisting}
 
-\item 如果这两个值相等，控制流将继续在TrueDest基本块上运行。首先生成IR代码，从存储在Exc变量中的landingpad指令的返回值中提取指向异常的指针。然后，生成对\underline{~} cxa\underline{~}begin\underline{~}catch()函数的调用，将异常的指针作为参数传递，这表明运行时开始处理异常:
+\item 如果这两个值相等，控制流将继续在TrueDest基本块上运行。首先生成IR代码，从存储在Exc变量中的landingpad指令的返回值中提取指向异常的指针。然后，生成对\underline{~}cxa\underline{~}begin\underline{~}catch()函数的调用，将异常的指针作为参数传递，这表明运行时开始处理异常:
 \begin{lstlisting}[caption={}]
 	Builder.SetInsertPoint(TrueDest);
 	Value *Ptr =
@@ -335,7 +337,7 @@ void addLandingPad() {
 						{Ptr});
 \end{lstlisting}
 
-\item 通过调用puts()函数来处理异常，将消息打印到控制台。为此，首先通过调用CreateGlobalString\allowbreak Ptr()函数生成一个指向该字符串的指针，然后在生成的调用puts()函数中将该指针作为参数传入:
+\item 通过调用puts()函数来处理异常，将消息打印到控制台。为此，首先通过调用CreateGlobalStringPtr()函数生成一个指向该字符串的指针，然后在生成的调用puts()函数中将该指针作为参数传入:
 \begin{lstlisting}[caption={}]
 	Builder.CreateCall(EndCatchFty, EndCatchFn);
 	Builder.CreateRet(Int32Zero);
@@ -348,7 +350,7 @@ void addLandingPad() {
 \hspace*{\fill} \par %插入空行
 \textbf{将异常处理代码集成到应用程序中}
 
-除法的IR是在visit(BinaryOp\&)中生成的。我们不只是生成一个sdiv指令，而是首先生成IR来将除数与0进行比较。如果除数为0，则控制流继续在基本块中引发异常。否则，控制流将继续使用sdiv指令在基本块中运行。在createICmpEq()和addThrow()函数的帮助下，我们可以很容易地编写代码，如下所示:\par
+除法的IR是在visit(BinaryOp\&)中生成的。我们不只是生成一个sdiv指令，而是首先生成IR来将除数与0进行比较。如果除数为0，则控制流继续在基本块中引发异常。否则，控制流将继续使用sdiv指令在基本块中运行。在createICmpEq()和addThrow()函数的帮助下，我们可以很容易地编写代码:\par
 
 \begin{lstlisting}[caption={}]
 	case BinaryOp::Div:
@@ -376,14 +378,14 @@ void addLandingPad() {
 
 您将看到引发和捕获异常所需的IR。\par
 
-生成的IR现在依赖于C++运行时。链接所需库的最简单方法是使用clang++编译器。将rtcalc.c文件重命名为rtcalc.cpp表达式计算器的运行时函数，并在文件中的每个函数前面添加extern "C"。然后可以使用llc工具将生成的IR转换为一个目标文件，并使用clang++编译器创建一个可执行文件，如下所示:\par
+生成的IR现在依赖于C++运行时。链接所需库的最简单方法是使用clang++编译器，将rtcalc.c文件重命名为rtcalc.cpp表达式计算器的运行时函数，并在文件中的每个函数前面添加extern "C"。然后可以使用llc工具将生成的IR转换为一个目标文件，并使用clang++编译器创建一个可执行文件:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ src/calc "with a: 3/a" | llc -filetype obj -o exp.o \\
 \$ clang++ -o exp exp.o ../rtcalc.cpp
 \end{tcolorbox}
 
-然后，可以用不同的值运行生成的应用程序，如下所示:\par
+然后，可以用不同的值运行应用:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ ./exp \\
@@ -397,7 +399,7 @@ Divide by zero!
 
 第二次运行中，输入为0，这将引发一个异常。能够正常工作!\par
 
-我们已经学习了如何引发和捕获异常，生成IR的代码可以用作其他编译器的蓝图。当然，所使用的类型信息和catch子句的数量取决于编译器的输入，不过我们需要生成的IR仍然遵循本节中的模式。\par
+我们已经学习了如何引发和捕获异常，生成IR的代码可以用作其他编译器的蓝图。当然，所使用的类型信息和catch子句的数量取决于编译器的输入，不过我们需要生成的IR遵循本节中的模式。\par
 
 添加元数据是向LLVM提供进一步信息的一种方法。下一节中，我们将添加类型元数据，并在某些情况下支持LLVM优化器。\par
 

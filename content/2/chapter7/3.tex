@@ -1,4 +1,4 @@
-两个指针可以指向同一个内存单元，它们互为别名。在LLVM模型中没有输入内存，这使得优化器很难决定两个指针是否为别名。如果编译器能够证明两个指针没有别名，那么就有进行更多优化的可能。下一节中，在我们实现这种方法之前，我们将更仔细地研究这个问题，并研究添加的元数据将如何发挥作用。\par
+两个指针可以指向同一个内存单元，它们互为别名。在LLVM模型中没有输入内存，这使得优化器很难决定两个指针是否为别名。如果编译器能够证明两个指针没有别名，那么就有进行更多优化的可能。下一节中，在实现这种方法之前，我们将更仔细地研究这个问题，并研究添加的元数据将如何发挥作用。\par
 
 \hspace*{\fill} \par %插入空行
 \textbf{理解添加元数据的需求}
@@ -12,23 +12,23 @@ void doSomething(int *p, float *q) {
 }
 \end{lstlisting}
 
-优化器不能确定p和q指针是否指向相同的内存单元。优化过程中，这是一个重要的分析，称为别名分析。如果p和q指向同一个存储单元，那么它们就是别名。如果优化器能够证明两个指针从来没有别名，这将提供优化机会。例如，在soSomething()函数中，可以在不改变结果的情况下重新排序存储。\par
+优化器不能确定p和q指针是否指向相同的内存单元。优化过程中，这是一个重要的分析，称为别名分析。如果p和q指向同一个存储单元，那么它们就是别名。如果优化器能够证明两个指针从来没有别名，这将提供优化机会，例如：在soSomething()函数中，可以在不改变结果的情况下重新排序存储。\par
 
 一种类型的变量是否可以是另一种类型的变量的别名，这取决于语言的定义。请注意，语言也可能包含打破基于类型的别名假设的表达式——例如，不相关类型之间的类型转换。\par
 
 LLVM开发人员选择的解决方案是添加元数据来加载和存储指令。元数据有两个用途:\par
 
 \begin{itemize}
-	\item 首先，根据可以别名其他类型的类型层次结构定义类型层次结构
-	\item 其次，描述了加载或存储指令中的内存访问
+\item 首先，根据可以别名其他类型的类型层次结构定义类型层次结构
+\item 其次，描述了加载或存储指令中的内存访问
 \end{itemize}
 
-让我们来看看C中的类型层次结构。每种类型的层次结构都以一个根节点开始，根节点可以\textbf{命名}，也可以\textbf{匿名}。LLVM假设具有相同名称的根节点描述相同类型的层次结构。您可以在同一个LLVM模块中使用不同的类型层次结构，并且LLVM做了一个安全的假设，即这些类型可以别名。在根节点之下，有用于标量类型的节点。聚合类型的节点不附加到根节点，但它们引用标量类型和其他聚合类型。Clang为C定义了如下层次结构:\par
+让我们看看C中的类型层次结构。每种类型的层次结构都以一个根节点开始，根节点可以\textbf{命名}，也可以\textbf{匿名}。LLVM假设具有相同名称的根节点描述相同类型的层次结构。您可以在同一个LLVM模块中使用不同的类型层次结构，并且LLVM做了一个安全的假设，即这些类型可以别名。在根节点之下，有用于标量类型的节点。聚合类型的节点不附加到根节点，但它们引用标量类型和其他聚合类型。Clang为C定义了如下层次结构:\par
 
 \begin{itemize}
-	\item 根节点称为Simple C/C++ TBAA
-	\item 根节点下面是用于字符类型的节点。这是C语言中的一种特殊类型，因为所有指针都可以转换为char类型的指针。
-	\item 在char节点下面是用于其他标量类型的节点和用于所有指针的类型。
+\item 根节点称为Simple C/C++ TBAA
+\item 根节点下面是用于字符类型的节点。这是C语言中的一种特殊类型，因为所有指针都可以转换为char类型的指针。
+\item 在char节点下面是用于其他标量类型的节点和用于所有指针的类型。
 \end{itemize}
 
 聚合类型定义为成员类型和偏移量的序列。\par
@@ -36,20 +36,20 @@ LLVM开发人员选择的解决方案是添加元数据来加载和存储指令�
 这些元数据定义用于加载和存储指令的访问标记。访问标记由三部分组成:基类型、访问类型和偏移量。根据基类型的不同，访问标签描述内存访问有两种可能的方式:\par
 
 \begin{enumerate}
-	\item 如果基类型是聚合类型，则访问标记描述结构成员的内存访问，具有访问类型并位于给定偏移量。
-	\item 如果基类型是标量类型，则访问类型必须与基类型相同，并且偏移量必须为0。
+\item 如果基类型是聚合类型，则访问标记描述结构成员的内存访问，具有访问类型并位于给定偏移量。
+\item 如果基类型是标量类型，则访问类型必须与基类型相同，并且偏移量必须为0。
 \end{enumerate}
 
 有了这些定义，我们现在可以在访问标记上定义一个关系，该关系用于计算两个指针是否可以别名。元组(基类型，偏移量)的直接父类由基类型和偏移量决定:\par
 
 \begin{itemize}
-	\item 如果基类型是标量类型并且偏移量为0，则直接父类型是(父类型，0)，父类型是类型层次结构中定义的父节点的类型。如果偏移量不为0，则直接父节点未定义。
-	\item 基类型是一个聚合类型，然后tuple(基类型，偏移量)的直接父类型是tuple(新类型，新偏移量)，而新类型是偏移量处成员的类型。新偏移量会根据新开始调整的新类型的起始位置。
+\item 如果基类型是标量类型并且偏移量为0，则直接父类型是(父类型，0)，父类型是类型层次结构中定义的父节点的类型。如果偏移量不为0，则直接父节点未定义。
+\item 基类型是一个聚合类型，然后tuple(基类型，偏移量)的直接父类型是tuple(新类型，新偏移量)，而新类型是偏移量处成员的类型。新偏移量会根据新开始调整的新类型的起始位置。
 \end{itemize}
 
-这个关系的传递闭包是父关系。双内存访问类型——例如，(基类型1，访问类型1，偏移量1)和(基类型2，访问类型2，偏移量2)——可以别名为(基类型1，偏移量1)和(基类型2，偏移量2)，反之亦然。这其实与父关系中是相关的。\par
+这个关系的传递闭包是父关系。双内存访问类型——例如，(基类型1，访问类型1，偏移量1)和(基类型2，访问类型2，偏移量2)——可以别名为(基类型1，偏移量1)和(基类型2，偏移量2)，反之亦然。这其实与父关系相关。\par
 
-让我们用一个例子来说明:\par
+用一个例子来说明:\par
 
 \begin{lstlisting}[caption={}]
 struct Point { float x, y; }
@@ -64,18 +64,18 @@ void func(struct Point *p, float *x, int *i, char *c) {
 
 通过调用createTBAARoot()方法创建根节点，该方法将类型层次结构的名称作为参数并返回根节点。可以使用createAnonymousTBAARoot()方法可以创建一个匿名的根节点。\par
 
-使用createTBAAScalarTypeNode()方法将标量类型添加到层次结构中，该方法以类型的名称和父节点作为参数。为聚合类型添加类型节点稍微复杂一些，createTBAAStructTypeNode()方法以类型名称和字段列表作为参数。指定为std::pair<llvm::mdnode*， uint64\underline{~}t> instance。第一个元素表示成员的类型，第二个元素表示结构类型中的偏移量。\par
+使用createTBAAScalarTypeNode()方法将标量类型添加到层次结构中，该方法以类型的名称和父节点作为参数。为聚合类型添加类型节点稍微复杂一些，createTBAAStructTypeNode()方法以类型名称和字段列表作为参数。指定为std::pair<llvm::mdnode*, uint64\underline{~}t> instance。第一个元素表示成员的类型，第二个元素表示结构类型中的偏移量。\par
 
 使用createTBAAStructTagNode()方法创建访问标记，该方法接受基类型、访问类型和偏移量作为参数。\par
 
 最后，元数据必须附加到加载或存储指令。指令类有一个setMetadata()方法，用于添加各种元数据。第一个参数必须是llvm::LLVMContext::MD\underline{~}tbaa，第二个参数必须是访问标记。\par
 
-有了这些知识，我们将在下一节中为tinylang添加基于类型的别名分析(TBAA)的元数据\par
+有了这些知识，我们将在下一节中为tinylang添加基于类型的别名分析(TBAA)的元数据。\par
 
 \hspace*{\fill} \par %插入空行
 \textbf{向tinylang添加TBAA元数据}
 
-为了支持TBAA，添加了一个新的CGTBAA类。该类负责生成元数据节点。我们让它成为CGModule类的成员，称它为TBAA。每个加载和存储指令都可能注释，为此我们在CGModule类中也放置了一个新函数。该函数试图创建标记访问信息。如果成功，则将元数据附加到指令。这种设计还允许我们在不需要元数据时关闭元数据生成——例如，在关闭了优化的构建中。代码如下所示:\par
+为了支持TBAA，需要添加了一个新的CGTBAA类，该类负责生成元数据节点。我们让它成为CGModule类的成员，称它为TBAA。每个加载和存储指令都可能注释，为此我们在CGModule类中也放置了一个新函数。该函数试图创建标记访问信息。如果成功，则将元数据附加到指令。这种设计还允许我们在不需要元数据时关闭元数据生成——例如，在关闭了优化的构建中:\par
 
 \begin{lstlisting}[caption={}]
 void CGModule::decorateInst(llvm::Instruction *Inst,
@@ -93,21 +93,21 @@ void CGModule::decorateInst(llvm::Instruction *Inst,
 #include "llvm/IR/Metadata.h"
 \end{lstlisting}
 
-CGTBAA类需要存储一些数据成员。那么，让我们看看如何一步步地做到这些:\par
+CGTBAA类需要存储一些数据成员，看看如何一步步地做到这些:\par
 
 \begin{enumerate}
-\item 首先，我们需要缓存类型层次结构的根:
+\item 首先，需要缓存类型层次结构的根:
 \begin{lstlisting}[caption={}]
 class CGTBAA {
 	llvm::MDNode *Root;
 \end{lstlisting}
 
-\item 为了构造元数据节点，我们需要一个MDBuilder类的实例:
+\item 为了构造元数据节点，需要MDBuilder类的实例:
 \begin{lstlisting}[caption={}]
  	llvm::MDBuilder MDHelper;
 \end{lstlisting}
 
-\item 最后，我们存储为类型生成的元数据以供重用:
+\item 最后，存储为类型生成的元数据以供重用:
 \begin{lstlisting}[caption={}]
 	llvm::DenseMap<TypeDenoter *, llvm::MDNode *> 
 		MetadataCache;
@@ -126,7 +126,7 @@ CGTBAA::CGTBAA(llvm::LLVMContext &Ctx)
 	  : MDHelper(llvm::MDBuilder(Ctx)), Root(nullptr) {}
 \end{lstlisting}
 
-\item 惰性地实例化类型层次结构的根，我们将其命名为Simple tinylang TBAA:
+\item 惰性地实例化类型层次结构的根，将其命名为Simple tinylang TBAA:
 \begin{lstlisting}[caption={}]
 llvm::MDNode *CGTBAA::getRoot() {
 	if (!Root)
@@ -136,7 +136,7 @@ llvm::MDNode *CGTBAA::getRoot() {
 }
 \end{lstlisting}
 
-\item 对于标量类型，我们在MDBuilder类的帮助下根据类型的名称创建元数据节点。新的元数据节点存储在缓存中:
+\item 对于标量类型，在MDBuilder类的帮助下根据类型的名称创建元数据节点。新的元数据节点存储在缓存中:
 \begin{lstlisting}[caption={}]
 llvm::MDNode *
 CGTBAA::createScalarTypeNode(TypeDeclaration *Ty,
@@ -161,7 +161,7 @@ llvm::MDNode *CGTBAA::createStructTypeNode(
 }
 \end{lstlisting}
 
-\item 要返回tinylang类型的元数据，需要创建类型层次结构。由于tinylang的类型系统非常有限，我们可以使用一种简单的方法。每个标量类型映射到附加到根节点的唯一类型，并将所有指针映射到单个类型。结构化类型然后引用这些节点。如果不能映射类型，则返回nullptr，如下所示:
+\item 要返回tinylang类型的元数据，需要创建类型层次结构。由于tinylang的类型系统非常有限，可以使用一种简单的方法。每个标量类型映射到附加到根节点的唯一类型，并将所有指针映射到单个类型。结构化类型然后引用这些节点。如果不能映射类型，则返回nullptr:
 \begin{lstlisting}[caption={}]
 llvm::MDNode *CGTBAA::getTypeInfo(TypeDeclaration *Ty) {
 	if (llvm::MDNode *N = MetadataCache[Ty])
@@ -206,7 +206,7 @@ llvm::MDNode *CGTBAA::getTypeInfo(TypeDeclaration *Ty) {
 }
 \end{lstlisting}
 
-\item 获取元数据的一般方法是getAccessTagInfo()。因为只需要查找指针类型，所以我们检查它。否则，返回一个nullptr:
+\item 获取元数据的一般方法是getAccessTagInfo()。因为只需要查找指针类型，所以我们检查它。否则，返回nullptr:
 \begin{lstlisting}[caption={}]
 llvm::MDNode *CGTBAA::getAccessTagInfo(TypeDenoter *TyDe) 
 {
@@ -219,13 +219,13 @@ llvm::MDNode *CGTBAA::getAccessTagInfo(TypeDenoter *TyDe)
 \end{lstlisting}
 \end{enumerate}
 
-要启用TBAA元数据的生成，只需要将元数据附加到生成的加载和存储指令。例如，在CGProce\allowbreak dure::writeVariable()中，对全局变量进行存储，使用存储指令，如下所示:\par
+要启用TBAA元数据的生成，只需要将元数据附加到生成的加载和存储指令。例如，在CGProcedure::writeVariable()中，对全局变量进行存储，使用存储指令:\par
 
 \begin{lstlisting}[caption={}]
 Builder.CreateStore(Val, CGM.getGlobal(D));
 \end{lstlisting}
 
-为了修饰指令，我们需要将前面的行替换为以下行:\par
+为了修饰指令，需要将前面的行替换为以下行:\par
 
 \begin{lstlisting}[caption={}]
 auto *Inst = Builder.CreateStore(Val,
@@ -233,7 +233,7 @@ auto *Inst = Builder.CreateStore(Val,
 CGM.decorateInst(Inst, V->getTypeDenoter());
 \end{lstlisting}
 
-有了这些更改，我们就完成了TBAA元数据的生成。\par
+有了这些更改，就完成了TBAA元数据的生成。\par
 
 下一节中，我们将讨论一个非常类似的主题:对元数据的生成进行调试。\par
 
