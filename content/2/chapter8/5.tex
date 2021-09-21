@@ -4,21 +4,21 @@ tinylang编译器(在前几章中开发的)没有对创建的IR代码进行优�
 \hspace*{\fill} \par %插入空行
 \textbf{使用新Pass管理器创建一个优化流水}
 
-设置优化流水的核心是PassBuilder类。这个类知道所有已注册的Pass，并可以根据文本描述构造Pass流水。我们使用这个类根据命令行上给出的描述创建Pass流水，或者根据请求的优化级别使用默认流水。我们还支持使用Pass插件，例如countir Pass插件，我们在前一节中讨论过。这样，就模拟了opt工具的部分功能，并为命令行选项使用类似的名称。\par
+设置优化流水的核心是PassBuilder类。这个类知道所有已注册的Pass，并可以根据文本描述构造Pass流水。我们使用这个类根据命令行上给出的描述创建Pass流水，或者根据请求的优化级别使用默认流水。我们还支持使用Pass插件，例如countir Pass插件。这样，就模拟了opt工具的部分功能，并为命令行选项使用类似的名称。\par
 
 PassBuilder类填充了ModulePassManager类的实例，ModulePassManager类是保存已构造的Pass流水，并运行它的Pass管理器。代码生成Pass仍然使用旧Pass管理器，因此必须为此目的保留旧Pass管理器。 \par
 
 为了实现功能，我们将tinylang编译器中的tools/driver/Driver.cpp文件进行了扩展:\par
 
 \begin{enumerate}
-\item 我们使用新的类，因此从添加新的包含文件开始。llvm/Passes/PassBuilder.h文件提供了PassBuilder类的定义。llvm/Passes/PassPlugin.h文件是插件支持所必需的。最后， llvm/Analy\allowbreak sis/TargetTransformInfo.h文件提供了一个连接IR级转换和特定目标信息的Pass:
+\item 我们使用新的类，因此从添加新的包含文件开始。llvm/Passes/PassBuilder.h文件提供了PassBuilder类的定义。llvm/Passes/PassPlugin.h文件是插件支持所必需的。最后，llvm/Analysis/TargetTransformInfo.h文件提供了一个连接IR级转换和特定目标信息的Pass:
 \begin{lstlisting}[caption={}]
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 \end{lstlisting}
 
-\item 为了使用新Pass管理器的某些特性，我们添加了三个命令行选项，它们的名称与opt工具相同。\verb|--|passes选项启用Pass管道的文本规范，而\verb|--|load-pass-plugin选项启用相应的Pass插件。如果给定了\verb|--|debug-pass-manager选项，那么Pass管理器将输出关于已执行的Pass的信息:
+\item 为了使用新Pass管理器的某些特性，我们添加了三个命令行选项，它们的名称与opt工具相同。\verb|--|passes选项启用Pass管道的文本规范，而\verb|--|load-pass-plugin选项启用相应的Pass插件。如果给定了\verb|--|debug-pass-manager选项，Pass管理器将输出关于已执行的Pass的信息:
 \begin{lstlisting}[caption={}]
 static cl::opt<bool>
 	DebugPM("debug-pass-manager", cl::Hidden,
@@ -53,14 +53,14 @@ static cl::opt<signed char> OptLevel(
 	cl::init(0));
 \end{lstlisting}
 
-\item LLVM的插件机制支持静态插件注册表，它是在项目配置期间创建的。为了使用这个注册表，我们包含了llvm/Support/Extension.def数据库文件来创建函数的原型，并返回插件信息:
+\item LLVM的插件机制支持静态插件注册表，它是在项目配置期间创建的。为了使用这个注册表，包含了llvm/Support/Extension.def数据库文件来创建函数的原型，并返回插件信息:
 \begin{lstlisting}[caption={}]
 #define HANDLE_EXTENSION(Ext) \
 	llvm::PassPluginLibraryInfo get##Ext##PluginInfo();
 #include "llvm/Support/Extension.def"
 \end{lstlisting}
 
-\item 我们将emit()函数替换为一个新版本。函数的顶部声明了必需的PassBuilder实例:
+\item 我们将重新实现emit()函数。函数的顶部声明了必需的PassBuilder实例:
 \begin{lstlisting}[caption={}]
 bool emit(StringRef Argv0, llvm::Module *M,
 			llvm::TargetMachine *TM,
@@ -68,7 +68,7 @@ bool emit(StringRef Argv0, llvm::Module *M,
 	PassBuilder PB(TM);
 \end{lstlisting}
 
-\item 为了实现对命令行中给定的Pass插件支持，我们循环遍历用户给出的插件库列表，并尝试加载插件。如果失败，我们会发出一个错误消息;否则，就注册Pass:
+\item 为了实现对命令行中给定的Pass插件支持，我们循环遍历用户给出的插件库列表，并尝试加载插件。如果失败，会发出一个错误消息;否则，就注册Pass:
 \begin{lstlisting}[caption={}]
 	for (auto &PluginFN : PassPlugins) {
 		auto PassPlugin = PassPlugin::Load(PluginFN);
@@ -171,7 +171,7 @@ bool emit(StringRef Argv0, llvm::Module *M,
 		TM->getTargetIRAnalysis()));
 \end{lstlisting}
 
-\item 为了输出LLVM IR，我们添加了一个Pass，只是将IR打印到流中:
+\item 为了输出LLVM IR，添加了一个Pass，只是将IR打印到流中:
 \begin{lstlisting}[caption={}]
 	if (FileType == CGFT_AssemblyFile && EmitLLVM) {
 		CodeGenPM.add(createPrintModulePass(Out->os()));
@@ -199,7 +199,7 @@ bool emit(StringRef Argv0, llvm::Module *M,
 }
 \end{lstlisting}
 
-\item 代码很多，但很简单。当然，我们还必须更新tools/driver/CMakeLists.txt构建文件中的依赖项。除了添加目标组件外，还添加了来自LLVM的所有转换和代码生成组件。这些名称与源代码所在的目录名称大致相似。组件名在配置过程中会转换为链接库的名称:
+\item 代码很多，但很简单。当然，还必须更新tools/driver/CMakeLists.txt构建文件中的依赖项。除了添加目标组件外，还添加了来自LLVM的所有转换和代码生成组件。这些名称与源代码所在的目录名称大致相似。组件名在配置过程中会转换为链接库的名称:
 \begin{tcolorbox}[colback=white,colframe=black]
 set(LLVM\underline{~}LINK\underline{~}COMPONENTS \$\{LLVM\underline{~}TARGETS\underline{~}TO\underline{~}BUILD\} \\
 \hspace*{0.5cm}AggressiveInstCombine Analysis AsmParser \\
@@ -209,7 +209,7 @@ set(LLVM\underline{~}LINK\underline{~}COMPONENTS \$\{LLVM\underline{~}TARGETS\un
 \hspace*{0.5cm}Passes)
 \end{tcolorbox}
 
-\item 我们的编译器驱动支持插件，我们可以声明以下支持的插件:
+\item 我们的编译器驱动支持插件，可以声明支持插件:
 \begin{tcolorbox}[colback=white,colframe=black]
 add\underline{~}tinylang\underline{~}tool(tinylang Driver.cpp SUPPORT\underline{~}PLUGINS)
 \end{tcolorbox}
@@ -230,7 +230,7 @@ target\underline{~}link\underline{~}libraries(tinylang
 
 对构建系统文件的更改会自动检测到，在编译和链接更改的源代码之前，运行cmake。如果您需要重新运行配置步骤，请按照第2章的步骤，编译tinylang。\par
 
-既然我们已经将opt工具的选项作为蓝图使用，那么应该尝试运行tinylang来加载Pass插件并运行Pass，就像我们在前几节中所做的那样。\par
+既然已经将opt工具的选项作为蓝图使用，那么应该尝试运行tinylang来加载Pass插件并运行Pass，就像在前几节中所做的那样。\par
 
 使用当前的实现，我们既可以运行默认的Pass流水，也可以自己构造一个。后者是非常灵活的。在所有情况下，都是多余的。默认流水在类C语言中运行得非常好。缺少的是一种扩展Pass管道的方法。在下一节中，我们将解释如何实现它。\par
 
@@ -240,13 +240,13 @@ target\underline{~}link\underline{~}libraries(tinylang
 \textbf{扩展Pass流水}
 
 
-在前一节中，可以通过用户提供的描述或预定义的名称，使用PassBuilder类创建了一个Pass管道。现在，我们来了解一下定制Pass管道的另一种方法:使用扩展点。\par
+在前一节中，可以通过用户提供的描述或预定义的名称，使用PassBuilder类创建了Pass流水。现在，我们来了解一下定制Pass流水的另一种方法:使用扩展点。\par
 
 在构造Pass流水期间，Pass构建器允许您添加由用户贡献的Pass。这些位置称为扩展点。LLVM有许多扩展点，如:\par
 
 \begin{itemize}
-	\item 流起始扩展点允许您在管道的开头添加Pass。
-	\item 窥视孔扩展点允许您在指令组合符Pass的每个实例之后添加Pass。
+\item 流起始扩展点允许您在管道的开头添加Pass。
+\item 窥视孔扩展点允许您在指令组合符Pass的每个实例之后添加Pass。
 \end{itemize}
 
 还有其他扩展点。要使用扩展点，需要注册一个回调。在构造Pass流水期间，回调将在定义的扩展点运行，并可以向给定的Pass管理器添加一个Pass。\par
@@ -262,9 +262,9 @@ PB.registerPipelineStartEPCallback(
 	});
 \end{lstlisting}
 
-可以在Pass流水创建之前的任何时刻，也就是调用parsepaspipeline()方法之前，在Pass管道设置代码中添加此代码。\par
+可以在Pass流水创建之前的任何时刻，也就是调用parsepaspipeline()方法之前，在Pass流水设置代码中添加此代码。\par
 
-对于上一节中所做的工作，一个非常自然的扩展是让用户在命令行上传递一个扩展点的Pass流水描述(opt工具也允许这样做)。让我们先为流水起始扩展点这样做。首先，将以下代码添加到tools/driver/Driver.cpp文件中:\par
+对于上一节中所做的工作，一个非常自然的扩展是让用户在命令行上传递一个扩展点的Pass流水描述(opt工具也允许这样做)。先为流水起始扩展点这样做。首先，将以下代码添加到tools/driver/Driver.cpp文件中:\par
 
 \begin{enumerate}
 \item 为用户添加了一个新的命令行来指定管道描述。同样，从opt工具中获取选项名:
@@ -292,13 +292,13 @@ PB.registerPipelineStartEPCallback(
 要允许用户在每个扩展点添加Pass，需要为每个扩展点添加前面的代码。
 \end{tcolorbox}
 
-\item 现在是尝试不同Pass管理器的好时机。使用\verb|--|debug-pass-manager选项，可以按照顺序执行哪些pass。可以使用\verb|--|print-before-all和\verb|--|print-after-all选项在调用每个Pass之前或之后打印IR。如果创建了自己的Pass管道，那么可以将打印Pass插入到感兴趣的点中。例如，尝试一下\verb|--|passes="print,inline,print"选项。还可以使用print Pass来探索各种扩展点。
+\item 现在是尝试不同Pass管理器的好时机。使用\verb|--|debug-pass-manager选项，可以按照顺序执行哪些pass。可以使用\verb|--|print-before-all和\verb|--|print-after-all选项在调用每个Pass之前或之后打印IR。如果创建了自己的Pass流水，那么可以将打印Pass插入到感兴趣的点中。例如，尝试一下\verb|--|passes="print,inline,print"选项。还可以使用print Pass来探索各种扩展点。
 
 \begin{tcolorbox}[colback=blue!5!white,colframe=mymauve!75!black, title=LLVM 12的新打印选项]
 LLVM 12支持-print-changed选项，与之前Pass的结果相比，该选项仅在IR代码发生更改时打印。大大减少的输出，使得跟踪IR转换更加容易。
 \end{tcolorbox}
 
-PassBuilder类有一个嵌套的OptimizationLevel类来表示六个不同的优化级别。而不是使用"default<O?>"流水描述作为parsepaspipeline()方法的参数，我们也可以调用buildPerModul\allowbreak eDefaultPipeline()方法，它为优化级别构建相应的优化管道——除了级别O0。优化级别为O0，表示不执行优化。因此，Pass管理器中不会添加任何Pass。如果我们仍然想运行某个Pass，可以手动将它添加到Pass管理器中。这个级别运行的是一个简单的Pass：AlwaysInliner Pass，它将一个标记有always\underline{~}内联属性的函数内联到调用者中。将优化级别的命令行选项值转换为OptimizationLevel类的相应成员，实现如下:
+PassBuilder类有一个嵌套的OptimizationLevel类来表示六个不同的优化级别。而不是使用"default<O?>"流水描述作为parsepaspipeline()方法的参数，我们也可以调用buildPerModuleDefaultPipeline()方法，为优化级别构建相应的优化管道——除了级别O0。优化级别为O0，表示不执行优化。因此，Pass管理器中不会添加任何Pass。如果我们仍然想运行某个Pass，可以手动将它添加到Pass管理器中。这个级别运行的是一个简单的Pass：AlwaysInliner Pass，它将一个标记有always\underline{~}内联属性的函数内联到调用者中。将优化级别的命令行选项值转换为OptimizationLevel类的相应成员，实现如下:
 \begin{lstlisting}[caption={}]
 	PassBuilder::OptimizationLevel Olevel = …;
 	if (OLevel == PassBuilder::OptimizationLevel::O0)
@@ -316,7 +316,7 @@ PassBuilder类有一个嵌套的OptimizationLevel类来表示六个不同的优�
 
 \end{enumerate}
 
-通过向tinylang添加优化流水，您可以创建一个优化编译器，比如clang。LLVM社区致力于改进每个版本的优化和优化流水。因此，很少使用默认流水。大多数情况下，添加新Pass是为了实现编程语言的某些语义。\par
+通过向tinylang添加优化流水，您可以创建一个优化编译器，比如Clang。LLVM社区致力于改进每个版本的优化和优化流水。因此，很少使用默认流水。大多数情况下，添加新Pass是为了实现编程语言的某些语义。\par
 
 
 

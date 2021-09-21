@@ -1,12 +1,12 @@
-LLVM使用一系列Pass来优化中间表示(IR),通对IR的单元(函数或模块)执行操作。操作可以是转换(以定义的方式更改IR)，也可以是分析(收集依赖关系等信息)。一系列的Pass称为Pass流水线。Pass管理器在编译器生成的IR上执行Pass管道。因此，了解Pass管理器做什么以及如何构建Pass管道很重要。编程语言的语义可能需要开发新的Pass，所以必须将这些Pass添加到管道中。\par
+LLVM使用一系列Pass来优化\textbf{中间表示(IR)}，通对IR的单元(函数或模块)执行操作。操作可以是转换(以定义的方式更改IR)，也可以是分析(收集依赖关系等信息)。一系列的Pass称为\textbf{Pass流水线}。Pass管理器在编译器生成的IR上执行Pass管道。因此，了解Pass管理器做什么，以及如何构建Pass管道很重要。支持编程语言的语义可能需要开发新的Pass，所以必须将这些Pass添加到管道中。\par
 
-本章中，我们将涵盖以下内容:\par
+本章中，我们将包括以下内容:\par
 
 \begin{itemize}
-	\item 介绍LLVM Pass管理器
-	\item 使用新的Pass管理器实现一个Pass
-	\item 使用旧的Pass管理器中使用Pass
-	\item 向编译器添加优化流水线
+\item 介绍LLVM Pass管理器
+\item 使用新Pass管理器实现一个Pass
+\item 使用旧Pass管理器中使用Pass
+\item 向编译器添加优化流水线
 \end{itemize}
 
 本章结束时，将了解如何开发一个新的Pass，以及如何将它添加到Pass流水线中。还将了解如何在自己的编译器中设置Pass管道。\par

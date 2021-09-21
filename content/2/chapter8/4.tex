@@ -6,91 +6,91 @@
 我们使用Pass插件作为基础。在include/CountIR.h头文件中，我们添加了一个新的类定义，如下所示:\par
 
 \begin{enumerate}
-	\item 这个新类需要从FunctionPass类派生，所以包含了一个额外的头文件来获取类定义:
-	\begin{lstlisting}[caption={}]
-		#include "llvm/Pass.h"
-	\end{lstlisting}
+\item 这个新类需要从FunctionPass类派生，所以包含了一个额外的头文件来获取类定义:
+\begin{lstlisting}[caption={}]
+#include "llvm/Pass.h"
+\end{lstlisting}
 	
-	\item 我们将这个新类命名为CountIRLegacyPass。类需要一个ID作为内部LLVM机制，用它初始化父类:
-	\begin{lstlisting}[caption={}]
-		class CountIRLegacyPass : public llvm::FunctionPass {
-			public:
-			static char ID;
-			CountIRLegacyPass() : llvm::FunctionPass(ID) {}
-		\end{lstlisting}
+\item 我们将这个新类命名为CountIRLegacyPass。类需要一个ID作为内部LLVM机制，用它初始化父类:
+\begin{lstlisting}[caption={}]
+class CountIRLegacyPass : public llvm::FunctionPass {
+public:
+	static char ID;
+	CountIRLegacyPass() : llvm::FunctionPass(ID) {}
+\end{lstlisting}
 		
-		\item 为了实现Pass功能，必须重写两个函数。每个LLVM IR函数都会调用runOnFunction()方法，并实现计数功能。getAnalysisUsage()方法用来声明所有的分析结果都保存了:
-		\begin{lstlisting}[caption={}]
-			bool runOnFunction(llvm::Function &F) override;
-			void getAnalysisUsage(llvm::AnalysisUsage &AU) const 
-			override;
-		};
-	\end{lstlisting}
+\item 为了实现Pass功能，必须重写两个函数。每个LLVM IR函数都会调用runOnFunction()方法，并实现计数功能。getAnalysisUsage()方法用来声明所有的分析结果都保存了:
+\begin{lstlisting}[caption={}]
+	bool runOnFunction(llvm::Function &F) override;
+	void getAnalysisUsage(llvm::AnalysisUsage &AU) const 
+	override;
+};
+\end{lstlisting}
 	
-	\item 对头文件的更改完成后，可以增强lib/CountIR.cpp文件中的实现。为了重用计数功能，我们将源代码移动到一个新函数中:
-	\begin{lstlisting}[caption={}]
-		void runCounting(Function &F) {
-			for (BasicBlock &BB : F) {
-				++NumOfBB;
-				for (Instruction &I : BB) {
-					(void)I;
-					++NumOfInst;
-				}
-			}
+\item 对头文件的更改完成后，可以增强lib/CountIR.cpp文件中的实现。为了重用计数功能，我们将源代码移动到一个新函数中:
+\begin{lstlisting}[caption={}]
+void runCounting(Function &F) {
+	for (BasicBlock &BB : F) {
+		++NumOfBB;
+		for (Instruction &I : BB) {
+			(void)I;
+			++NumOfInst;
 		}
-	\end{lstlisting}
+	}
+}
+\end{lstlisting}
 	
-	\item 为了使用新函数，新Pass管理器的方法需要更新:
-	\begin{lstlisting}[caption={}]
-		PreservedAnalyses
-		CountIRPass::run(Function &F, FunctionAnalysisManager 
-		&AM) {
-			runCounting(F);
-			return PreservedAnalyses::all();
-		}
-	\end{lstlisting}
+\item 为了使用新函数，新Pass管理器的方法需要更新:
+\begin{lstlisting}[caption={}]
+PreservedAnalyses
+CountIRPass::run(Function &F, FunctionAnalysisManager 
+&AM) {
+	runCounting(F);
+	return PreservedAnalyses::all();
+}
+\end{lstlisting}
 	
-	\item 以同样的方式，我们为旧Pass管理器实现方法。使用false返回值，表示IR没有改变:
-	\begin{lstlisting}[caption={}]
-		bool CountIRLegacyPass::runOnFunction(Function &F) {
-			runCounting(F);
-			return false;
-		}
-	\end{lstlisting}
+\item 以同样的方式，为旧Pass管理器实现方法。使用false返回值，表示IR没有改变:
+\begin{lstlisting}[caption={}]
+bool CountIRLegacyPass::runOnFunction(Function &F) {
+	runCounting(F);
+	return false;
+}
+\end{lstlisting}
 	
-	\item 为了保留现有的分析结果，必须以以下方式实现getAnalysisUsage()方法。这类似于新Pass管理器中的PreservedAnalyses::all()返回值。如果不实现这个方法，那么默认情况下所有的分析结果都会丢弃:
-	\begin{lstlisting}[caption={}]
-		void CountIRLegacyPass::getAnalysisUsage(
-		AnalysisUsage &AU) const {
-			AU.setPreservesAll();
-		}
-	\end{lstlisting}
+\item 为了保留现有的分析结果，必须以以下方式实现getAnalysisUsage()方法。这类似于新Pass管理器中的PreservedAnalyses::all()返回值。如果不实现这个方法，那么默认情况下所有的分析结果都会丢弃:
+\begin{lstlisting}[caption={}]
+void CountIRLegacyPass::getAnalysisUsage(
+AnalysisUsage &AU) const {
+	AU.setPreservesAll();
+}
+\end{lstlisting}
 	
-	\item ID字段可以用任意值初始化，因为LLVM使用该字段的地址。公共值是0，所以我们也使用它:
-	\begin{lstlisting}[caption={}]
-		char CountIRLegacyPass::ID = 0;
-	\end{lstlisting}
+\item ID字段可以用任意值初始化，因为LLVM使用该字段的地址。公共值是0，所以可以直接使用:
+\begin{lstlisting}[caption={}]
+char CountIRLegacyPass::ID = 0;
+\end{lstlisting}
 	
-	\item 现在只有Pass注册没有了。要注册新的Pass，需要提供RegisterPass<>模板的静态实例。第一个参数是调用新Pass的命令行选项的名称。第二个参数是Pass的名称，是在使用-help选项时为用户提供信息使用。
-	\begin{lstlisting}[caption={}]
-		static RegisterPass<CountIRLegacyPass>
-		X("countir", "CountIR Pass");
-	\end{lstlisting}
+\item 现在只有Pass注册没有了。要注册新Pass，需要提供RegisterPass<>模板的静态实例。第一个参数是调用新Pass的命令行选项的名称。第二个参数是Pass的名称，是在使用-help选项时为用户提供信息使用。
+\begin{lstlisting}[caption={}]
+static RegisterPass<CountIRLegacyPass>
+X("countir", "CountIR Pass");
+\end{lstlisting}
 	
-	\item 这些更改足以让我们在旧Pass管理器和新Pass管理器下使用新的Pass。要测试添加的内容，请回到构建文件夹并编译Pass:
-	\begin{tcolorbox}[colback=white,colframe=black]
-		\$ ninja
-	\end{tcolorbox}
+\item 这些更改足以让我们在旧Pass管理器和新Pass管理器下使用新的Pass。要测试添加的内容，请回到构建文件夹并编译Pass:
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ ninja
+\end{tcolorbox}
 	
-	\item 为了在旧Pass管理器中加载插件，需要使用\verb|--|load选项。新Pass是可以通过\verb|--|countir选项调用:
-	\begin{tcolorbox}[colback=white,colframe=black]
-		\$ opt \verb|--|load-pass-plugin=lib/CountIR.so \verb|--|countir \verb|–-|stats$\setminus$ \\
-		\hspace*{0.5cm}\verb|--|disable-output demo.ll
-	\end{tcolorbox}
+\item 为了在旧Pass管理器中加载插件，需要使用\verb|--|load选项。新Pass是可以通过\verb|--|countir选项调用:
+\begin{tcolorbox}[colback=white,colframe=black]
+\$ opt \verb|--|load-pass-plugin=lib/CountIR.so \verb|--|countir \verb|–-|stats$\setminus$ \\
+\hspace*{0.5cm}\verb|--|disable-output demo.ll
+\end{tcolorbox}
 	
-	\begin{tcolorbox}[colback=blue!5!white,colframe=blue!75!black, title=Tip]
-		还请在前一节的命令行中检查，使用新Pass管理器调用我们的Pass仍然可以正常工作!
-	\end{tcolorbox}
+\begin{tcolorbox}[colback=blue!5!white,colframe=blue!75!black, title=Tip]
+还请在前一节的命令行中检查，使用新Pass管理器调用我们的Pass仍然可以正常工作!
+\end{tcolorbox}
 	
 \end{enumerate}
 
