@@ -5,7 +5,7 @@
 
 LLVM自带了自己的模糊测试库。libFuzzer实现最初是LLVM核心库的一部分，后来移到了compiler-rt上。该库旨在测试小而快速的函数。\par
 
-让我们运行一个小示例。需要提供LLVMFuzzerTestOneInput()函数。这个函数由fuzzer驱动程序调用，并为您提供一些输入。下面的函数计算输入中的连续ASCII数字，然后我们将随机输入输入给它。你需要将示例保存在fuzzer.c文件中:\par
+让我们运行一个小示例。需要提供LLVMFuzzerTestOneInput()函数。这个函数由fuzzer驱动程序调用，并为您提供一些输入。下面的函数计算输入中的连续ASCII数字，然后我们将随机输入输入给它。需要将示例保存在fuzzer.c文件中:\par
 
 \begin{lstlisting}[caption={}]
 #include <stdint.h>
@@ -27,9 +27,9 @@ int LLVMFuzzerTestOneInput(const uint8_t *Data, size_t
 
 代码中，count()函数计算Data变量所指向的内存中的位数。只检查数据的大小以确定是否有可用的字节。在while循环中，不检查数据长度。\par
 
-与普通C字符串一起使用时，不会出现错误，因为C字符串总是以0字节结束。LLVMFuzzerTest\allowbreak OneInput()函数就是所谓的fuzz目标，它是libFuzzer调用的函数。调用我们想要测试的函数并返回0，这是目前唯一允许的值。\par
+与普通C字符串一起使用时，不会出现错误，因为C字符串总是以0字节结束。LLVMFuzzerTestOneInput()函数就是fuzz目标，它是libFuzzer调用的函数。调用我们想要测试的函数并返回0，这是目前唯一允许的值。\par
 
-要使用libFuzzer编译文件，需要添加-fsanitize=fuzzer选项。建议还启用地址sanitizer和调试符号的生成。使用以下命令编译文件:\par
+要使用libFuzzer编译文件，需要添加-fsanitize=fuzzer选项。建议还启用地址sanitizer和调试符号的生成:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ clang -fsanitize=fuzzer,address -g fuzzer.c -o fuzzer
@@ -38,18 +38,18 @@ int LLVMFuzzerTestOneInput(const uint8_t *Data, size_t
 当您运行测试时，会产生一个冗长的报告。报告包含比堆栈跟踪更多的信息，所以让我们仔细来看看:\par
 
 \begin{enumerate}
-\item 第一行告诉您用于初始化随机数生成器的种子。你可以使用-seed =选项来重复执行:
+\item 第一行告诉您用于初始化随机数生成器的种子。可以使用-seed=来重复执行:
 \begin{tcolorbox}[colback=white,colframe=black]
 INFO: Seed: 1297394926
 \end{tcolorbox}
 
-\item 默认情况下，libFuzzer将输入限制为最多4,096字节。可以使用-max \underline{~}len=选项来更改默认值:
+\item 默认情况下，libFuzzer将输入限制为最多4,096字节。可以使用-max \underline{~}len=来更改默认值:
 \begin{tcolorbox}[colback=white,colframe=black]
 INFO: -max\underline{~}len is not provided; libFuzzer will not \\
 generate inputs larger than 4096 bytes
 \end{tcolorbox}
 
-\item 现在，我们在不提供示例输入的情况下运行测试。所有样本输入的集合称为语料库，在这次运行中它是空的:
+\item 现在，在不提供示例输入的情况下运行测试。所有样本输入的集合称为语料库，在这次运行中它是空的:
 \begin{tcolorbox}[colback=white,colframe=black]
 INFO: A corpus is not provided, starting from an empty corpus
 \end{tcolorbox}
@@ -61,7 +61,7 @@ rss: 29Mb L: 4/4 MS: 4 CopyPart-PersAutoDict-CopyPart- \\
 ChangeByte- DE: "1$\setminus$x00"-
 \end{tcolorbox}
 
-\item 之后，检测到内存溢出，它跟随而来的就是地址sanitizer的信息。最后，报告显示导致内存溢出的输入在哪里:
+\item 之后，检测到内存溢出，然后就是地址sanitizer的信息。最后，报告显示导致内存溢出的输入在哪里:
 \begin{tcolorbox}[colback=white,colframe=black]
 artifact\underline{~}prefix='./'; Test unit written to ./crash-17ba0791499db908433b80f37c5fbc89b87\allowbreak 0084b
 \end{tcolorbox}
@@ -98,13 +98,13 @@ artifact\underline{~}prefix='./'; Test unit written to ./crash-17ba0791499db9084
 INFO: seed corpus: files: 2 min: 4b max: 7b total: 11b rss: 29Mb
 \end{tcolorbox}
 
-如果您正在测试一个作用于令牌或其他魔数值(如编程语言)的函数，那么可以通过提供一个带有令牌的字典来加快这个过程。对于编程语言，字典将包含该语言中使用的所有关键字和特殊符号。字典定义遵循简单的键-值样式，例如：要在字典中定义if关键字，您可以添加以下内容:\par
+如果您正在测试一个作用于令牌或其他魔数值(如编程语言)的函数，那么可以通过提供一个带有令牌的字典来加快这个过程。对于编程语言，字典将包含该语言中使用的所有关键字和特殊符号。字典定义遵循简单的键-值样式，例如：要在字典中定义if关键字，可以添加以下内容:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 kw1="if"
 \end{tcolorbox}
 
-但是，这个键是可选的，可以省略。然后可以使用-dict=选项 在命令行上指定字典文件。下一节中，我们将了解libFuzzer实现的限制和替代方案。\par
+但是，这个键是可选的，可以省略。然后可以使用-dict=在命令行上指定字典文件。下一节中，我们将了解libFuzzer实现的限制和替代方案。\par
 
 \hspace*{\fill} \par %插入空行
 \textbf{限制和替代}
@@ -128,7 +128,7 @@ libFuzzer实现速度很快，但对测试目标有许多限制:\par
 
 有很多方法可以影响libFuzzer的工作方式，可以在\url{https://llvm.org/docs/LibFuzzer.html}了解更多细节。\par
 
-在下一节中，我们将讨论应用程序可能存在的一个完全不同的问题，试图查找性能瓶颈。\par
+下一节中，我们将讨论应用程序可能存在的一个完全不同的问题，试图查找性能瓶颈。\par
 
 
 

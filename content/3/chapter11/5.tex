@@ -2,7 +2,7 @@ Clang Static Analyzer是一个对C、C++和Objective-C源代码执行额外检�
 
 该工具对源代码执行符号解释，查看整个应用程序的所有代码路径，并从中派生应用程序中使用的值的约束。符号解释是编译器中常用的一种技术，例如：用于标识常量。在静态分析器的上下文中，检查器应用于派生值。\par
 
-例如，如果一个除法的除数是0，那么静态分析程序就会发出警告。我们可以用下面这个存储在div.c文件中的例子来检查:\par
+例如，如果除法的除数是0，那么静态分析程序就会发出警告。我们可以用下面这个存储在div.c文件中的例子来检查:\par
 
 \begin{lstlisting}[caption={}]
 int divbyzero(int a, int b) { return a / b; }
@@ -12,7 +12,7 @@ int bug() { return divbyzero(5, 0); }
 
 在这个例子中，静态分析程序会对被0除法发出警告。然而，在编译时，带有clang -Wall -c div.c命令的文件将不会显示任何警告。\par
 
-有两种方法可以从命令行调用静态分析程序。旧工具是扫描构建，它包含在LLVM中，可以用于简单的场景。新工具是CodeChecker，可在\url{https://github.com/Ericsson/codechecker/}。对于检查单个文件，扫描构建工具是更简单的解决方案。只需将compile命令传递给工具，其他工作就会自动完成:\par
+有两种方法可以从命令行调用静态分析程序。旧工具是扫描构建，包含在LLVM中，可以用于简单的场景。新工具是CodeChecker，可在\url{https://github.com/Ericsson/codechecker/}。对于检查单个文件，扫描构建工具是更简单的解决方案。只需将compile命令传递给工具，其他工作就会自动完成:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ scan-build clang -c div.c \\
@@ -28,7 +28,7 @@ scan-build: Run 'scan-view /tmp/scanbuild-2021-03-01-023401-8721-1' \\
 to examine bug reports.
 \end{tcolorbox}
 
-屏幕上的输出已经告诉您发现了一个问题，即触发了名为core.DivideZero的检查器。但这还不是全部，可以在/tmp目录的子目录中找到一个完整的HTML报告。可以使用scan-view命令查看报表，也可以在浏览器的子目录中打开index.html文件。\par
+屏幕上的输出已经发现了一个问题，即触发了名为core.DivideZero的检查器。但这还不是全部，可以在/tmp目录的子目录中找到一个完整的HTML报告。可以使用scan-view命令查看报表，也可以在浏览器的子目录中打开index.html文件。\par
 
 报告的第一页显示了bug的摘要:\par
 
@@ -38,7 +38,7 @@ to examine bug reports.
 图11.3 – 摘要页面
 \end{center}
 
-对于每个错误，摘要页面显示错误的类型、源中的位置以及分析器找到错误的路径长度。提供了指向错误详细报告的链接。\par
+对于每个错误，摘要页面显示错误的类型、源中的位置，以及分析器找到错误的路径长度。提供了指向错误详细报告的链接。\par
 
 下面的截图显示了错误的详细报告:\par
 
@@ -49,7 +49,7 @@ to examine bug reports.
 图11.4 – 详细报告
 \end{center}
 
-有了详细的报告，您就能够通过跟踪编号的气泡来验证错误。在我们的示例中，它以三个步骤展示了如何将0作为参数值传递导致除0错误。\par
+有了详细的报告，就能够通过跟踪编号的气泡来验证错误。我们的示例中，以三个步骤展示了如何将0作为参数值传递导致除0错误。\par
  
 确认工作需要人工进行。如果派生的约束对于某个检查器来说不够精确，那么可能会出现误报。也就是说，对于完全正确的代码会报告错误。根据这份报告，可以通过人工来确定假阳性。\par
 
@@ -61,7 +61,7 @@ to examine bug reports.
 
 要向Clang Static Analyzer添加一个新的检查器，需要创建一个checker类的新子类。静态分析程序尝试代码中所有可能的路径。分析器引擎在某些点生成事件，例如：在函数调用之前或之后。如果需要处理这些事件，则类必须为它们提供回调。Checker类和事件的注册在clang/include/clang/Stat\allowbreak icAnalyzer/Core/Checker.h头文件中提供。\par
 
-通常，检查器需要跟踪一些符号。但是检查器不能管理状态，因为它不知道分析器引擎当前尝试的代码路径。因此，跟踪的状态必须向引擎注册，并且只能使用ProgramStateRef实例更改。\par
+通常，检查器需要跟踪一些符号。但是检查器不能管理状态，因为它不知道分析器引擎当前尝试的代码路径。因此，跟踪的状态必须在引擎中注册，并且只能用于ProgramStateRef实例。\par
 
 许多库提供了必须成对使用的函数，例如：C标准库提供了malloc()和free()函数。由malloc()函数分配的内存必须由free()函数精确地释放一次。没有调用free()函数，或者多次调用它，是一个编程错误。这种编码模式还有很多实例，静态分析器为其中一些提供了检查器。\par
 
@@ -72,11 +72,11 @@ iconv库提供了将文本从一种编码转换为另一种编码的函数，例
 新IconvChecker类需要处理的四个事件:\par
 
 \begin{itemize}
-\item PostCall，发生在函数调用之后。调用iconv\underline{~}open()函数后，检索返回值的符号，并将其视为处于打开状态。
+\item PostCall，发生在函数调用之后。调用iconv\underline{~}open()函数后，检索返回值的符号，并将其视为打开状态。
 
 \item PreCall，发生在函数调用之前。在调用iconv\underline{~}close()函数之前，检查描述符的符号是否处于打开状态。如果不是，则说明描述符已经调用了iconv\underline{~}close()函数，并且检测到对该函数的双重调用。
 
-\item DeadSymbol，当未使用的符号清除时发生。我们检查描述符的未使用符号是否仍处于打开状态。如果是，则我们检测到一个对iconv\underline{~}close()的未调用，这是一个资源泄漏。
+\item DeadSymbol，当未使用的符号清除时发生。我们检查描述符的未使用符号是否仍处于打开状态。如果是，则检测到对iconv\underline{~}close()的未调用，这是一个资源泄漏。
 
 \item PointerEscape，当分析器不能再跟踪符号时调用时，我们从状态中删除了符号，因为不能再推断描述符是否关闭了。
 
@@ -92,7 +92,7 @@ def IconvChecker : Checker<"Iconv">,
 
 这将把新的检查器添加到已知检查器集合中，为命令行选项设置帮助文本，并声明没有关于此检查器的文档。\par
 
-接下来，我们在clang/lib/StaticAnalyzer/Checkers/IconvChecker.cpp文件中实现检查器:\par
+接下来，在clang/lib/StaticAnalyzer/Checkers/IconvChecker.cpp文件中实现检查器:\par
 
 \begin{enumerate}
 \item 为了实现，我们需要包含几个头文件。注册检查器需要BuiltinCheckerRegistration.h文件。Checker.h文件提供了Checker类的声明和事件的回调。CallEvent.h文件声明用于调用事件的类，CheckerContext类的声明需要CheckerContext.h文件，CheckerContext类是提供访问分析器状态的中心类:
@@ -105,7 +105,6 @@ PathSensitive/CallEvent.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/
 CheckerContext.h"
 \end{lstlisting}
-
 
 \item 为了避免输入命名空间名称:
 \begin{lstlisting}[caption={}]
@@ -131,7 +130,7 @@ struct IconvState {
 }
 \end{lstlisting}
 
-\item IconvState结构体表示iconv描述符的状态，该描述符由SymbolRef类的符号表示。这最好使用映射来完成，它将符号作为键，将状态作为值。如前所述，检查器不能保持状态。相反，状态必须注册到全局程序状态，这是通过REGISTER\underline{~}MAP\underline{~} with\underline{~}PROGRAMSTATE宏完成的。这个宏引入了IconvStateMap名称，我们稍后将使用它来访问映射:
+\item IconvState结构体表示iconv描述符的状态，该描述符由SymbolRef类的符号表示。这最好使用映射来完成，将符号作为键，将状态作为值。如前所述，检查器不能保持状态。相反，状态必须注册到全局程序状态，这是通过REGISTER\underline{~}MAP\underline{~} with\underline{~}PROGRAMSTATE宏完成的。这个宏引入了IconvStateMap名称，我们稍后将使用它来访问映射:
 \begin{lstlisting}[caption={}]
 REGISTER_MAP_WITH_PROGRAMSTATE(IconvStateMap, SymbolRef,
 							   IconvState)
@@ -213,7 +212,7 @@ public:
 			if (SymReaper.isDead(Sym)) {
 \end{lstlisting}
 
-\item 如果符号已死，那么我们需要检查状态。如果状态仍然是打开的，那么这是一个潜在的资源泄漏。有一个例外:iconv\underline{~}open()在出现错误时返回-1。如果分析器处于处理此错误的代码路径中，则假设资源泄漏是错误的，因为函数调用失败。我们尝试从ConstraintManager实例获取该符号的值，如果该值为-1，则不认为该符号存在资源泄漏。我们向SmallVector实例添加一个泄漏的符号，以便稍后生成错误报告。最后，我们将死符号从程序状态中移除:
+\item 如果符号已死，那么需要检查状态。如果状态仍然是打开的，那么这是一个潜在的资源泄漏。有一个例外:iconv\underline{~}open()在出现错误时返回-1。如果分析器处于处理此错误的代码路径中，则假设资源泄漏是错误的，因为函数调用失败。我们尝试从ConstraintManager实例获取该符号的值，如果该值为-1，则不认为该符号存在资源泄漏。向SmallVector实例添加一个泄漏的符号，以便稍后生成错误报告。最后，我们将死符号从程序状态中移除:
 \begin{lstlisting}[caption={}]
 				if (St.isOpen()) {
 					bool IsLeaked = true;
@@ -230,7 +229,7 @@ public:
 		}
 \end{lstlisting}
 
-\item 在循环之后，我们调用generateNonFatalErrorNode()方法。此方法转换到新的程序状态，如果此路径还没有错误节点，则返回一个错误节点。LeakedSyms容器保存泄漏符号的列表(可能为空)，我们调用report()方法生成错误报告:
+\item 在循环之后，我们调用generateNonFatalErrorNode()方法。此方法转换到新的程序状态，如果此路径还没有错误节点，则返回一个错误节点。LeakedSyms容器保存泄漏符号的列表(可能为空)，调用report()方法生成错误报告:
 \begin{lstlisting}[caption={}]
 		if (ExplodedNode *N =
 				C.generateNonFatalErrorNode(State)) {
@@ -243,7 +242,7 @@ public:
 	}
 \end{lstlisting}
 
-\item 当分析器检测到无法跟踪参数的函数调用时，将调用checkPointerEscape()函数。在这种情况下，必须假设不知道函数内部是否关闭了iconv描述符。唯一的例外是调用iconv()函数，该函数执行转换，并且已知不调用iconv\underline{~}close()函数。这就完成了IconvChecker类的实现:
+\item 当分析器检测到无法跟踪参数的函数调用时，将调用checkPointerEscape()函数。这种情况下，必须假设不知道函数内部是否关闭了iconv描述符。唯一的例外是调用iconv()函数，该函数执行转换，并且已知不调用iconv\underline{~}close()函数。这就完成了IconvChecker类的实现:
 \begin{lstlisting}[caption={}]
 	ProgramStateRef
 	checkPointerEscape(ProgramStateRef State,
@@ -261,7 +260,7 @@ public:
 }
 \end{lstlisting}
 
-\item 最后，需要在CheckerManager实例上注册新的检查器。shouldRegisterIconvChecker()方法返回true，表示默认情况下应该注册IconvChecker, registerIconvChecker()方法执行注册。这两个方法都是通过Checkers,td文件生成的代码调用:
+\item 最后，需要在CheckerManager实例上注册新的检查器。shouldRegisterIconvChecker()方法返回true，表示默认情况下应该注册IconvChecker, registerIconvChecker()方法执行注册。这两个方法都是通过Checkers.td文件生成的代码调用:
 \begin{lstlisting}[caption={}]
 void ento::registerIconvChecker(CheckerManager &Mgr) {
 	Mgr.registerChecker<IconvChecker>();
@@ -290,7 +289,7 @@ add\underline{~}clang\underline{~}library(clangStaticAnalyzerCheckers \\
 \$ ninja
 \end{tcolorbox}
 
-您可以使用保存在conf.c文件中的以下源代码测试新的检查器，该文件有两次对iconv\underline{~}close()函数的调用:\par
+可以使用保存在conf.c文件中的以下源代码测试新的检查器，该文件有两次对iconv\underline{~}close()函数的调用:\par
 
 \begin{lstlisting}[caption={}]
 #include <iconv.h>
@@ -302,9 +301,9 @@ void doconv() {
 }
 \end{lstlisting}
 
-您学习了如何使用自己的检查器扩展Clang静态分析器。您可以使用这些知识来创建新的通用检查器并将它们贡献给社区，或者您可以创建专门为您的需求构建的检查器，以提高产品的质量。 \par
+学习了如何使用自己的检查器扩展Clang静态分析器，就可以使用这些知识来创建新的通用检查器，或将它们贡献给社区，或可以创建专门为您的需求构建的检查器，以提高自己产品的质量。 \par
 
-静态分析器是利用Clang基础设施构建的，下一节将介绍如何构建自己的扩展Clang的插件。\par
+静态分析器是利用Clang基础设施构建的，下一节将介绍如何使用自己的插件来扩展Clang。\par
 
 
 

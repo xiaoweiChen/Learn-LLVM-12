@@ -1,10 +1,10 @@
 静态分析器是一个令人印象深刻的例子，说明了使用Clang基础结构可以做什么。也可以通过插件来扩展Clang，这样你就可以将自己的功能添加到Clang中。该技术与在LLVM中添加Pass插件非常相似。\par
 
-让我们用一个简单的插件来探索它的功能。LLVM编码标准要求函数名以小写字母开头。然而，随着时间的推移，编码标准也在不断发展，在许多情况下，函数以大写字母开头。一个产生违反命名规则的警告插件可以帮助解决这个问题，所以让我们尝试一下。\par
+用一个简单的插件来探索它的功能。LLVM编码标准要求函数名以小写字母开头。然而，随着时间的推移，编码标准也在不断发展。在许多情况下，需要函数以大写字母开头。一个产生违反命名规则的警告插件可以帮助解决这个问题，所以让我们尝试一下实现这样一个插件。\par
 
-因为您希望在抽象语法树(AST)上运行用户定义的操作，所以需要定义PluginASTAction类的一个子类。如果你使用Clang库来编写自己的工具，那么可以将动作定义ASTFrontendAction类的子类。PluginASTAction类是ASTFrontendAction类的一个子类，具有解析命令行选项的额外功能。\par
+因为希望在抽象语法树(AST)上运行用户定义的操作，所以需要定义PluginASTAction类的一个子类。如果使用Clang库来编写自己的工具，可以将动作定义为ASTFrontendAction类的子类。PluginASTAction类是ASTFrontendAction类的一个子类，具有解析命令行选项的额外功能。\par
 
-需要的另一个类是ASTConsumer类的子类。AST消费者是一个类，你可以使用它在AST上运行操作，而不管AST的来源是什么。我们的第一个插件不需要太多组件。您可以在NamingPlugin.cpp文件中创建如下实现:\par
+需要的另一个类是ASTConsumer类的子类。AST消费者是一个类，可以使用它在AST上运行操作，而不管AST的来源是什么。我们的第一个插件不需要太多组件，可以在NamingPlugin.cpp文件中创建如下实现:\par
 
 \begin{enumerate}
 \item 首先包括必需的头文件。除了上面提到的ASTConsumer类，还需要一个编译器的实例和插件注册表:
@@ -20,7 +20,7 @@ using namespace clang;
 namespace {
 \end{lstlisting}
 
-\item 接下来，定义ASTConsumer类的子类。稍后，如果检测到违反命名规则，将发出警告。为此，您需要一个对DiagnosticsEngine实例的引用。
+\item 接下来，定义ASTConsumer类的子类。稍后，如果检测到违反命名规则，将发出警告。为此，需要一个对DiagnosticsEngine实例的引用。
 
 \item 需要在类中存储一个CompilerInstance实例，然后可以请求一个DiagnosticsEngine实例:
 \begin{lstlisting}[caption={}]
@@ -31,7 +31,7 @@ public:
 	NamingASTConsumer(CompilerInstance &CI) : CI(CI) {}
 \end{lstlisting}
 
-\item ASTConsumer实例有几个入口方法。HandleTopLevelDecl()方法最符合我们的要求，在顶层的每个声明都调用该方法。这不仅仅包括函数，例如：变量。因此，您将使用LLVM RTTI dyn\underline{~}cast<>()函数来确定该声明是否为函数声明。HandleTopLevelDecl()方法有一个声明组作为参数，它可以包含多个声明。这需要对声明进行循环。下面的代码向我们展示了HandleTop\allowbreak LevelDecl()方法:
+\item ASTConsumer实例有几个入口方法。HandleTopLevelDecl()方法最符合我们的要求，在顶层的每个声明都调用该方法。这不仅仅包括函数，例如：变量。因此，可以使用LLVM RTTI dyn\underline{~}cast<>()函数来确定该声明是否为函数声明。HandleTopLevelDecl()方法有一个声明组作为参数，它可以包含多个声明。这需要对声明进行循环。下面的代码向我们展示了HandleTop\allowbreak LevelDecl()方法的实现:
 \begin{lstlisting}[caption={}]
 bool HandleTopLevelDecl(DeclGroupRef DG) override {
 	for (DeclGroupRef::iterator I = DG.begin(),
@@ -42,14 +42,14 @@ bool HandleTopLevelDecl(DeclGroupRef DG) override {
 			dyn_cast<FunctionDecl>(D)) {
 \end{lstlisting}
 
-\item 找到函数声明之后，您需要检索函数的名称。还需要确保名称不为空:
+\item 找到函数声明之后，需要检索函数的名称。还需要确保名称不为空:
 \begin{lstlisting}[caption={}]
 			std::string Name =
 				FD->getNameInfo().getName().getAsString();
 			assert(Name.length() > 0 &&
 				"Unexpected empty identifier");
 \end{lstlisting}
-如果函数名不是以小写字母开头，那么就违反了命名规则:
+如果函数名不是以小写字母开头，就违反了命名规则:
 \begin{lstlisting}[caption={}]
 			char &First = Name.at(0);
 			if (!(First >= 'a' && First <= 'z')) {
@@ -76,12 +76,12 @@ bool HandleTopLevelDecl(DeclGroupRef DG) override {
 };
 \end{lstlisting}
 
-\item 接下来，需要创建PluginASTAction子类，它实现了Clang调用的接口:
+\item 接下来，需要创建PluginASTAction子类，实现了Clang调用的接口:
 \begin{lstlisting}[caption={}]
 class PluginNamingAction : public PluginASTAction {
 public:
 \end{lstlisting}
-必须实现的第一个方法是CreateASTConsumer()方法，返回NamingASTConsumer类的一个实例。这个方法由Clang调用，传递的CompilerInstance实例可以访问编译器的所有重要类。下面的代码演示了这一点:
+必须实现的第一个方法是CreateASTConsumer()方法，返回NamingASTConsumer类的一个实例。这个方法由Clang调用，传递的CompilerInstance实例可以访问编译器的所有重要类:
 \begin{lstlisting}[caption={}]
 	std::unique_ptr<ASTConsumer>
 	CreateASTConsumer(CompilerInstance &CI,
@@ -90,7 +90,7 @@ public:
 	}
 \end{lstlisting}
 
-\item 插件还可以访问命令行选项。您的插件没有命令行参数，只需要返回true来表示成功:
+\item 插件还可以访问命令行选项。我们的插件没有命令行参数，只需要返回true来表示成功:
 \begin{lstlisting}[caption={}]
 	bool ParseArgs(const CompilerInstance &CI,
 				   const std::vector<std::string> &args)
@@ -99,14 +99,14 @@ public:
 	}
 \end{lstlisting}
 
-\item 插件的操作类型描述了何时调用该操作。默认值是Cmdline，这意味着插件必须在命令行上命名才能调用。您需要重写该方法并将其值更改为AddAfterMainAction，插件才能自动运行:
+\item 插件的操作类型描述了何时调用该操作。默认值是Cmdline，这意味着插件必须在命令行上命名才能调用。需要重写该方法并将其值更改为AddAfterMainAction，插件才能自动运行:
 \begin{lstlisting}[caption={}]
 	PluginASTAction::ActionType getActionType() override {
 		return AddAfterMainAction;
 	}
 \end{lstlisting}
 
-\item PluginNamingAction类的实现完成了;只缺少类的结束大括号和匿名名称空间。将它们添加到代码中如下:
+\item PluginNamingAction类的实现完成了：
 \begin{lstlisting}[caption={}]
 };
 }
@@ -120,7 +120,7 @@ static FrontendPluginRegistry::Add<PluginNamingAction>
 
 \end{enumerate}
 
-这就完成了插件的实现。要编译插件，在CMakeLists.txt文件中创建一个构建描述。该插件位于Clang源代码树之外，因此您需要设置一个完整的项目。可以遵循以下步骤:\par
+这就完成了插件的实现。要编译插件，在CMakeLists.txt文件中创建一个构建描述。该插件位于Clang源代码树之外，因此需要设置一个完整的项目。可以遵循以下步骤:\par
 
 \begin{enumerate}
 \item 首先定义所需的CMake版本和项目名称:
@@ -129,7 +129,7 @@ cmake\underline{~}minimum\underline{~}required(VERSION 3.13.4) \\
 project(naminglugin)
 \end{tcolorbox}
 
-\item 接下来，包括LLVM文件。如果CMake不能自动找到文件，那么你必须设置LLVM\underline{~}DIR变量，以指向包含CMake文件的LLVM目录:
+\item 接下来，包括LLVM文件。如果CMake不能自动找到文件，需要设置LLVM\underline{~}DIR变量，以指向包含CMake文件的LLVM目录:
 \begin{tcolorbox}[colback=white,colframe=black]
 find\underline{~}package(LLVM REQUIRED CONFIG)
 \end{tcolorbox}
@@ -142,7 +142,7 @@ include(AddLLVM) \\
 include(HandleLLVMOptions)
 \end{tcolorbox}
 
-\item 然后，加载Clang的CMake定义。如果CMake不能自动找到文件，那么你必须设置Clang\underline{~}DIR变量指向包含CMake文件的Clang目录:
+\item 然后，加载Clang的CMake定义。如果CMake不能自动找到文件，那么必须设置Clang\underline{~}DIR变量指向包含CMake文件的Clang目录:
 \begin{tcolorbox}[colback=white,colframe=black]
 find\underline{~}package(Clang REQUIRED)
 \end{tcolorbox}
@@ -155,7 +155,7 @@ add\underline{~}definitions("\$\{LLVM\underline{~}DEFINITIONS\}") \\
 link\underline{~}directories("\$\{LLVM\underline{~}LIBRARY\underline{~}DIR\}")
 \end{tcolorbox}
 
-\item 前面的定义设置了构建环境。插入以下命令，定义你的插件的名称，插件的源文件，以及它是一个Clang插件:
+\item 前面的定义设置了构建环境。插入以下命令，定义插件的名称，插件的源文件，以及说明它是一个Clang插件:
 \begin{tcolorbox}[colback=white,colframe=black]
 add\underline{~}llvm\underline{~}library(NamingPlugin MODULE NamingPlugin.cpp \\
 \hspace*{3cm}PLUGIN\underline{~}TOOL clang)
@@ -170,7 +170,7 @@ if(LLVM\underline{~}ENABLE\underline{~}PLUGINS AND (WIN32 OR CYGWIN)) \\
 endif()
 \end{tcolorbox}
 
-\item 将这两个文件保存在NamingPlugin目录中。创建一个与NamingPlugin目录同级的build- NamingPlugin目录，并使用以下命令构建插件:
+\item 将这两个文件保存在NamingPlugin目录中。创建一个与NamingPlugin目录同级的build-NamingPlugin目录，并使用以下命令构建插件:
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ mkdir build-naming-plugin \\
 \$ cd build-naming-plugin \\
@@ -180,7 +180,7 @@ endif()
 
 \end{enumerate}
 
-这些步骤创建NamingPlugin。构建目录中的动态库。\par
+这些步骤创建NamingPlugin，构建目录中的动态库。\par
 
 要测试插件，请将下面的源代码保存为named.c文件。Func1函数名违反了命名规则，但主函数没有违反规则:\par
 
@@ -209,9 +209,9 @@ int Func1() { return 0; } \\
 \hspace*{0.5cm}naming.c
 \end{tcolorbox}
 
-祝贺你，已经构建了你的第一个Clang插件!\par
+祝贺你，已经构建了第一个Clang插件!\par
 
-这种方法的缺点是它有一定的局限性。ASTConsumer类有不同的入口方法，但它们都是粗粒度的。这可以通过使用RecursiveASTVisitor类来解决。这个类遍历所有AST节点，您可以覆盖感兴趣的VisitXXX()方法。你可以按照以下步骤来为使用“访问者”重写插件:\par
+这种方法的缺点是它有一定的局限性。ASTConsumer类有不同的入口方法，但它们都是粗粒度的，这可以通过使用RecursiveASTVisitor类来解决。这个类遍历所有AST节点，可以覆盖感兴趣的VisitXXX()方法。可以按照以下步骤来为使用“访问者”重写插件:\par
 
 \begin{enumerate}
 \item 定义RecursiveASTVisitor类需要一个额外的include:
@@ -219,7 +219,7 @@ int Func1() { return 0; } \\
 #include "clang/AST/RecursiveASTVisitor.h"
 \end{lstlisting}
 
-\item 然后，将访问者定义为匿名名称空间中的第一个类。您将只存储对AST上下文的引用，它将使您访问所有用于AST操作的重要方法，包括发出警告所需的DiagnosticsEngine实例:
+\item 然后，将访问者定义为匿名名称空间中的第一个类。只存储对AST上下文的引用，将使您访问所有用于AST操作的重要方法，包括发出警告所需的DiagnosticsEngine实例:
 \begin{lstlisting}[caption={}]
 class NamingVisitor
 	: public RecursiveASTVisitor<NamingVisitor> {
@@ -230,7 +230,7 @@ public:
 		: ASTCtx(CI.getASTContext()) {}
 \end{lstlisting}
 
-\item 在遍历过程中，只要发现函数声明，就调用VisitFunctionDecl()方法。将内部循环的主体复制到HandleTopLevelDecl()函数中:
+\item 遍历过程中，只要发现函数声明，就调用VisitFunctionDecl()方法。将内部循环的主体复制到HandleTopLevelDecl()函数中:
 \begin{lstlisting}[caption={}]
 	virtual bool VisitFunctionDecl(FunctionDecl *FD) {
 		std::string Name =
@@ -252,7 +252,7 @@ public:
 };
 \end{lstlisting}
 
-\item 这就完成了访问者实现。在你的NamingASTConsumer类中，你现在只会存储一个访问者实例:
+\item 这就完成了访问者实现。在NamingASTConsumer类中，现在只会存储一个访问者实例:
 \begin{lstlisting}[caption={}]
 	std::unique_ptr<NamingVisitor> Visitor;
 public:
@@ -260,7 +260,7 @@ public:
 		: Visitor(std::make_unique<NamingVisitor>(CI)) {}
 \end{lstlisting}
 
-\item 您将删除HandleTopLevelDecl()方法，因为该功能现在在访问者类中，所以您将需要重写HandleTranslationUnit()方法。每个翻译单元调用一次，会在这里开始AST遍历:
+\item 您将删除HandleTopLevelDecl()方法，因为该功能现在在访问者类中，所以需要重写HandleTranslationUnit()方法。每个翻译单元调用一次，会在这里开始AST遍历:
 \begin{lstlisting}[caption={}]
 	void
 	HandleTranslationUnit(ASTContext &ASTCtx) override {
@@ -271,9 +271,9 @@ public:
 
 \end{enumerate}
 
-这个新的实现具有完全相同的功能。优点是它更容易扩展，例如：想检查变量声明，那么可以实现VisitVarDecl()方法。或者，如果想使用语句，那么可以实现VisitStmt()方法。基本上，对于C、C++和Objective-C语言的每个实体都有一个visitor方法。\par
+这个新的实现具有完全相同的功能。优点是它更容易扩展，例如：想检查变量声明，可以实现VisitVarDecl()方法。或者，如果想使用语句，那么可以实现VisitStmt()方法。基本上，对于C、C++和Objective-C语言的每个实体都有一个visitor方法。\par
 
-访问AST允许构建执行复杂任务的插件。如本节所述，强制执行命名约定是对Clang的一个有用的补充。另一个可以作为插件实现的有用的附加功能是计算软件度量，比如圈复杂度。您还可以添加或替换AST节点，例如：允许添加运行时检测。添加插件可以以需要的方式，对Clang。进行扩展。\par
+访问AST允许构建执行复杂任务的插件。如本节所述，强制执行命名约定是对Clang的一个补充。另一个可以作为插件实现的有用的附加功能是计算软件度量，比如：圈复杂度。您还可以添加或替换AST节点，例如：允许添加运行时检测。添加插件可以以需要的方式，对Clang进行扩展。\par
 
 
 

@@ -1,12 +1,12 @@
 
-LLVM自带一些sanitizer。这些Pass以某种方式检测中间表示(IR)，以检查应用程序的某些不当行为。通常，它们需要库支持，这是compiler-rt项目的一部分。可以在Clang中启用sanitizer，这让它们使用起来更加方便。在下面的小节中，我们将介绍可用的sanitizer，即地址、内存和线程。我们先来看看地址sanitizer。\par
+LLVM自带一些sanitizer。这些Pass以某种方式检测中间表示(IR)，以检查应用程序的某些不当行为。通常，需要库支持，这是compiler-rt项目的一部分。可以在Clang中启用sanitizer，这让它们使用起来更加方便。下面的小节中，我们将介绍可用的sanitizer，即地址、内存和线程。我们先来看看地址sanitizer。\par
 
 \hspace*{\fill} \par %插入空行
 \textbf{用地址sanitizer检测内存访问问题}
 
-您可以使用地址sanitizer来检测应用程序中的两个内存访问错误。这包括一些常见的错误，比如：在释放动态分配的内存后使用它，或者在已分配内存的边界之外写入动态分配的内存。\par
+可以使用地址sanitizer来检测应用程序中的两个内存访问错误。这包括一些常见的错误，比如：在释放动态分配的内存后使用它，或者在已分配内存的边界之外写入动态分配的内存。\par
 
-当启用地址sanitizer时，地址sanitizer将用它自己的版本替换对malloc()和free()函数的调用，并使用检查保护程序检测所有内存访问。当然，这给应用程序增加了很多开销，您将只在应用程序的测试阶段使用地址消毒剂。如果您对实现细节感兴趣，那么您可以在llvm/lib/Transforms/\allowbreak Instrumentation/AddressSanitzer.cpp文件中找到Pass源，并在\url{https://github.com/google/sanitizers/wiki/AddressSanitizerAlgorithm}中找到算法描述。\par
+当启用地址sanitizer时，地址sanitizer将用它自己的版本替换对malloc()和free()函数的调用，并使用检查保护程序检测所有内存访问。当然，这给应用程序增加了很多开销，您将只在应用程序的测试阶段使用地址消毒剂。如果对实现细节感兴趣，可以在llvm/lib/Transforms/Instrumentation/AddressSanitzer.cpp文件中找到Pass源，并在\url{https://github.com/google/sanitizers/wiki/AddressSanitizerAlgorithm}中找到算法描述。\par
 
 让我们运行一个简短的示例来演示地址sanitizer的功能。下面的示例应用程序outfbounds.c分配了12字节的内存，但初始化了14字节:\par
 
@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
 \$ clang -fsanitize=address -g outofbounds.c -o outofbounds
 \end{tcolorbox}
 
-现在，当运行应用程序时，你会得到一个冗长的错误报告:\par
+现在，当运行应用程序时，会得到一个冗长的错误报告:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ ./outofbounds \\
@@ -45,16 +45,16 @@ compiler-rt/lib/asan/asan\underline{~}interceptors\underline{~}memintrinsics.cpp
 \hspace*{1cm}\#2 0x23331f in \underline{~}start /usr/src/lib/csu/amd64/crt1.c:76:7
 \end{tcolorbox}
 
-报告还包含关于内存内容的详细信息。重要的信息是错误的类型(在本例中是堆缓冲区溢出)和出错的源行。要找到源码行，可以查看位置\#1的堆栈跟踪，这是地址sanitizer拦截应用程序执行之前的最后一个位置。它显示了outfbounds.c文件中的第6行，这一行包含了对memset()的调用——实际上，这就是发生内存溢出的确切位置。\par
+报告还包含关于内存内容的详细信息。重要的信息是错误的类型(在本例中是堆缓冲区溢出)和出错的源行。要找到源码行，可以查看位置\#1的堆栈跟踪，这是地址sanitizer拦截应用程序执行之前的最后一个位置。它显示了outfbounds.c文件中的第6行，这一行包含了对memset()的调用——实际上，这就是发生内存溢出的位置。\par
 
-替换包含memset(p, 0, 14);在outfbounds.c文件中使用以下代码，然后在释放内存后引入对内存的访问。并将源代码存储在useafterfree.c文件中:\par
+替换包含memset(p, 0, 14);在outfbounds.c文件中使用以下代码，然后在释放内存后引入对内存的访问。并将源代码存储在useafterfree.c中:\par
 
 \begin{lstlisting}[caption={}]
 memset(p, 0, 12);
 free(p);
 \end{lstlisting}
 
-同样，如果你编译并运行它，会检测到内存释放后指针的使用情况:\par
+同样，如果编译并运行，会检测到内存释放后指针的使用情况:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ clang -fsanitize=address -g useafterfree.c -o useafterfree \\
@@ -72,7 +72,7 @@ useafterfree.c:8:15 \\
 
 这一次，报告指向第8行，其中包含p指针的释放。\par
 
-在x86\underline{~}64 Linux和macOS上，您也可以启用泄漏检测器。如果在运行应用程序之前将ASAN\underline{~}OPTIONS环境变量设置为detect\underline{~}leaks=1，那么还会得到一个关于内存泄漏的报告。可以这样做:\par
+在x86\underline{~}64 Linux和macOS上，也可以启用泄漏检测器。如果在运行应用程序之前将ASAN\underline{~}OPTIONS环境变量设置为detect\underline{~}leaks=1，还会得到一个关于内存泄漏的报告。可以这样做:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ ASAN\underline{~}OPTIONS=detect\underline{~}leaks=1 ./useafterfree
@@ -83,9 +83,9 @@ useafterfree.c:8:15 \\
 \hspace*{\fill} \par %插入空行
 \textbf{使用内存sanitizer查找未初始化的内存访问}
 
-使用未初始化的内存是另一类难以发现的错误。在C和C++中，一般的内存分配例程不会用默认值初始化内存缓冲区。对于堆栈上的变量也是如此。\par
+使用未初始化的内存是另一类难以发现的错误。在C和C++中，一般的内存分配例程不会用默认值初始化内存缓冲区，对于堆栈上的变量也是如此。\par
 
-出现错误的机会很多，而内存sanitizer有助于找到错误。如果您对实现细节感兴趣，可以在llvm/lib/Transforms/Instrumentation/MemorySanitizer.cpp文件中找到内存sanitizer Pass的源文件。文件顶部的注释解释了实现思想。\par
+出现错误的机会很多，而内存sanitizer有助于找到错误。如果对实现细节感兴趣，可以在llvm/lib/Transforms/Instrumentation/MemorySanitizer.cpp中找到内存sanitizer Pass的源文件。文件顶部的注释解释了实现思想。\par
 
 让我们运行一个小示例，并将下面的源代码保存为memory.c文件。你应该注意到x变量没有初始化，而是用作返回值:\par
 
@@ -117,9 +117,9 @@ Exiting
 \hspace*{\fill} \par %插入空行
 \textbf{用线程sanitizer指出数据竞争}
 
-为了充分利用现代CPU的功能，应用程序现在使用多线程。这是一项强大的技术，但它也引入了新的错误来源。多线程应用程序中一个常见的问题是，对全局数据的访问没有保护，例如：没有使用互斥锁或信号量。这样的问题称为数据竞争。线程sanitizer可以检测基于pthread的应用程序和使用LLVM libc++实现的应用程序中的数据竞争。可以在llvm/lib/Transforms/Instrumentation/\allowbreak ThreadSanitize.cpp文件中找到实现。\par
+为了充分利用现代CPU的功能，应用程序现在使用多线程。这是一项强大的技术，但它也引入了新的错误来源。多线程应用程序中一个常见的问题是，对全局数据的访问没有保护，例如：没有使用互斥锁或信号量。这样的问题称为数据竞争。线程sanitizer可以检测基于pthread的应用程序和使用LLVM libc++实现的应用程序中的数据竞争。可以在llvm/lib/Transforms/Instrumentation/ThreadSanitize.cpp文件中找到实现。\par
 
-为了演示线程sanitizer的功能，我们将创建一个非常简单的生产者/消费者的应用程序。生产者线程增加一个全局变量，而消费者线程减少同一个变量。对全局变量的访问不受保护，因此这显然是一场数据竞争。在thread.c文件中保存以下源代码:\par
+为了演示线程sanitizer的功能，我们将创建一个简单的生产者/消费者的应用程序。生产者线程增加一个全局变量，而消费者线程减少同一个变量。对全局变量的访问不受保护，因此这显然是一场数据竞争。在thread.c文件中保存以下源代码:\par
 
 \begin{lstlisting}[caption={}]
 #include <pthread.h>
@@ -150,7 +150,7 @@ int main() {
 
 producer()函数只增加数据变量，而consumer()函数减少数据变量。没有实现访问保护，因此这构成了一场数据竞争。main()函数使用pthread\underline{~}create()函数启动两个线程，使用pthread\underline{~}join()函数等待线程结束，并返回数据变量的当前值。\par
 
-如果编译并运行此应用程序，则不会注意到任何错误，返回值总是0。如果执行的循环次数增加100倍，则会出现一个错误。在本例中，返回值不等于0，您将看到显示其他值。\par
+如果编译并运行此应用程序，则不会注意到任何错误，返回值总是0。如果执行的循环次数增加100倍，则会出现一个错误。本例中，返回值不等于0，您将看到显示其他值。\par
 
 您可以使用线程sanitizer来标识数据竞争。要在启用了线程sanitizer的情况下进行编译，需要将-fsanitize=thread选项传递给Clang。使用-g选项添加调试符号可以在报告中提供行号，这很有帮助。注意，还需要链接pthread库:\par
 
@@ -193,7 +193,7 @@ ThreadSanitizer: reported 1 warnings
 
 报告指向源文件的第6行和第11行，其中访问全局变量。它还显示了两个名为T1和T2的线程访问了该变量，以及分别调用pthread\underline{~}create()函数的文件和行号。\par
 
-在本节中，我们学习了如何使用三种sanitizer来查找应用程序中的常见问题。地址sanitizer帮助我们识别常见的内存访问错误，例如：越界访问或在释放后使用内存。使用内存sanitizer，可以找到对未初始化内存的访问，线程sanitizer帮助我们查找数据竞争。\par
+本节中，我们学习了如何使用三种sanitizer来查找应用程序中的常见问题。地址sanitizer帮助我们识别常见的内存访问错误，例如：越界访问或在释放后使用内存。使用内存sanitizer，可以找到对未初始化内存的访问，线程sanitizer帮助我们查找数据竞争。\par
 
 下一节中，我们将尝试通过在随机数据上运行应用程序(称为模糊测试)来触发sanitizer。\par
 
