@@ -1,10 +1,10 @@
 
-DAG指令选择器的很大一部分是由llvm-tblgen工具生成的。不过，我们仍然需要使用生成的代码创建类，并将所有内容放在一起。让我们从初始化过程开始。\par
+DAG指令选择器的很大一部分是由llvm-tblgen工具生成的。不过，仍然需要使用生成的代码创建类，并将所有内容放在一起。让我们从初始化过程开始。\par
 
 \hspace*{\fill} \par %插入空行
 \textbf{初始化目标机器}
 
-每个后端必须提供至少一个TargetMachine类，通常是LLVMTargetMachine类的子类。M88k\allowbreak TargetMachine类包含代码生成所需的许多细节，它还充当其他后端类的工厂，尤其是Subtarget类和TargetPassConfig类。Subtarget类保存代码生成的配置，比如启用了哪些特性。TargetPassConfig类配置后端机器的通行证。M88kTargetMachine类的声明在M88kTargetMachine.h文件中:\par
+每个后端必须提供至少一个TargetMachine类，通常是LLVMTargetMachine类的子类。M88k\allowbreak TargetMachine类包含代码生成所需的许多细节，还充当其他后端类的工厂，尤其是Subtarget类和TargetPassConfig类。Subtarget类保存代码生成的配置，比如启用了哪些特性。TargetPassConfig类配置后端机器的通行证。M88kTargetMachine类的声明在M88kTargetMachine.h文件中:\par
 
 \begin{lstlisting}[caption={}]
 class M88kTargetMachine : public LLVMTargetMachine {
@@ -21,7 +21,7 @@ public:
 
 请注意，每个功能可以有不同的子目标。\par
 
-M88kTargetMachine.cpp文件中的实现非常简单。最有趣的是这个后端机器Pass的设置。这会创建到选择DAG的连接(如果需要，还会创建到全局指令选择的连接)。在类中创建的传递随后被添加到Pass流水中，以便从IR生成目标文件或汇编程序:\par
+M88kTargetMachine.cpp文件中的实现非常简单。最有趣的是这个后端机器Pass的设置。这会创建到选择DAG的连接(如果需要，还会创建到全局指令选择的连接)。在类中创建的Pass随后添加到Pass流水中，以便从IR生成目标文件或汇编程序:\par
 
 \begin{lstlisting}[caption={}]
 namespace {
@@ -48,7 +48,7 @@ TargetPassConfig *M88kTargetMachine::createPassConfig(
 }
 \end{lstlisting}
 
-从M88kTargetMachine类返回的SubTarget实现允许访问其他重要类。M88kInstrInfo类返回关于指令的信息，包括寄存器。m88ktargetlower类提供了与调用相关的指令的降低，还允许添加自定义DAG规则。这个类的大部分是由llvm-tblgen工具生成的，而且我们需要包含生成的头文件。\par
+从M88kTargetMachine类返回的SubTarget实现允许访问其他重要类。M88kInstrInfo类返回关于指令的信息，包括寄存器。m88ktargetlower类提供了与调用相关的指令的降低，还允许添加自定义DAG规则。这个类的大部分是由llvm-tblgen工具生成的，而且需要包含生成的头文件。\par
 
 M88kSubTarget.h文件的定义如下:\par
 
@@ -86,14 +86,14 @@ public:
 } // end namespace llvm
 \end{lstlisting}
 
-接下来，我们实现选择DAG。\par
+接下来，实现选择DAG。\par
 
 \hspace*{\fill} \par %插入空行
 \textbf{添加选择DAG的实现}
 
-选择DAG是在同名文件中的M88kDAGtoDAGIsel类中实现的。这里，我们可以从创建目标机器描述中受益:大多数功能都是从这个描述中生成的。在第一个实现中，只需要覆盖Select()函数并将其转发给生成的SelectCode函数。某些情况下，可以重写更多函数，例如：如果需要扩展DAG的预处理，或者如果需要添加特殊的内联汇编器规则。\par
+选择DAG是在同名文件中的M88kDAGtoDAGIsel类中实现的。这里，我们可以从创建目标机器描述中受益:大多数功能都是从这个描述中生成的。第一个实现中，只需要覆盖Select()函数并将其转发给生成的SelectCode函数。某些情况下，可以重写更多函数，例如：如果需要扩展DAG的预处理，或者如果需要添加特殊的内联汇编器规则。\par
 
-因为这个类是一个机器函数的Pass，所以我们也为Pass提供了一个名称。实现的主要部分来自生成的文件，我们将其包含在类的中间:\par
+因为这个类是一个机器函数的Pass，所以我们也为Pass提供了一个名称。实现的主要部分来自生成的文件，将其包含在类的中间:\par
 
 \begin{lstlisting}[caption={}]
 class M88kDAGToDAGISel : public SelectionDAGISel {
@@ -124,14 +124,14 @@ FunctionPass *llvm::createM88kISelDag(M88kTargetMachine &TM,
 }
 \end{lstlisting}
 
-现在我们可以实现特定于目标的操作，这些操作不能在目标描述中表示。\par
+现在可以实现特定于目标的操作，这些操作不能在目标描述中表示。\par
 
 \hspace*{\fill} \par %插入空行
 \textbf{支持针对性的操作}
 
 转向m88ktargetlower类，在M88kISelLowering.h文件中定义。这个类配置指令DAG选择过程，并增强底层对特定于目标的操作。\par
 
-在目标描述中，我们定义了新的DAG节点。此文件中还定义了与新类型一起使用的枚举，并继续使用最后一个预定义数字进行编号:\par
+目标描述中，我们定义了新的DAG节点。此文件中还定义了与新类型一起使用的枚举，并继续使用最后一个预定义数字进行编号:\par
 
 \begin{lstlisting}[caption={}]
 namespace M88kISD {
@@ -143,7 +143,7 @@ enum NodeType : unsigned {
 } // end namespace M88kISD
 \end{lstlisting}
 
-类需要为函数调用提供所需的降低方法。为了简单起见，只看返回值。类还可以为需要自定义处理的操作定义LowerOperation()钩子方法。还可以启用自定义DAG组合方法，为此我们定义了PerformDAGCombine()方法:\par
+类需要为函数调用提供所需的降级方法。为了简单起见，只看返回值。类还可以为需要自定义处理的操作定义LowerOperation()钩子方法。还可以启用自定义DAG组合方法，为此我们定义了PerformDAGCombine()方法:\par
 
 \begin{lstlisting}[caption={}]
 class M88kTargetLowering : public TargetLowering {
@@ -168,7 +168,7 @@ public:
 };
 \end{lstlisting}
 
-该类的实现在m88kisellowering.cpp中。首先，我们看看如何降低返回值:\par
+该类的实现在m88kisellowering.cpp中。首先，我们看看如何降级返回值:\par
 
 \begin{enumerate}
 \item 为调用规则生成的函数是需要的，因此需要包含生成的文件:
@@ -254,7 +254,7 @@ SDValue M88kTargetLowering::LowerReturn(SDValue Chain,
 		RetOps.push_back(Glue);
 \end{lstlisting}
 	
-\item 然后，返回re\underline{~}flag节点，连接降低后的结果:
+\item 然后，返回re\underline{~}flag节点，连接降级后的结果:
 \begin{lstlisting}[caption={}]
 	return DAG.getNode(M88kISD::RET_FLAG, DL,
 		MVT::Other,
@@ -267,9 +267,9 @@ SDValue M88kTargetLowering::LowerReturn(SDValue Chain,
 为了能够调用函数，必须实现LowerFormalArguments()和LowerCall()方法。这两种方法都遵循类似的方法，因此这里没有展示。\par
 
 \hspace*{\fill} \par %插入空行
-\textbf{降低配置目标}
+\textbf{降级配置目标}
 
-降低函数调用和参数的方法必须实现，因为它们依赖于目标。其他操作可能在目标体系结构中得到支持，也可能没有。为了让降低过程了解它，我们在m88ktargetlower类的构造函数中设置了配置:\par
+降级函数调用和参数的方法必须实现，因为它们依赖于目标。其他操作可能在目标体系结构中得到支持，也可能没有。为了让降级过程了解它，我们在m88ktargetlower类的构造函数中设置了配置:\par
 
 \begin{enumerate}
 \item 构造函数将TargetMachine和M88kSubtarget实例作为参数，并用它们初始化了相应的字段:
@@ -279,7 +279,7 @@ M88kTargetLowering::M88kTargetLowering(
 	: TargetLowering(TM), Subtarget(STI) {
 \end{lstlisting}
 
-\item 我们首先添加所有的注册类。这里，只定义了通用寄存器，因此它只是一个简单的调用:
+\item 首先添加所有的注册类。这里，只定义了通用寄存器，因此它只是一个简单的调用:
 \begin{lstlisting}[caption={}]
 	addRegisterClass(MVT::i32, &M88k::GPRRegClass);
 \end{lstlisting}
@@ -289,12 +289,12 @@ M88kTargetLowering::M88kTargetLowering(
 	computeRegisterProperties(Subtarget.getRegisterInfo());
 \end{lstlisting}
 
-\item 我们还需要告诉堆栈指针使用了哪个寄存器。在M88k架构中，使用r31寄存器:
+\item 还需要告诉堆栈指针使用了哪个寄存器。在M88k架构中，使用r31寄存器:
 \begin{lstlisting}[caption={}]
 	setStackPointerRegisterToSaveRestore(M88k::R31);
 \end{lstlisting}
 
-\item 我们还需要定义布尔值是如何表示的。基本上，就是这里使用的值是0和1。其他可能的选项是只查看值的第0位，忽略其他所有位，并将值的所有位设置为0或1:
+\item 还需要定义布尔值是如何表示的。基本上，就是这里使用的值是0和1。其他可能的选项是只查看值的第0位，忽略其他所有位，并将值的所有位设置为0或1:
 \begin{lstlisting}[caption={}]
 	setBooleanContents(ZeroOrOneBooleanContent);
 \end{lstlisting}
@@ -315,7 +315,7 @@ M88kTargetLowering::M88kTargetLowering(
 
 根据目标体系结构，在构造函数中设置配置可能要长得多。我们只定义了最小值，忽略值，例如：浮点运算。\par
 
-我们在上面标记了或操作来执行自定义组合。因此，指令选择器在调用生成的指令选择之前调用PerformDAGCombine()方法。这个函数会在指令选择的各个阶段调用，但通常，只在操作合法化后执行匹配。常见的实现是查看操作和处理分支函数:\par
+我们在上面标记了或操作来执行自定义组合。因此，指令选择器在调用生成的指令选择之前调用PerformDAGCombine()方法。这个函数会在指令选择的各个阶段调用，但通常只在操作合法化后执行匹配。常见的实现是查看操作和处理分支函数:\par
 
 \begin{lstlisting}[caption={}]
 SDValue M88kTargetLowering::PerformDAGCombine(SDNode *N,
@@ -332,7 +332,7 @@ DAGCombinerInfo &DCI) const {
 }
 \end{lstlisting}
 
-在performcombine()方法中，尝试检查是否可以为or操作生成一个set指令。set指令将从指定的位偏移量开始的连续位数设置为1。这是or操作的一种特殊情况，第二个操作数是匹配这种格式的常量。因为M88k体系结构的or指令只能在16位常量上工作，所以这种匹配是有益的；否则，将合成常量，从而产生两个or指令。该方法使用isShiftedMask()帮助函数来确定常量值是否具有所需的数据。\par
+performcombine()方法中，尝试检查是否可以为or操作生成一个set指令。set指令将从指定的位偏移量开始的连续位数设置为1。这是or操作的一种特殊情况，第二个操作数是匹配这种格式的常量。因为M88k体系结构的or指令只能在16位常量上工作，所以这种匹配是有益的；否则，将合成常量，从而产生两个or指令。该方法使用isShiftedMask()帮助函数来确定常量值是否具有所需的数据。\par
 
 如果第二个操作数是必需形式的常量，则该函数返回一个表示set指令的节点。否则，返回值SDValue()表示没有找到匹配的模式，需要调用生成的DAG模式匹配器:\par
 
@@ -357,9 +357,9 @@ SDValue performORCombine(SDNode *N,
 }
 \end{lstlisting}
 
-为了完成整个降低过程的实现，需要实现M88kFrameLowering类。这个类负责处理堆栈帧。这包括生成序言和尾声代码、处理寄存器溢出等等。\par
+为了完成整个降低过程的实现，需要实现M88kFrameLowering类。这个类负责处理堆栈帧，这包括生成头部和尾部代码、处理寄存器溢出等等。\par
 
-对于第一个实现，可以只提供空函数。显然，为了实现完整的功能，必须实现这个类。这就完成了指令选择的实现。接下来，我们看看最后的指令是如何产生的。\par
+对于第一个实现，可以只提供空函数。显然，为了实现完整的功能，必须实现这个类，这就完成了指令选择的实现。接下来，看看最后的指令如何产生。\par
 
 
 

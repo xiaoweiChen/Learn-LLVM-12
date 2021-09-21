@@ -15,7 +15,7 @@ class Triple {
 };
 \end{lstlisting}
 
-在llvm/lib/Support/Triple.cpp文件中，有许多使用ArchType枚举的地方。你需要扩展它们，例如：在getArchTypeName()方法中，添加一个新的case:\par
+在llvm/lib/Support/Triple.cpp文件中，有许多使用ArchType枚举的地方。需要扩展它们，例如：在getArchTypeName()方法中，添加一个新的case:\par
 
 \begin{lstlisting}[caption={}]
 	switch (Kind) {
@@ -24,7 +24,7 @@ class Triple {
 	}
 \end{lstlisting}
 
-在大多数情况下，如果您忘记在某个函数中处理新的m88k枚举成员，编译器会发出警告。接下来，我们将扩展可执行和可链接格式(ELF)定义。\par
+大多数情况下，如果忘记在某个函数中处理新的m88k枚举成员，编译器会发出警告。接下来，我们将扩展可执行和可链接格式(ELF)定义。\par
 
 
 

@@ -1,4 +1,4 @@
-MC层负责以文本或二进制形式发出机器码。大多数功能要么在各种MC类中实现，只需要配置，要么从目标描述生成实现。\par
+MC层负责以文本或二进制形式发出机器码。大多数功能要么在各种MC类中实现(只需要配置)，要么从目标描述生成实现。\par
 
 MC层的初始化在MCTargetDesc/M88kMCTargetDesc.cpp中进行。以下类是在targeregistry单例中注册的:\par
 
@@ -101,7 +101,7 @@ void LLVMInitializeM88kTargetMC() {
 #include "M88kGenSubtargetInfo.inc"
 \end{lstlisting}
 
-我们将注册类的源文件全部放在MCTargetDesc目录中。对于第一个实现，只提供这些类的部分就足够了，例如：只要不将内存地址支持添加到目标描述中，就不会生成补丁。M88kMCAsmInfo类可以很快实现，我们只需要在构造函数中设置一些属性:\par
+我们将注册类的源文件全部放在MCTargetDesc目录中。对于第一个实现，只提供这些类的部分就足够了，例如：只要不将内存地址支持添加到目标描述中，就不会生成补丁。M88kMCAsmInfo类可以很快实现，只需要在构造函数中设置一些属性:\par
 
 \begin{lstlisting}[caption={}]
 M88kMCAsmInfo::M88kMCAsmInfo(const Triple &TT) {
@@ -114,7 +114,7 @@ M88kMCAsmInfo::M88kMCAsmInfo(const Triple &TT) {
 
 实现了MC层的支持类之后，就可以将机器码生成到文件中了。\par
 
-下一节中，我们实现反汇编所需的类，这是相反的操作:将对象文件转换回汇编文本。\par
+下一节中，我们实现反汇编所需的类，这是反向的操作:将对象文件转换回汇编文本。\par
 
 
 

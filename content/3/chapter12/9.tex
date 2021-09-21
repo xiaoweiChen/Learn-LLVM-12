@@ -24,7 +24,7 @@ public:
 
 生成的类以非限定的方式引用DecodeStatus枚举，因此必须使名称可见。\par
 
-为了初始化反汇编器，我们定义了一个工厂函数，它只是实例化一个新对象:\par
+为了初始化反汇编器，我们定义了一个工厂函数，只是实例化一个新对象:\par
 
 \begin{lstlisting}[caption={}]
 static MCDisassembler *
@@ -35,7 +35,7 @@ createM88kDisassembler(const Target &T,
 }
 \end{lstlisting}
 
-在LLVMInitializeM88kDisassembler()函数中，将工厂函数注册到目标注册表中:\par
+LLVMInitializeM88kDisassembler()函数中，将工厂函数注册到目标注册表中:\par
 
 \begin{lstlisting}[caption={}]
 extern "C" LLVM_EXTERNAL_VISIBILITY void
@@ -47,7 +47,7 @@ LLVMInitializeM88kDisassembler() {
 
 当LLVM核心库初始化时，会调用initializealldisassemers()函数或InitializeNativeTargetDisassembler()函数。\par
 
-生成的解码器函数需要助手函数来解码寄存器和操作数。这样做的原因是，这些元素的编码通常涉及目标描述中没有表示的特殊情况，例如：两个指令之间的距离总是偶数，所以最小的位可以忽略，因为它总是零。\par
+生成的解码器函数需要助手函数来解码寄存器和操作数，这些元素的编码通常涉及目标描述中没有表示的特殊情况，例如：两个指令之间的距离总是偶数，所以最小的位可以忽略，因为它总是零。\par
 
 要解码寄存器，必须定义DecodeGPRRegisterClass()函数。32个寄存器用0到31之间的数字进行编码，我们可以使用静态GPRDecoderTable表来映射编码和生成的寄存器枚举之间的关系:\par
 
@@ -93,7 +93,7 @@ DecodeGPRRegisterClass(MCInst &Inst, uint64_t RegNo,
 #include "M88kGenDisassemblerTables.inc"
 \end{lstlisting}
 
-最后，我们可以定义getInstruction()方法。这个方法有两个结果值，解码的指令和指令的大小。如果字节数组太小，则必须将大小设置为0。这很重要，因为即使解码失败，size参数也会将指针推进到下一个内存位置。\par
+最后，可以定义getInstruction()方法。这个方法有两个结果值，解码的指令和指令的大小。如果字节数组太小，则必须将大小设置为0。这很重要，因为即使解码失败，size参数也会将指针推进到下一个内存位置。\par
 
 在M88k架构的情况下，方法很简单，因为所有指令都是4个字节长。因此，从数组中提取4个字节后，可以调用生成的解码器函数:\par
 

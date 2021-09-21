@@ -1,5 +1,5 @@
 
-目标描述是后端实现的核心。理想情况下，我们可以从目标描述生成整个后端。这个目标还没有达到，因此，需要在以后扩展生成的代码。让我们从顶层文件开始剖析目标描述。\par
+目标描述是后端实现的核心。理想情况下，可以从目标描述生成整个后端。这个目标还没有达到，因此，需要在以后扩展生成的代码。让我们从顶层文件开始剖析目标。\par
 
 \hspace*{\fill} \par %插入空行
 \textbf{实现目标描述的顶层文件}
@@ -7,7 +7,7 @@
 我们将新后端文件放入llvm/lib/Target/M88k目录，目标描述在M88k.td文件中:\par
 
 \begin{enumerate}
-\item 在这个文件中，首先需要包含由LLVM预定义的基本目标描述类，然后是在下一节中要创建的文件:
+\item 这个文件中，首先需要包含由LLVM预定义的基本目标描述类，然后是在下一节中要创建的文件:
 \begin{tcolorbox}[colback=white,colframe=black]
 include "llvm/Target/Target.td" \\
 \\
@@ -18,17 +18,17 @@ include "M88kInstrFormats.td" \\
 include "M88kInstrInfo.td"
 \end{tcolorbox}
 
-\item 接下来，我们还要定义受支持的处理器。除此之外，也可以转换为-mcpu=option的参数:
+\item 接下来，还要定义受支持的处理器。除此之外，也可以转换为-mcpu=option的参数:
 \begin{tcolorbox}[colback=white,colframe=black]
 def : ProcessorModel<"mc88110", M88kSchedModel, []>;
 \end{tcolorbox}
 
-\item 完成所有这些定义后，就可以将目标拼凑在一起了。我们定义了这些子类，为了可以修改默认值。M88kInstrInfo类保存了关于指令的所有信息:
+\item 完成所有这些定义后，就可以将目标拼凑在一起了。定义了这些子类，为了可以修改默认值。M88kInstrInfo类保存了关于指令的所有信息:
 \begin{tcolorbox}[colback=white,colframe=black]
 def M88kInstrInfo : InstrInfo;
 \end{tcolorbox}
 
-\item 我们为.s汇编文件定义了一个解析器，声明寄存器名称时总是以\%作为前缀:
+\item 为.s汇编文件定义了一个解析器，声明寄存器名称时总是以\%作为前缀:
 \begin{tcolorbox}[colback=white,colframe=black]
 def M88kAsmParser : AsmParser; \\
 def M88kAsmParserVariant : AsmParserVariant \{ \\
@@ -36,7 +36,7 @@ def M88kAsmParserVariant : AsmParserVariant \{ \\
 \}
 \end{tcolorbox}
 
-\item 接下来，我们为程序集编写器定义一个类，它负责编写.s汇编文件:
+\item 接下来，为程序集编写器定义一个类，负责编写.s汇编文件:
 \begin{tcolorbox}[colback=white,colframe=black]
 def M88kAsmWriter : AsmWriter;
 \end{tcolorbox}
@@ -77,7 +77,7 @@ M88kReg类用于所有寄存器类型，为通用寄存器定义了一个特殊�
 class GRi<bits<5> Enc, string n> : M88kReg<Enc, n>;
 \end{tcolorbox}
 
-现在可以定义所有32个通用寄存器了:\par
+现在可以定义所有通用寄存器(32个)了:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 foreach I = 0-31 in \{ \\
@@ -85,30 +85,30 @@ foreach I = 0-31 in \{ \\
 \}
 \end{tcolorbox}
 
-单个寄存器需要分组到寄存器类中，寄存器的顺序还定义了寄存器分配器中的分配顺序。这里，我们简单地添加所有寄存器:\par
+单个寄存器需要分组到寄存器类中，寄存器的顺序还定义了寄存器分配器中的分配顺序。这里，可以简单地添加所有寄存器:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 def GPR : RegisterClass<"M88k", [i32], 32, \\
 \hspace*{4.5cm}(add (sequence "R\%u", 0, 31))>;
 \end{tcolorbox}
 
-最后，我们需要定义一个基于寄存器类的操作数。该操作数用于选择与寄存器匹配的DAG节点，它还可以扩展为在汇编代码中打印和匹配寄存器的方法名:\par
+最后，需要定义一个基于寄存器类的操作数。该操作数用于选择与寄存器匹配的DAG节点，它还可以扩展为在汇编代码中打印和匹配寄存器的方法名:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 def GPROpnd : RegisterOperand<GPR>;
 \end{tcolorbox}
 
-这就完成了寄存器的定义。下一节中，我们将使用这些定义来定义调用规则。\par
+这就完成了寄存器的定义。下一节中，将使用这些定义来定义调用规则。\par
 
 \hspace*{\fill} \par %插入空行
 \textbf{定义调用规则}
 
 调用规则定义了如何将参数传递给函数。通常，第一个参数在寄存器中传递，其余的参数在堆栈上传递。还必须有关于如何传递聚合和如何从函数返回值的规则。根据这里给出的定义，将生成分析程序类，稍后在底层调用时使用它们。\par
 
-您可以在System V ABI M88k Processor手册的第3章，“低层系统信息”中阅读有关M88k架构上使用的调用规则。这里，我们把它翻译成TableGen语法:\par
+您可以在System V ABI M88k Processor手册的第3章，“底层系统信息”中阅读有关M88k架构上使用的调用规则。这里，我们把它翻译成TableGen语法:\par
 
 \begin{enumerate}
-\item 我们为调用规则定义了一个记录:
+\item 为调用规则定义了一个记录:
 \begin{tcolorbox}[colback=white,colframe=black]
 def CC\underline{~}M88k : CallingConv<[
 \end{tcolorbox}
@@ -144,7 +144,7 @@ def RetCC\underline{~}M88k : CallingConv<[ \\
 ]>;
 \end{tcolorbox}
 
-\item 最后，调用规则还规定了被调用函数必须保留哪些寄存器:
+\item 最后，调用规则还规定了调用函数必须保留哪些寄存器:
 \begin{tcolorbox}[colback=white,colframe=black]
 def CSR\underline{~}M88k : \\
 \hspace*{1.5cm}CalleeSavedRegs<(add (sequence "R\%d", 14, \\
@@ -159,7 +159,7 @@ def CSR\underline{~}M88k : \\
 \hspace*{\fill} \par %插入空行
 \textbf{创建调度模型}
 
-使用调度模型代码生成，可以以最优方式对指令进行排序。定义一个调度模型可以提高所生成代码的性能，但它不是代码生成所必需的。因此，我们只为模型定义一个占位符。我们添加的CPU一次最多可以发出两条指令的信息，并且它是有序CPU:\par
+使用调度模型代码生成，可以以最优方式对指令进行排序。定义一个调度模型可以提高所生成代码的性能，但不是代码生成所必需的。因此，我们只为模型定义一个占位符。我们添加的CPU一次最多可以发出两条指令的信息，并且它是有序CPU:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 def M88kSchedModel : SchedMachineModel \{ \\
@@ -170,14 +170,14 @@ def M88kSchedModel : SchedMachineModel \{ \\
 \}
 \end{tcolorbox}
 
-你可以在YouTube上的“编写伟大的调度程序”(Writing Great Schedulers)讲座中找到关于如何创建完整调度模型的方法，网址是\url{https://www.youtube.com/watch?v=brpomKUynEA}。\par
+可以在YouTube上的“编写伟大的调度程序”(Writing Great Schedulers)讲座中找到关于如何创建完整调度模型的方法，网址是\url{https://www.youtube.com/watch?v=brpomKUynEA}。\par
 
-接下来，我们将定义指令格式和指令。\par
+接下来，来定义指令格式和指令。\par
 
 \hspace*{\fill} \par %插入空行
 \textbf{定义指令格式和指令信息}
 
-我们已经在第9章，支持新机器指令的章节中了解了指令格式和指令信息。为了定义M88k体系结构的指令，我们采用相同的方法。首先，为指令记录定义一个基类。这个类最重要的字段是Inst字段，它保存指令的编码。大多数其他字段定义只是给指令超类中定义的字段赋值:\par
+我们已经在第9章，支持新机器指令的章节中了解了指令格式和指令信息。为了定义M88k体系结构的指令，我们采用相同的方法。首先，为指令记录定义一个基类。这个类最重要的字段是Inst字段，保存指令的编码。大多数其他字段定义只是给指令超类中定义的字段赋值:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 class InstM88k<dag outs, dag ins, string asmstr, \\
@@ -219,7 +219,7 @@ class F\underline{~}JMP<bits<5> func, bits<1> next, \\
 
 有了这个，就可以定义指令了。跳转指令是基本块中的最后一条指令，因此需要设置isTerminator标志。因为控制流不能通过这条指令，所以还必须设置isBarrier标志。我们从处理器的用户手册中获取func和next参数的值。\par
 
-输入DAG操作数是一个通用寄存器，它引用前面寄存器的信息中的操作数。编码存储在rs2字段中，来自前面的类定义，输出操作数为空。汇编字符串给出指令的文本语法，也引用寄存器操作数。DAG模式使用预定义的brind操作符。如果DAG包含一个间接分支节点，目标地址保存在寄存器中，则选择此指令:\par
+输入DAG操作数是一个通用寄存器，它引用前面寄存器的信息中的操作数。编码存储在rs2字段中，来自前面的类定义，输出操作数为空。汇编字符串给出指令的文本语法，也引用寄存器操作数。DAG模式使用预定义的brind操作符，如果DAG包含一个间接分支节点，目标地址保存在寄存器中，则选择此指令:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 let isTerminator = 1, isBarrier = 1 in \\
@@ -229,7 +229,7 @@ let isTerminator = 1, isBarrier = 1 in \\
 
 我们需要以这种方式为所有指令进行定义。\par
 
-这个文件中，我们还实现了用于指令选择的其他模式。一个典型的应用是不断的合成，M88k体系架构是32位的，但可以将作为操作数的指令也能支持16位范围的常量。因此，诸如按位运算以及寄存器和32位常量之间的运算，必须被分割成两个使用16位常量的指令。\par
+这个文件中，还实现了用于指令选择的其他模式。一个典型的应用是不断的合成，M88k体系架构是32位的，但可以将作为操作数的指令也能支持16位范围的常量。因此，诸如按位运算以及寄存器和32位常量之间的运算，必须分割成两个使用16位常量的指令。\par
 
 幸运的是，and指令中的一个标志定义了一个操作是用于寄存器的下半部分还是上半部分。使用操作符LO16和HI16来提取一个常数的下半部分或上半部分，我们可以为一个寄存器和一个32位宽常数之间的和运算建立一个DAG模式:\par
 
@@ -239,7 +239,7 @@ def : Pat<(and GPR:\$rs1, uimm32:\$imm), \\
 \hspace*{6cm}(LO16 i32:\$imm))>;
 \end{tcolorbox}
 
-ANDri运算符是将常数应用到寄存器下半部分的and指令，ANDriu运算符使用寄存器上半部分。当然，在使用这些模式之前，我们必须像定义jmp指令一样定义指令。该模式使用带有and操作的32位常量来解决问题，在指令选择期间为其生成两条机器指令。\par
+ANDri运算符是将常数应用到寄存器下半部分的and指令，ANDriu运算符使用寄存器上半部分。当然，在使用这些模式之前，必须像定义jmp指令一样定义指令。该模式使用带有and操作的32位常量来解决问题，在指令选择期间为其生成两条机器指令。\par
 
 不是所有的操作都可以用预定义的DAG节点来表示，例如：M88k体系结构定义了位域操作，可以将其视为正常和/或操作的一般化。对于这样的操作，可以引入新的节点类型，例如：set指令:\par
 
@@ -247,7 +247,7 @@ ANDri运算符是将常数应用到寄存器下半部分的and指令，ANDriu运
 def m88k\underline{~}set : SDNode<"M88kISD::SET", SDTIntBinOp>;
 \end{tcolorbox}
 
-这定义了一个SDNode类的新记录。第一个参数是表示新操作的C++枚举成员。第二个参数是所谓的类型概要文件，它定义了参数的类型、数量和结果类型。预定义的SDTIntBinOp类定义了两个整型参数和一个整型结果类型，适合此操作。可以在llvm/include/llvm/Target/TargetSelectionDAG.td文件中查找预定义的类。如果没有合适的预定义类型说明文件，那么可以定义一个新的。\par
+这定义了一个SDNode类的新记录。第一个参数是表示新操作的C++枚举成员。第二个参数是所谓的类型概要文件，它定义了参数的类型、数量和结果类型。预定义的SDTIntBinOp类定义了两个整型参数和一个整型结果类型。可以在llvm/include/llvm/Target/TargetSelectionDAG.td文件中查找预定义的类。如果没有合适的预定义类型说明文件，那么可以定义一个新的。\par
 
 对于调用函数，LLVM需要某些无法预定义的定义，因为它们不是完全独立于目标的，例如：对于returns，我们需要指定一个retflag记录:\par
 
@@ -258,12 +258,12 @@ def retflag : SDNode<"M88kISD::RET\underline{~}FLAG", SDTNone, \\
 
 与m88k\underline{~}set相比，这还为DAG节点定义了一些标志:使用了链和胶水序列，操作符可以接受可变数量的参数。\par
 
-\begin{tcolorbox}[colback=blue!5!white,colframe=blue!75!black, title=以迭代的方式实现这些指令]
+\begin{tcolorbox}[colback=blue!5!white,colframe=blue!75!black, title=以迭代的方式实现指令]
 	
 现代的CPU可以很容易地拥有数千条指令，不一次性实现所有指令是有意义的。相反，您应该首先关注基本指令，如逻辑操作和调用和返回指令。这足以使一个非常基本的后端工作，然后在这个基础上添加越来越多的指令定义和模式。
 \end{tcolorbox}
 
-这就完成了目标描述的实现。从目标描述中，使用llvm-tblgen工具自动生成大量代码。为了完成指令选择和后台的其他部分，我们仍然需要使用生成的代码开发C++代码。在下一节中，我们将实现DAG指令的选择。\par
+这就完成了目标描述的实现。从目标描述中，使用llvm-tblgen工具自动生成大量代码。为了完成指令选择和后台的其他部分，我们仍需要使用生成的代码开发C++代码。下一节中，我们将实现DAG指令的选择。\par
 
 
 

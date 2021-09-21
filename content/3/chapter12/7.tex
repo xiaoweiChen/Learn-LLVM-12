@@ -1,8 +1,8 @@
-前几节中实现的指令选择将IR指令降到MachineInstr实例中。这是一个非常底层的指令，但它还不是机器代码。后端Pass中的最后一个步骤是发出指令，要么作为汇编文本，要么作为目标文件。M88kAsmPrinter机器Pass负责这项任务。\par
+前几节中实现的指令选择将IR指令降到MachineInstr实例中。这是一个非常底层的指令，但还不是机器代码。后端Pass中的最后一个步骤是发出指令，要么作为汇编文本，要么作为目标文件。M88kAsmPrinter机器Pass负责这项任务。\par
 
-基本上，这个Pass将一个MachineInstr实例降到一个MCInst实例，然后该实例发到一个streamer中。MCInst类表示实际机器代码指令。这是必需的，因为MachineInstr类没有所需的细节。\par
+基本上，这个Pass将一个MachineInstr实例降到一个MCInst实例，然后该实例发到一个streamer中。因为MachineInstr类没有所需的细节，所以MCInst类表示实际机器代码指令。\par
 
-对于第一种方法，我们可以将实现限制为覆盖emitInstruction()方法。您需要重写更多方法来支持几种操作数类型，主要是为了发出正确的重定位。这个类还负责处理内联汇编程序，如果需要，也要实现内联汇编程序。\par
+对于第一种方法，我们可以将实现限制为emitInstruction()方法。需要重写更多方法来支持几种操作数类型，主要是为了发出正确的重定位。这个类还负责处理内联汇编程序，如果需要，也要实现内联汇编程序。\par
 
 因为M88kAsmPrinter类是机器函数Pass，所以我们还重写了getPassName()方法。类的声明如下:\par
 
@@ -39,7 +39,7 @@ void M88kAsmPrinter::emitInstruction(const MachineInstr *MI) {
 }
 \end{lstlisting}
 
-M88kMCInstLower类是没有预定义的超类。它的主要目的是处理各种操作数类型。由于目前只支持一组非常有限的操作数类型，我们可以将这个类简化为只有一个方法。lower()方法设置MCInst实例的操作码和操作数。只处理寄存器和立即操作数，其他操作数类型将会忽略。对于完整的实现，我们还需要处理内存地址:\par
+M88kMCInstLower类是没有预定义的超类。它的主要目的是处理各种操作数类型。由于目前只支持一组非常有限的操作数类型，可以将这个类简化为只有一个方法。lower()方法设置MCInst实例的操作码和操作数。只处理寄存器和立即操作数，其他操作数类型将会忽略。对于完整的实现，还需要处理内存地址:\par
 
 \begin{lstlisting}[caption={}]
 void M88kMCInstLower::lower(const MachineInstr *MI, MCInst
@@ -66,7 +66,7 @@ void M88kMCInstLower::lower(const MachineInstr *MI, MCInst
 }
 \end{lstlisting}
 
-汇编打印器需要一个工厂方法，该方法在初始化时调用，例如：在InitializeAllAsmPrinters()方法中初始化:\par
+汇编打印器需要一个工厂方法，该方法在初始化时调用，例如：在InitializeAllAsmPrinters()中初始化:\par
 
 \begin{lstlisting}[caption={}]
 extern "C" LLVM_EXTERNAL_VISIBILITY void
@@ -75,7 +75,7 @@ LLVMInitializeM88kAsmPrinter() {
 }
 \end{lstlisting}
 
-最后，将指令降级到真正的机器码指令，但这还没有完成。我们需要为MC层实现各种小块，将在下一节中讨论。\par
+最后，将指令降级到真正的机器码指令，但这还没有完成。我们需要对MC层的实现进行补全，这将在下一节中进行讨论。\par
 
 
 

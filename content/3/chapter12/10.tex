@@ -6,7 +6,7 @@ set(LLVM\underline{~}EXPERIMENTAL\underline{~}TARGETS\underline{~}TO\underline{~
 
 我们还需要提供llvm/lib/Target/M88k/CMakeLists.txt来构建目标。除了列出目标的C++文件外，还定义了从目标描述生成源文件的方法。\par
 
-\begin{tcolorbox}[colback=blue!5!white,colframe=blue!75!black, title=从目标描述生成所有类型的源]
+\begin{tcolorbox}[colback=blue!5!white,colframe=blue!75!black, title=从目标描述生成所有类型的源码]
 llvm-tblgen工具的不同运行方式，会生成C++代码的不同部分。但是，建议将所有部件的生成添加到CMakeLists.txt文件中。这样做的原因是能提供了更好的检查，例如：如果您在指令编码方面犯了错误，那么这只会在反汇编程序生成代码期间捕获。因此，即使不打算支持反汇编程序，仍值得为其生成源码。	
 \end{tcolorbox}
 
@@ -63,13 +63,13 @@ add\underline{~}subdirectory(Disassembler)
 \$ bin/llc –version
 \end{tcolorbox}
 
-注册目标的输出应该包含以下行:\par
+注册目标的输出:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 m88k   \hspace{2cm} - M88k
 \end{tcolorbox}
 
-噢耶!我们完成了后端实现。让我们试一下。下面LLVM IR中的f1函数在函数的两个参数之间执行一个按位的AND操作并返回结果。将其保存成example.ll文件:\par
+噢耶!我们完成了后端实现。下面LLVM IR中的f1函数在函数的两个参数之间执行一个按位的AND操作并返回结果。将其保存成example.ll文件:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 target triple = "m88k-openbsd" \\
@@ -103,7 +103,7 @@ f1: \hspace{8cm} \# @f1 \\
 
 输出是有效的GNU语法。对于f1函数，将生成和和jmp指令。参数在\%r2和\%r3寄存器中传递，这两个寄存器在and指令中使用。结果存储在\%r2寄存器中，该寄存器也是返回32位值的寄存器。函数的返回通过分支到\%r1寄存器中的hold地址实现，该地址也与ABI匹配。一切看起来都很好!\par
 
-学习了本章中的内容，您现在可以实现自己的LLVM后端。对于许多相对简单的CPU，如：数字信号处理器(DSP)，您只需要实现这些功能就够用了。当然，M88k CPU体系结构的实现还不支持该体系架构的所有特性，例如：浮点寄存器。不过，现在您已经了解了LLVM后端开发中所有重要概念，有了这些知识，您将能够添加任何缺失的部分!\par
+学习了本章中的内容，现在可以实现自己的LLVM后端。对于许多相对简单的CPU，如：数字信号处理器(DSP)，只需要实现这些功能就够用了。当然，M88k CPU体系结构的实现还不支持该体系架构的所有特性，例如：浮点寄存器。不过，现在已经了解了LLVM后端开发中所有重要概念，有了这些知识，您将能够添加任何缺失的部分!\par
 
 
 
