@@ -1,10 +1,10 @@
 
-在考虑JIT编译器时，首先想到的是直接运行LLVM IR。这就是lli工具、LLVM解释器和动态编译器所做的工作。我们将在下一节中探索lli工具，然后我们实现一个类似的工具。\par
+在考虑JIT编译器时，首先想到的是直接运行LLVM IR。这就是lli工具、LLVM解释器和动态编译器所做的工作。我们将在下一节中探索lli工具，然后实现一个类似的工具。\par
 
 \hspace*{\fill} \par %插入空行
 \textbf{探索lli工具}
 
-让我们用一个非常简单的例子来试试lli工具。将以下源代码存储为hello.ll文件，它相当于C程序的hello world，其声明了来自C库的printf()函数，hellostr常量包含要打印的消息。在main()函数内部，通过getelementptr指令计算消息的第一个字符的指针，并将该值传递给printf()函数。应用程序总是返回0。完整的源代码如下:\par
+让我们用一个非常简单的例子来试试lli工具。将以下源代码存储为hello.ll文件，它相当于C程序的hello world，其声明了来自C库的printf()函数，hellostr常量包含要打印的消息。在main()函数内部，通过getelementptr指令计算消息的第一个字符的指针，并将该值传递给printf()函数，程序总是返回0。完整的源代码如下:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 declare i32 @printf(i8*, ...) \\
@@ -29,7 +29,7 @@ Hello world
 
 这里有趣的一点是如何找到printf()函数。IR代码编译为机器码，并触发对printf符号的查找。这个符号在IR中找不到，所以当前进程会搜索它。lli工具动态链接C库，可以在那里找到符号。\par
 
-当然，lli工具不会链接您创建的库。为了使用这些函数，lli工具支持加载共享库和对象。下面的C源代码只是打印了一个友好的消息:\par
+当然，lli工具不会链接您创建的库。为了使用这些函数，lli工具支持加载共享库和对象。下面的C源代码只打印了一个友好的消息:\par
 
 \begin{lstlisting}[caption={}]
 #include <stdio.h>
@@ -39,7 +39,7 @@ void greetings() {
 }
 \end{lstlisting}
 
-存储在greeting .c文件中，我们使用它来使用lli工具探索对象的加载。将此源代码编译为动态库。-fPIC选项指示clang生成位置无关的代码，这是动态库所必需的。通过给定的-shared选项，编译器创建greetings.so动态库:\par
+存储在greeting.c文件中，我们使用它来使用lli工具探索对象的加载。将此源代码编译为动态库。-fPIC选项指示clang生成位置无关的代码，这是动态库所必需的。通过给定的-shared选项，编译器创建greetings.so动态库:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ clang –fPIC –shared –o greetings.so greetings.c
@@ -51,7 +51,7 @@ void greetings() {
 \$ clang –c –o greetings.o greetings.c
 \end{tcolorbox}
 
-我们现在有两个文件，greetings.so和greetings.o文件，我们将他们加载到lli工具中。\par
+我们现在有两个文件，greetings.so和greetings.o文件，将他们加载到lli工具中。\par
 
 我们还需要一个LLVM IR文件，它调用greetings()函数。为此，创建main.ll文件，其中包含对函数的单独调用:\par
 
@@ -64,7 +64,7 @@ define dso\underline{~}local i32 @main(i32 \%argc, i8** \%argv) \{ \\
 \}
 \end{tcolorbox}
 
-如果你尝试像以前一样执行IR，那么lli工具无法定位greetings符号，就会崩溃:\par
+如果尝试像以前一样执行IR，那么lli工具无法定位greetings符号，就会崩溃:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ lli main.ll \\
@@ -72,7 +72,7 @@ PLEASE submit a bug report to https://bugs.llvm.org/ and \\
 include the crash backtrace.
 \end{tcolorbox}
 
-greeting()函数定义在一个外部文件中，为了修复崩溃，我们必须告诉lli工具需要加载哪个附加文件。为了使用动态库，必须使用-load选项，它将动态库的路径作为参数:\par
+greeting()函数定义在一个外部文件中，为了修复崩溃，必须告诉lli工具需要加载哪个文件。为了使用动态库，必须使用-load选项，它将动态库的路径作为参数:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ lli –load ./greetings.so main.ll \\
@@ -90,19 +90,19 @@ Hi!
 
 其他支持的选项是-extra-archive(加载静态库文件)，和-extramodule(加载比特码文件)。这两个选项都要求将文件路径作为参数。\par
 
-现在，您知道了如何使用lli工具直接执行LLVM IR。在下一节中，将实现我们自己的JIT工具。\par
+现在，知道了如何使用lli工具直接执行LLVM IR。在下一节中，将实现自己的JIT工具。\par
 
 \hspace*{\fill} \par %插入空行
-\textbf{用LLJIT实现我们自己的JIT编译器}
+\textbf{用LLJIT实现自己的JIT编译器}
 
 lli工具只不过是LLVM API的一个包装器。在之前的内容中，我们了解到ORC引擎使用分层方法，ExecutionSession类表示一个正在运行的JIT程序。除了其他项外，这个类还保存使用的JITDylib实例。JITDylib实例是一个符号表，将符号名映射到地址，例如：可以是LLVM IR文件中定义的符号，也可以是加载的动态库的符号。\par
 
-要执行LLVM IR，我们不需要自己创建一个JIT堆栈，LLJIT类提供了这个功能。您还可以在从旧的MCJIT实现迁移时使用这个类，这个类本质上提供了相同的功能。在下一小节中，我们将从JIT引擎的初始化开始实现。\par
+要执行LLVM IR，不需要自己创建一个JIT堆栈，LLJIT类提供了这个功能。您还可以在从旧的MCJIT实现迁移时使用这个类，这个类本质上提供了相同的功能。在下一小节中，我们将从JIT引擎的初始化开始实现。\par
 
 \hspace*{\fill} \par %插入空行
 \textbf{为编译LLVM IR初始化JIT引擎}
 
-我们首先实现设置JIT引擎的函数，编译LLVM IR模块，并在该模块中执行main()函数。稍后，我们将使用这个核心功能构建一个小型JIT工具。这是jitmain()函数:\par
+我们首先实现设置JIT引擎的函数，编译LLVM IR模块，并在该模块中执行main()函数。稍后，我们将使用这个核心功能构建一个小型JIT工具。先是jitmain()函数:\par
 
 \begin{enumerate}
 \item 该函数需要带有IR的LLVM模块来执行。这个模块还需要LLVM context类，因为context类包含重要的类型信息。我们的目标是调用main()函数，所以也传递了argc和argv参数:
@@ -120,7 +120,7 @@ Error jitmain(std::unique_ptr<Module> M,
 		return JIT.takeError();
 \end{lstlisting}
 
-\item 然后我们将模块添加到主JITDylib实例中。如果配置了，那么JIT编译可以使用多个线程。因此，我们需要将模块和上下文包装在ThreadSafeModule实例中。如果发生错误，则返回错误:
+\item 然后将模块添加到主JITDylib实例中。如果配置了，那么JIT编译可以使用多个线程。因此，需要将模块和上下文包装在ThreadSafeModule实例中。如果发生错误，则返回错误:
 \begin{lstlisting}[caption={}]
 	if (auto Err = (*JIT)->addIRModule(
 			orc::ThreadSafeModule(std::move(M),
@@ -128,7 +128,7 @@ Error jitmain(std::unique_ptr<Module> M,
 		return Err;
 \end{lstlisting}
 
-\item 与lli工具一样，我们也支持来自C库的符号。DefinitionGenerator类公开符号，DynamicLibrary\allowbreak SearchGenerator子类公开在动态库中找到的名称。这个类提供了两个工厂方法：Load()方法可用于加载动态库，而GetForCurrentProcess()方法公开当前进程的符号。在这里，我们使用后一个函数。符号名可以有前缀，这取决于平台。我们检索数据布局并将前缀传递给GetForCurrentprocess()函数。然后以正确的方式处理符号名，我们不需要关心它。像往常一样，如果发生错误，则返回函数:
+\item 与lli工具一样，我们也支持来自C库的符号。DefinitionGenerator类公开符号，DynamicLibrarySearchGenerator子类公开在动态库中找到的名称。这个类提供了两个工厂方法：Load()方法可用于加载动态库，而GetForCurrentProcess()方法公开当前进程的符号。这里，我们使用后一个函数。符号名可以有前缀，这取决于平台。我们检索数据布局并将前缀传递给GetForCurrentprocess()函数。然后以正确的方式处理符号名，我们不需要关心它。像往常一样，如果发生错误，则返回函数:
 \begin{lstlisting}[caption={}]
 	const DataLayout &DL = (*JIT)->getDataLayout();
 	auto DLSG = orc::DynamicLibrarySearchGenerator::
@@ -143,7 +143,7 @@ Error jitmain(std::unique_ptr<Module> M,
 		std::move(*DLSG));
 \end{lstlisting}
 
-\item 接下来，我们需要查找主符号。这个符号必须在命令行中给出的IR模块中，查找触发IR模块的编译。如果IR模块中引用了其他符号，则使用前一步中添加的生成器解析它们。结果是JITEvaluatedSymbol类的:
+\item 接下来，我们需要查找主符号。这个符号必须在命令行中给出的IR模块中，查找触发IR模块的编译。如果IR模块中引用了其他符号，则使用前一步中添加的生成器解析它们。结果类型是JITEvaluatedSymbol类:
 \begin{lstlisting}[caption={}]
 	auto MainSym = (*JIT)->lookup("main");
 	if (!MainSym)
@@ -161,7 +161,7 @@ auto *Main = (int (*)(
 	(void)Main(argc, argv);
 \end{lstlisting}
 
-\item 我们报告函数确定函数是否执行成功:
+\item 报告函数确定函数是否执行成功:
 \begin{lstlisting}[caption={}]
 	return Error::success();
 }
@@ -169,15 +169,15 @@ auto *Main = (int (*)(
 
 \end{enumerate}
 
-这说明了使用JIT编译是多么容易。除了公开当前进程的符号或动然库中的符号外，还有许多其他的方法可以公开名称。StaticLibraryDefinitionGenerator类公开在静态归档文件中找到的符号，可以像DynamicLibrarySearchGenerator类一样使用。LLJIT类还有一个addObjectFile()方法来公开对象文件的符号。如果现有的实现不能满足您的需要，还可以提供自己的DefinitionGenerator实现。在下一小节中，将实现扩展到JIT编译器中。\par
+使用JIT编译还挺容易。除了公开当前进程的符号或动然库中的符号外，还有许多其他的方法可以公开名称。StaticLibraryDefinitionGenerator类公开在静态归档文件中找到的符号，可以像DynamicLibrarySearchGenerator类一样使用。LLJIT类还有一个addObjectFile()方法来公开对象文件的符号。如果现有的实现不能满足您的需要，还可以提供自己的DefinitionGenerator实现。在下一小节中，将实现扩展到JIT编译器中。\par
 
 \hspace*{\fill} \par %插入空行
 \textbf{创建JIT编译器工具}
 
-jitmain()函数可以很容易地扩展为一个小工具，下面我们将这样做。源代码保存在JIT.cpp文件中，是一个简单的JIT编译器:\par
+jitmain()函数可以很容易地扩展为一个小工具。源代码保存在JIT.cpp文件中，是一个简单的JIT编译器:\par
 
 \begin{enumerate}
-\item 我们必须包含几个头文件LLJIT.h头文件定义了LLJIT类和ORC API的核心类。我们包含了IRReader.h头文件，因为它定义了一个读取LLVM IR文件的函数。CommandLine.h头文件允许我们以LLVM风格解析命令行选项。最后，InitLLVM.h头用于工具的基本初始化，TargetSelect.h头用于初始化本机目标:
+\item 我们必须包含几个头文件LLJIT.h头文件定义了LLJIT类和ORC API的核心类。IRReader.h头文件，定义了一个读取LLVM IR文件的函数。CommandLine.h允许以LLVM风格解析命令行选项。最后，InitLLVM.h用于工具的基本初始化，TargetSelect.h用于初始化本机目标:
 \begin{lstlisting}[caption={}]
 #include "llvm/ExecutionEngine/Orc/LLJIT.h"
 #include "llvm/IRReader/IRReader.h"
@@ -186,7 +186,7 @@ jitmain()函数可以很容易地扩展为一个小工具，下面我们将这�
 #include "llvm/Support/TargetSelect.h"
 \end{lstlisting}
 
-\item 我们将llvm命名空间添加到当前作用域:
+\item 将llvm命名空间添加到当前作用域:
 \begin{lstlisting}[caption={}]
 using namespace llvm;
 \end{lstlisting}
@@ -198,7 +198,7 @@ static cl::opt<std::string>
 		cl::desc("<input-file>"));
 \end{lstlisting}
 
-\item 要读取IR文件，调用parseIRFile()函数。该文件可以是文本IR表示，也可以是位码文件,函数返回一个指向所创建模块的指针。错误处理略有不同，因为文本IR文件可以被解析，但语法不一定正确。SMDiagnostic实例保存语法错误时的错误信息，输出错误消息，并退出应用程序:
+\item 要读取IR文件，调用parseIRFile()函数。该文件可以是文本IR，也可以是位码文件，函数返回指向所创建模块的指针。错误处理略有不同，因为文本IR文件可以解析，但语法不一定正确。SMDiagnostic实例保存语法错误时的错误信息，输出错误消息，并退出应用程序:
 \begin{lstlisting}[caption={}]
 std::unique_ptr<Module>
 loadModule(StringRef Filename, LLVMContext &Ctx,
@@ -219,7 +219,7 @@ loadModule(StringRef Filename, LLVMContext &Ctx,
 Error jitmain(…) { … }
 \end{lstlisting}
 
-\item 然后我们添加main()函数，它初始化工具和本机目标，并解析命令行:
+\item 然后添加main()函数，它初始化工具和本机目标，并解析命令行:
 \begin{lstlisting}[caption={}]
 int main(int argc, char *argv[]) {
 	InitLLVM X(argc, argv);
@@ -243,14 +243,14 @@ int main(int argc, char *argv[]) {
 		loadModule(InputFile, *Ctx, argv[0]);
 \end{lstlisting}
 
-\item 然后可以调用jitmain()函数。我们使用ExitOnError实用程序类处理错误。当发生错误时，该类打印错误消息并退出应用程序。还可以设置了一个带有应用程序名称的标识，它会将之前的错误消息打印出来:
+\item 然后可以调用jitmain()函数，我们使用ExitOnError实用程序类处理错误。当发生错误时，该类打印错误消息并退出应用程序。还可以设置了一个带有应用程序名称的标识，它会将之前的错误消息打印出来:
 \begin{lstlisting}[caption={}]
 	ExitOnError ExitOnErr(std::string(argv[0]) + ": ");
 	ExitOnErr(jitmain(std::move(M), std::move(Ctx),
 					  argc, argv));
 \end{lstlisting}
 
-\item 如果控制流到达此处，则成功执行了IR。返回0表示成功:
+\item 如果控制流到达此处，则成功执行了IR。返回0就表示成功:
 \begin{lstlisting}[caption={}]
 	return 0;
 }
@@ -258,10 +258,10 @@ int main(int argc, char *argv[]) {
 
 \end{enumerate}
 
-这已经是完整的实现了!我们只需要添加构建描述，这是下一个小节的主题。 \par
+这已经是完整的实现了!我们只需要添加构建描述。 \par
 
 \hspace*{\fill} \par %插入空行
-\textbf{添加CMake构建描述}
+\textbf{添加CMake构建}
 
 为了编译这个源文件，我们还需要创建一个带有构建描述的CMakeLists.txt文件，它保存在JIT.cpp文件之外:\par
 
@@ -272,14 +272,14 @@ cmake\underline{~}minimum\underline{~}required (VERSION 3.13.4) \\
 project ("jit")
 \end{tcolorbox}
 
-\item 需要加载LLVM包，我们将LLVM提供的CMake模块目录添加到搜索路径中。然后我们包含ChooseMSVCCRT模块，确保与LLVM使用的C运行时相同:
+\item 需要加载LLVM包，将LLVM提供的CMake模块目录添加到搜索路径中。然后包含ChooseMSVCCRT模块，确保与LLVM使用的C运行时相同:
 \begin{tcolorbox}[colback=white,colframe=black]
 find\underline{~}package(LLVM REQUIRED CONFIG) \\
 list(APPEND CMAKE\underline{~}MODULE\underline{~}PATH \$\{LLVM\underline{~}DIR\}) \\
 include(ChooseMSVCCRT)
 \end{tcolorbox}
 
-\item 我们还需要从LLVM添加定义和包含路径。使用的LLVM组件通过函数调用映射到库名:
+\item 还需要从LLVM添加定义和包含路径。使用的LLVM组件通过函数调用映射到库名:
 \begin{tcolorbox}[colback=white,colframe=black]
 add\underline{~}definitions(\$\{LLVM\underline{~}DEFINITIONS\}) \\
 include\underline{~}directories(SYSTEM \$\{LLVM\underline{~}INCLUDE\underline{~}DIRS\}) \\
@@ -302,7 +302,7 @@ target\underline{~}link\underline{~}libraries(JIT \$\{llvm\underline{~}libs\})
 
 \end{enumerate}
 
-这将用来编译JIT工具。你可以用hello.ll检查工具的功能:\par
+这将用来编译JIT工具，并且可以用hello.ll检查工具的功能:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ JIT hello.ll \\
@@ -311,20 +311,20 @@ Hello world
 
 创建JIT编译器就是这么简单!\par
 
-该示例使用LLVM IR作为输入，但这不是必需的。LLJIT类使用ircompillayer类，它负责将IR编译成机器码。您可以定义自己的层，可以接受需要的输入，例如Java字节码。\par
+该示例使用LLVM IR作为输入，但这不是必需的。LLJIT类使用ircompillayer类，负责将IR编译成机器码。您可以定义自己的层，可以接受需要的输入，例如Java字节码。\par
 
-使用预定义的LLJIT类很方便，但是限制了灵活性。在下一节中，我们将讨论如何使用ORC API提供的层来实现JIT编译器.\par
+使用预定义的LLJIT类很方便，但是限制了灵活性。下一节中，我们将讨论如何使用ORC API提供的层来实现JIT编译器.\par
 
 \hspace*{\fill} \par %插入空行
 \textbf{从头开始构建JIT编译器类}
 
 使用ORC的分层方法，可以很容易地构建一个定制的JIT编译器。没有适合所有人的JIT编译器，本章的第一节给出了一些示例。让我们看看如何设置JIT编译器。\par
 
-ORC API将这些层是堆叠在一起的。最低的一层是对象链接层，由llvm::orc::RTDyldObject\allowbreak LinkingLayer类表示，负责链接内存中的对象并将它们转换为可执行代码。此任务所需的内存由MemoryManager接口的一个实例管理。有一个默认实现，如果需要，也可以使用自定义版本。\par
+ORC API将这些层是堆叠在一起的。最低的一层是对象链接层，由llvm::orc::RTDyldObjectLinkingLayer类表示，负责链接内存中的对象并将它们转换为可执行代码。此任务所需的内存由MemoryManager接口的一个实例管理，有一个默认实现，如果需要，也可以使用自定义版本。\par
 
-在对象链接层之上是编译层，它负责创建内存中的对象文件。llvm::orc::IRCompileLayer类将一个IR模块作为输入，并将其编译为一个对象文件。IRCompileLayer类是IRLayer类的子类，IRLayer类是一个通用类，用于接受LLVM IR的层实现。\par
+在对象链接层之上是编译层，它负责创建内存中的对象文件。llvm::orc::IRCompileLayer类将一个IR模块作为输入，并将其编译为对象文件。IRCompileLayer类是IRLayer类的子类，IRLayer类是一个通用类，用于接受LLVM IR的层实现。\par
 
-这两层已经构成了JIT编译器的核心。他们添加一个LLVM IR模块作为输入，在内存中编译和链接。为了添加更多的功能，我们可以在它们之上添加更多的层，例如：CompileOnDemandLayer类拆分一个模块，以便只编译被请求的函数。这可以用来实现延迟编译。CompileOnDemandLayer类也是IRLayer类的子类。以一种非常通用的方式，IRTransformLayer类(也是IRLayer类的子类)允许我们对模块应用转换。\par
+这两层已经构成了JIT编译器的核心。添加一个LLVM IR模块作为输入，在内存中编译和链接。为了添加更多的功能，可以在它们之上添加更多的层，例如：CompileOnDemandLayer类拆分一个模块，以便只编译被请求的函数。这可以用来实现延迟编译。CompileOnDemandLayer类也是IRLayer类的子类。以一种非常通用的方式，IRTransformLayer类(也是IRLayer类的子类)允许我们对模块应用转换。\par
 
 另一个重要的类是ExecutionSession类，这个类表示一个正在运行的JIT程序。基本上，这意味着该类管理JITDylib符号表，提供符号查找功能，并跟踪所使用的资源管理器。\par
 
@@ -345,10 +345,10 @@ JIT编译器的一般流程如下:\par
 \hspace*{\fill} \par %插入空行
 \textbf{创建JIT编译器类}
 
-为了保持JIT编译器类的实现简单，我们将所有内容都放到JIT.h头文件中。类的初始化稍微复杂一些。由于要处理错误，我们需要一个工厂方法在调用构造函数之前预先创建一些对象。创建类的步骤如下:\par
+为了保持JIT编译器类的实现简单，我们将所有内容都放到JIT.h头文件中。类的初始化稍微复杂一些。由于要处理错误，需要一个工厂方法在调用构造函数之前预先创建一些对象。创建类的步骤如下:\par
 
 \begin{enumerate}
-\item 首先，我们使用JIT\underline{~}H预处理器定义来保护头文件不被重复包含:
+\item 首先，使用JIT\underline{~}H预处理器定义来保护头文件不被重复包含:
 \begin{lstlisting}[caption={}]
 #ifndef JIT_H
 #define JIT_H
@@ -377,7 +377,7 @@ JIT编译器的一般流程如下:\par
 class JIT {
 \end{lstlisting}
 
-\item 私有数据成员反映了ORC层和一个助手类。ExecutionSession、ObjectLinkingLayer、CompileLayer、OptIRLayer和MainJITDylib实例表示正在运行的JIT程序、各层和符号表，如前所述。TargetProcessControl实例用于与JIT目标流程进行交互。这可以是相同的进程，也可以是同一台机器上的另一个进程，或者是不同机器上的远程进程(可能具有不同的体系结构)。DataLayout和MangleAndInterner类需要以正确的方式篡改符号名称。符号名是内部化的，这意味着所有相等的名称都有相同的地址。为了检查两个符号名是否相等，比较地址就足够了，这是一个非常快速的操作:
+\item 私有数据成员为ORC层和一个助手类。ExecutionSession、ObjectLinkingLayer、CompileLayer、OptIRLayer和MainJITDylib实例表示正在运行的JIT程序、各层和符号表。TargetProcessControl实例用于与JIT目标流程进行交互，这可以是相同的进程，也可以是同一台机器上的另一个进程，或者是不同机器上的远程进程(可能具有不同的体系结构)。DataLayout和MangleAndInterner类需要以正确的方式篡改符号名称。符号名是内化的，这意味着所有相等的名称都有相同的地址。为了检查两个符号名是否相等，比较地址就足够了，这是非常快速的操作:
 \begin{lstlisting}[caption={}]
 	std::unique_ptr<llvm::orc::TargetProcessControl> 
 		TPC;
@@ -425,7 +425,7 @@ static llvm::Expected<std::unique_ptr<JIT>> create() {
 }
 \end{lstlisting}
 
-\item JIT类的构造函数将传递的参数移动到私有数据成员。层对象是通过调用带有create前缀的静态工厂名称来构造的。每个层工厂方法都需要对ExecutionSession实例的引用，将该层连接到正在运行的JIT会话。除了位于层栈底部的对象链接层外，每一层还需要参考上一层，描绘了堆叠顺序:
+\item JIT类的构造函数将传递的参数移动到私有数据成员，层对象是通过调用带有create前缀的静态工厂名称来构造的。每个层工厂方法都需要对ExecutionSession实例的引用，将该层连接到正在运行的JIT会话。除了位于层栈底部的对象链接层外，每一层还需要参考上一层:
 \begin{lstlisting}[caption={}]
 	JIT(std::unique_ptr<llvm::orc::TargetProcessControl>
 			TPCtrl,
@@ -482,7 +482,7 @@ static llvm::Expected<std::unique_ptr<JIT>> create() {
 	}
 \end{lstlisting}
 
-\item 要初始化编译器层，需要一个IRCompiler实例。IRCompiler实例负责将IR模块编译成目标文件。如果JIT编译器不使用线程，那么可以使用SimpleCompiler类，它使用给定的目标机器来编译IR模块。TargetMachine类不是线程安全的，SimpleCompiler类也是如此。为了支持多线程编译，使用了ConcurrentIRCompiler类，它为每个要编译的模块创建了一个新的TargetMachine实例。这种方法解决了多线程问题:
+\item 要初始化编译器层，需要一个IRCompiler实例。IRCompiler实例负责将IR模块编译成目标文件。如果JIT编译器不使用线程，那么可以使用SimpleCompiler类，它使用给定的目标机器来编译IR模块。TargetMachine类不是线程安全的，SimpleCompiler类也是如此。为了支持多线程编译，使用了ConcurrentIRCompiler类，它为每个要编译的模块创建了新的TargetMachine实例。这种方法解决了多线程问题:
 \begin{lstlisting}[caption={}]
 	static std::unique_ptr<llvm::orc::IRCompileLayer>
 	createCompileLayer(
@@ -505,7 +505,7 @@ static llvm::Expected<std::unique_ptr<JIT>> create() {
 请注意，引入惰性编译并不是所有情况下的正确解决方案。
 \end{tcolorbox}
 
-惰性编译是通过将每个函数移动到它自己的模块中来实现的，该模块在查找函数名时进行编译。这阻止了内联等过程间优化，因为内联传递需要访问为内联而调用的函数体。因此，使用惰性编译，用户会看到更快的启动速度，但生成的代码并不是最优的。这些设计决策取决于预期的用途。这里，我们决定使用快速代码，接受较慢的启动时间。优化层作为转换层实现。IRTransformLayer类将转换委托给一个函数，我们的例子中，会委托给optimizeModule函数:
+惰性编译是通过将每个函数移动到它自己的模块中来实现的，该模块在查找函数名时进行编译。这阻止了内联等过程间优化，因为内联传递需要访问为内联而调用的函数体。因此，使用惰性编译，用户会看到更快的启动速度，但生成的代码并不是最优的。这些设计决策取决于预期的用途，我们决定使用快速代码，接受较慢的启动时间。优化层作为转换层实现。IRTransformLayer类将转换委托给一个函数，我们的例子中，会委托给optimizeModule函数:
 \begin{lstlisting}[caption={}]
 	static std::unique_ptr<llvm::orc::IRTransformLayer>
 	createOptIRLayer(
@@ -555,7 +555,7 @@ static llvm::Expected<std::unique_ptr<JIT>> create() {
 }
 \end{lstlisting}
 
-\item JIT类的客户端需要一种添加IR模块的方法，我们使用addIRModule()函数提供该模块。记住我们创建的层堆栈:我们必须将IR模块添加到顶层，否则我们会不小心绕过一些层。这将是一个不容易发现的编程错误:如果CompileLayer成员可以替换OptIRLayer成员，那么JIT类仍然可以工作，但不是作为一个优化JIT，因为绕过了这一层。对于这个小的实现，这没有什么值得关注的，但是在一个大型的JIT优化中，需要引入一个函数来返回顶层:
+\item JIT类的客户端需要一种添加IR模块的方法，使用addIRModule()函数提供该模块。记住创建的层堆栈:必须将IR模块添加到顶层，否则会不小心绕过一些层。这将是一个不容易发现的编程错误:如果CompileLayer成员可以替换OptIRLayer成员，那么JIT类仍然可以工作，但不是作为一个优化JIT，因为绕过了这一层。对于这个小的实现，这没有什么值得关注的，但是在一个大型的JIT优化中，需要引入一个函数来返回顶层:
 \begin{lstlisting}[caption={}]
 	llvm::Error addIRModule(
 		llvm::orc::ThreadSafeModule TSM,
@@ -566,7 +566,7 @@ static llvm::Expected<std::unique_ptr<JIT>> create() {
 	}
 \end{lstlisting}
 
-\item 同样，我们的JIT类的客户端需要一种查找符号的方法。我们把它委托给ExecutionSession实例，传入一个主符号表的引用和请求符号的内化名称:
+\item 同样，我们的JIT类的客户端需要一种查找符号的方法，把它委托给ExecutionSession实例，传入一个主符号表的引用和请求符号的内化名称:
 \begin{lstlisting}[caption={}]
 	llvm::Expected<llvm::JITEvaluatedSymbol>
 	lookup(llvm::StringRef Name) {
@@ -579,24 +579,24 @@ static llvm::Expected<std::unique_ptr<JIT>> create() {
 
 将JIT编译器组合在一起非常容易。初始化类有点棘手，因为它涉及JIT类的工厂方法和构造函数调用，以及每一层的工厂方法。尽管代码本身很简单，但其是因为C++的限制造成的。\par
 
-在下一小节中，我们将使用新的JIT编译器类来实现一个命令行实用程序。\par
+下一小节中，我们将使用新的JIT编译器类来实现一个命令行实用程序。\par
 
 \hspace*{\fill} \par %插入空行
 \textbf{使用新的JIT编译器类}
 
-我们新的JIT编译器类的接口，类似于(用LLJIT实现我们自己的JIT编译器部分中使用的)LLJIT类。为了测试我们的新实现，我们从上一节复制LIT.cpp中的类，并进行以下更改:\par
+我们新的JIT编译器类的接口，类似于(用LLJIT实现我们自己的JIT编译器部分中使用的)LLJIT类。为了测试我们的实现，可以从上一节复制LIT.cpp中的类，并进行以下更改:\par
 
 \begin{enumerate}
-\item 为了能够使用我们的新类，我们包含了JIT.h头文件。这将替换llvm/ExecutionEngine/Orc/\allowbreak LLJIT.h头文件，因为我们不再使用LLJIT类，所以不再需要这个头文件。
+\item 为了能够使用我们的新类，我们包含了JIT.h头文件。这将替换llvm/ExecutionEngine/Orc/LLJIT.h头文件，因为这里不再使用LLJIT类，所以不再需要这个头文件。
 
-\item 在jitmain()函数中，我们用一个新的JIT::create()方法来替换对orc::LLJITBuilder().create()的调用。
+\item 在jitmain()函数中，用一个新的JIT::create()方法来替换对orc::LLJITBuilder().create()的调用。
 
-\item 同样，在jitmain()函数中，我们删除了添加DynamicLibrarySearchGenerator类的代码。确切地说，这个生成器集成在JIT类中。
+\item 同样，在jitmain()函数中，删除了添加DynamicLibrarySearchGenerator类的代码。确切地说，这个生成器集成在JIT类中。
 \end{enumerate}
 
-我们可以像上一节一样编译和运行更改后的应用程序，结果是相同的。在内部，新类使用了固定的优化级别，因此对于足够大的模块，我们可以注意到启动和运行时的差异。\par
+我们可以像上一节一样编译和运行更改后的应用程序，结果是相同的。在内部，新类使用了固定的优化级别，因此对于足够大的模块，可以注意到启动和运行时的差异。\par
 
-手边有一个JIT编译器时，就可以随时产生新的想法。在下一节中，我们将研究如何使用JIT编译器作为静态编译器的一部分，在编译时计算代码。\par
+手边有一个JIT编译器时，就可以随时验证新的想法。在下一节中，我们将研究如何使用JIT编译器作为静态编译器的一部分，在编译时计算代码。\par
 
 
 
