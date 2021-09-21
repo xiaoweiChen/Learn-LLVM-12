@@ -160,7 +160,7 @@ macro(add\underline{~}tinylang\underline{~}tool name) \\
 endmacro()
 \end{tcolorbox}
 
-包含该模块，可以使用add\underline{~}tinylang\underline{~}subdirectory()、add\underline{~}tinylang\underline{~}library()、add\underline{~}tinylang\underline{~}executable()和add\underline{~}tinylang\underline{~}tool()函数。这些是LLVM(在AddLLVM模块中)提供的函数包装器。tinylang\underline{~}subdirectory()为构建添加了一个新的源目录。此外，还添加了一个新的CMake选项。使用此选项，用户可以控制是否应该编译目录的内容。使用add\underline{~}tinylang\underline{~}library()，可以定义库并安装。Add \underline{~}tinylang\underline{~}executable()定义了可执行文件，Add \underline{~}tinylang\underline{~}tool()定义了同样安装的可执行文件。\par
+包含该模块，可以使用add\underline{~}tinylang\underline{~}subdirectory()、add\underline{~}tinylang\underline{~}library()、add\underline{~}tinylang\underline{~}exe\allowbreak cutable()和add\underline{~}tinylang\underline{~}tool()函数。这些是LLVM(在AddLLVM模块中)提供的函数包装器。tinylang\underline{~}subdirectory()为构建添加了一个新的源目录。此外，还添加了一个新的CMake选项。使用此选项，用户可以控制是否应该编译目录的内容。使用add\underline{~}tinylang\underline{~}library()，可以定义库并安装。Add \underline{~}tinylang\underline{~}executable()定义了可执行文件，Add \underline{~}tinylang\underline{~}tool()定义了同样安装的可执行文件。\par
 
 lib目录中，即使没有源代码，也需要CMakeLists.txt文件，必须包含这个项目库的源目录。打开文本编辑器，将以下内容保存在文件中:\par
 

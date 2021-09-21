@@ -219,11 +219,11 @@ bool Parser::parseVariableDeclaration(DeclList &Decls) {
 }
 \end{lstlisting}
 
-DeclList是一个名为std::vector<Decl*>的声明列表，而IdentList是一个类型为std::vector<std::pair<SMLoc, StringRef>>的位置和标识符列表。\par
+DeclList是一个名为std::vector<Decl*>的声明列表，而IdentList是一个类型为std::vector<\allowbreak std::pair<SMLoc, StringRef>>的位置和标识符列表。\par
 
 parseQualident()方法返回一个声明。本例中，应该是一个类型声明。\par
 
-解析器类知道语义分析器类Sema的一个实例，该实例存储在Actions成员中。对actOnVariableDeclaration()的调用运行语义分析器和AST构造。实现在lib/Sema/Sema.cpp中:\par
+解析器类知道语义分析器类Sema的一个实例，该实例存储在Actions成员中。对actOnVariable\allowbreak Declaration()的调用运行语义分析器和AST构造。实现在lib/Sema/Sema.cpp中:\par
 
 \begin{lstlisting}[caption={}]
 void Sema::actOnVariableDeclaration(DeclList &Decls,

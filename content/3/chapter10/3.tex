@@ -128,7 +128,7 @@ Error jitmain(std::unique_ptr<Module> M,
 		return Err;
 \end{lstlisting}
 
-\item 与lli工具一样，我们也支持来自C库的符号。DefinitionGenerator类公开符号，DynamicLibrarySearchGenerator子类公开在动态库中找到的名称。这个类提供了两个工厂方法：Load()方法可用于加载动态库，而GetForCurrentProcess()方法公开当前进程的符号。这里，我们使用后一个函数。符号名可以有前缀，这取决于平台。我们检索数据布局并将前缀传递给GetForCurrentprocess()函数。然后以正确的方式处理符号名，我们不需要关心它。像往常一样，如果发生错误，则返回函数:
+\item 与lli工具一样，我们也支持来自C库的符号。DefinitionGenerator类公开符号，DynamicLibrary\allowbreak SearchGenerator子类公开在动态库中找到的名称。这个类提供了两个工厂方法：Load()方法可用于加载动态库，而GetForCurrentProcess()方法公开当前进程的符号。这里，我们使用后一个函数。符号名可以有前缀，这取决于平台。我们检索数据布局并将前缀传递给GetForCurrentprocess()函数。然后以正确的方式处理符号名，我们不需要关心它。像往常一样，如果发生错误，则返回函数:
 \begin{lstlisting}[caption={}]
 	const DataLayout &DL = (*JIT)->getDataLayout();
 	auto DLSG = orc::DynamicLibrarySearchGenerator::
@@ -272,7 +272,7 @@ cmake\underline{~}minimum\underline{~}required (VERSION 3.13.4) \\
 project ("jit")
 \end{tcolorbox}
 
-\item 需要加载LLVM包，将LLVM提供的CMake模块目录添加到搜索路径中。然后包含ChooseMSVCCRT模块，确保与LLVM使用的C运行时相同:
+\item 需要加载LLVM包，将LLVM提供的CMake模块目录添加到搜索路径中。然后包含Choose\allowbreak MSVCCRT模块，确保与LLVM使用的C运行时相同:
 \begin{tcolorbox}[colback=white,colframe=black]
 find\underline{~}package(LLVM REQUIRED CONFIG) \\
 list(APPEND CMAKE\underline{~}MODULE\underline{~}PATH \$\{LLVM\underline{~}DIR\}) \\
@@ -320,7 +320,7 @@ Hello world
 
 使用ORC的分层方法，可以很容易地构建一个定制的JIT编译器。没有适合所有人的JIT编译器，本章的第一节给出了一些示例。让我们看看如何设置JIT编译器。\par
 
-ORC API将这些层是堆叠在一起的。最低的一层是对象链接层，由llvm::orc::RTDyldObjectLinkingLayer类表示，负责链接内存中的对象并将它们转换为可执行代码。此任务所需的内存由MemoryManager接口的一个实例管理，有一个默认实现，如果需要，也可以使用自定义版本。\par
+ORC API将这些层是堆叠在一起的。最低的一层是对象链接层，由llvm::orc::RTDyldObject\allowbreak LinkingLayer类表示，负责链接内存中的对象并将它们转换为可执行代码。此任务所需的内存由MemoryManager接口的一个实例管理，有一个默认实现，如果需要，也可以使用自定义版本。\par
 
 在对象链接层之上是编译层，它负责创建内存中的对象文件。llvm::orc::IRCompileLayer类将一个IR模块作为输入，并将其编译为对象文件。IRCompileLayer类是IRLayer类的子类，IRLayer类是一个通用类，用于接受LLVM IR的层实现。\par
 
@@ -354,7 +354,7 @@ JIT编译器的一般流程如下:\par
 #define JIT_H
 \end{lstlisting}
 
-\item 需要一堆包含文件。它们中的大多数都提供了与头文件同名的类。Core.h头文件提供了两个基本类，包括ExecutionSession类。ExecutionUtils.h头文件提供了DynamicLibrarySearchGenerator类来搜索库中的符号，我们已经在使用LLJIT实现我们自己的JIT编译器部分使用过。CompileUtils.h头文件提供了ConcurrentIRCompiler类:
+\item 需要一堆包含文件。它们中的大多数都提供了与头文件同名的类。Core.h头文件提供了两个基本类，包括ExecutionSession类。ExecutionUtils.h头文件提供了DynamicLibrarySearch\allowbreak Generator类来搜索库中的符号，我们已经在使用LLJIT实现我们自己的JIT编译器部分使用过。CompileUtils.h头文件提供了ConcurrentIRCompiler类:
 \begin{lstlisting}[caption={}]
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/ExecutionEngine/JITSymbol.h"
@@ -377,7 +377,7 @@ JIT编译器的一般流程如下:\par
 class JIT {
 \end{lstlisting}
 
-\item 私有数据成员为ORC层和一个助手类。ExecutionSession、ObjectLinkingLayer、CompileLayer、OptIRLayer和MainJITDylib实例表示正在运行的JIT程序、各层和符号表。TargetProcessControl实例用于与JIT目标流程进行交互，这可以是相同的进程，也可以是同一台机器上的另一个进程，或者是不同机器上的远程进程(可能具有不同的体系结构)。DataLayout和MangleAndInterner类需要以正确的方式篡改符号名称。符号名是内化的，这意味着所有相等的名称都有相同的地址。为了检查两个符号名是否相等，比较地址就足够了，这是非常快速的操作:
+\item 私有数据成员为ORC层和一个助手类。ExecutionSession、ObjectLinkingLayer、CompileLayer、OptIRLayer和MainJITDylib实例表示正在运行的JIT程序、各层和符号表。TargetProcess\allowbreak Control实例用于与JIT目标流程进行交互，这可以是相同的进程，也可以是同一台机器上的另一个进程，或者是不同机器上的远程进程(可能具有不同的体系结构)。DataLayout和MangleAnd\allowbreak Interner类需要以正确的方式篡改符号名称。符号名是内化的，这意味着所有相等的名称都有相同的地址。为了检查两个符号名是否相等，比较地址就足够了，这是非常快速的操作:
 \begin{lstlisting}[caption={}]
 	std::unique_ptr<llvm::orc::TargetProcessControl> 
 		TPC;
@@ -452,7 +452,7 @@ static llvm::Expected<std::unique_ptr<JIT>> create() {
 }
 \end{lstlisting}
 
-\item 为了创建对象链接层，需要提供一个内存管理器。这里我们坚持使用默认的SectionMemoryManager类，但如果需要，也可以提供不同的实现:
+\item 为了创建对象链接层，需要提供一个内存管理器。这里我们坚持使用默认的SectionMemory\allowbreak Manager类，但如果需要，也可以提供不同的实现:
 \begin{lstlisting}[caption={}]
 	static std::unique_ptr<
 		llvm::orc::RTDyldObjectLinkingLayer>
@@ -587,7 +587,7 @@ static llvm::Expected<std::unique_ptr<JIT>> create() {
 我们新的JIT编译器类的接口，类似于(用LLJIT实现我们自己的JIT编译器部分中使用的)LLJIT类。为了测试我们的实现，可以从上一节复制LIT.cpp中的类，并进行以下更改:\par
 
 \begin{enumerate}
-\item 为了能够使用我们的新类，我们包含了JIT.h头文件。这将替换llvm/ExecutionEngine/Orc/LLJIT.h头文件，因为这里不再使用LLJIT类，所以不再需要这个头文件。
+\item 为了能够使用我们的新类，我们包含了JIT.h头文件。这将替换llvm/ExecutionEngine/\allowbreak Orc/LLJIT.h头文件，因为这里不再使用LLJIT类，所以不再需要这个头文件。
 
 \item 在jitmain()函数中，用一个新的JIT::create()方法来替换对orc::LLJITBuilder().create()的调用。
 

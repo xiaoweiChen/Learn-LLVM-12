@@ -27,7 +27,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *Data, size_t
 
 代码中，count()函数计算Data变量所指向的内存中的位数。只检查数据的大小以确定是否有可用的字节。在while循环中，不检查数据长度。\par
 
-与普通C字符串一起使用时，不会出现错误，因为C字符串总是以0字节结束。LLVMFuzzerTestOneInput()函数就是fuzz目标，它是libFuzzer调用的函数。调用我们想要测试的函数并返回0，这是目前唯一允许的值。\par
+与普通C字符串一起使用时，不会出现错误，因为C字符串总是以0字节结束。LLVMFuzzer\allowbreak TestOneInput()函数就是fuzz目标，它是libFuzzer调用的函数。调用我们想要测试的函数并返回0，这是目前唯一允许的值。\par
 
 要使用libFuzzer编译文件，需要添加-fsanitize=fuzzer选项。建议还启用地址sanitizer和调试符号的生成:\par
 

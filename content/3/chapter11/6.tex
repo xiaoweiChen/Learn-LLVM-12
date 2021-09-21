@@ -170,7 +170,7 @@ if(LLVM\underline{~}ENABLE\underline{~}PLUGINS AND (WIN32 OR CYGWIN)) \\
 endif()
 \end{tcolorbox}
 
-\item 将这两个文件保存在NamingPlugin目录中。创建一个与NamingPlugin目录同级的build-NamingPlugin目录，并使用以下命令构建插件:
+\item 将这两个文件保存在NamingPlugin目录中。创建一个与NamingPlugin目录同级的\par build-NamingPlugin目录，并使用以下命令构建插件:
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ mkdir build-naming-plugin \\
 \$ cd build-naming-plugin \\
@@ -260,7 +260,7 @@ public:
 		: Visitor(std::make_unique<NamingVisitor>(CI)) {}
 \end{lstlisting}
 
-\item 您将删除HandleTopLevelDecl()方法，因为该功能现在在访问者类中，所以需要重写HandleTranslationUnit()方法。每个翻译单元调用一次，会在这里开始AST遍历:
+\item 您将删除HandleTopLevelDecl()方法，因为该功能现在在访问者类中，所以需要重写Handle\allowbreak TranslationUnit()方法。每个翻译单元调用一次，会在这里开始AST遍历:
 \begin{lstlisting}[caption={}]
 	void
 	HandleTranslationUnit(ASTContext &ASTCtx) override {

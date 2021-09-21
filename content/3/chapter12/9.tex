@@ -1,6 +1,6 @@
 目标描述中指令的定义允许构造解码器表，解码器表用于将目标文件反汇编成文本汇编程序。解码器表和解码器函数是由llvm-tblgen工具生成的。除了生成的代码外，我们只需要提供注册和初始化M88kDisassembler类的代码，以及一些解码寄存器和操作数的帮助函数。\par
 
-我们将实现放在Disassembler/M88kDisassembler.cpp文件中。M88kDisassembler类的getInstruction()方法执行解码工作。它接受一个字节数组作为输入，并将下一条指令解码到MCInst类的实例中。类声明如下:\par
+我们将实现放在Disassembler/M88kDisassembler.cpp文件中。M88kDisassembler类的get\allowbreak Instruction()方法执行解码工作。它接受一个字节数组作为输入，并将下一条指令解码到MCInst类的实例中。类声明如下:\par
 
 \begin{lstlisting}[caption={}]
 using DecodeStatus = MCDisassembler::DecodeStatus;
@@ -45,7 +45,7 @@ LLVMInitializeM88kDisassembler() {
 }
 \end{lstlisting}
 
-当LLVM核心库初始化时，会调用initializealldisassemers()函数或InitializeNativeTargetDisassembler()函数。\par
+当LLVM核心库初始化时，会调用initializealldisassemers()函数或InitializeNativeTarget\allowbreak Disassembler()函数。\par
 
 生成的解码器函数需要助手函数来解码寄存器和操作数，这些元素的编码通常涉及目标描述中没有表示的特殊情况，例如：两个指令之间的距离总是偶数，所以最小的位可以忽略，因为它总是零。\par
 

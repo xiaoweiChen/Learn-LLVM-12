@@ -11,7 +11,7 @@ PassBuilder类填充了ModulePassManager类的实例，ModulePassManager类是�
 为了实现功能，我们将tinylang编译器中的tools/driver/Driver.cpp文件进行了扩展:\par
 
 \begin{enumerate}
-\item 我们使用新的类，因此从添加新的包含文件开始。llvm/Passes/PassBuilder.h文件提供了PassBuilder类的定义。llvm/Passes/PassPlugin.h文件是插件支持所必需的。最后，llvm/Analysis/TargetTransformInfo.h文件提供了一个连接IR级转换和特定目标信息的Pass:
+\item 我们使用新的类，因此从添加新的包含文件开始。llvm/Passes/PassBuilder.h文件提供了PassBuilder类的定义。llvm/Passes/PassPlugin.h文件是插件支持所必需的。最后，llvm/An\allowbreak alysis/TargetTransformInfo.h文件提供了一个连接IR级转换和特定目标信息的Pass:
 \begin{lstlisting}[caption={}]
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
@@ -251,7 +251,7 @@ target\underline{~}link\underline{~}libraries(tinylang
 
 还有其他扩展点。要使用扩展点，需要注册一个回调。在构造Pass流水期间，回调将在定义的扩展点运行，并可以向给定的Pass管理器添加一个Pass。\par
 
-要为流水起始扩展点注册回调，可以调用PassBuilder类的registerPipelineStartEPCallback()方法。例如，将CountIRPass Pass添加到流水的开头，需要通过调用createModuleToFunctionPassAdaptor()模板函数来调整Pass作为模块Pass使用，然后将Pass添加到模块Pass管理器中:\par
+要为流水起始扩展点注册回调，可以调用PassBuilder类的registerPipelineStartEPCallback()方法。例如，将CountIRPass Pass添加到流水的开头，需要通过调用createModuleToFunctionPass\allowbreak Adaptor()模板函数来调整Pass作为模块Pass使用，然后将Pass添加到模块Pass管理器中:\par
 
 \begin{lstlisting}[caption={}]
 PB.registerPipelineStartEPCallback(
@@ -262,9 +262,9 @@ PB.registerPipelineStartEPCallback(
 	});
 \end{lstlisting}
 
-可以在Pass流水创建之前的任何时刻，也就是调用parsepaspipeline()方法之前，在Pass流水设置代码中添加此代码。\par
+可以在Pass流水创建之前的任何时刻，也就是调用parsePassPipeline()方法之前，在Pass流水设置代码中添加此代码。\par
 
-对于上一节中所做的工作，一个非常自然的扩展是让用户在命令行上传递一个扩展点的Pass流水描述(opt工具也允许这样做)。先为流水起始扩展点这样做。首先，将以下代码添加到tools/driver/Driver.cpp文件中:\par
+对于上一节中所做的工作，一个非常自然的扩展是让用户在命令行上传递一个扩展点的Pass流水描述(opt工具也允许这样做)。先为流水起始扩展点这样做。首先，将以下代码添加到tools/driver/\allowbreak Driver.cpp文件中:\par
 
 \begin{enumerate}
 \item 为用户添加了一个新的命令行来指定管道描述。同样，从opt工具中获取选项名:
@@ -298,7 +298,7 @@ PB.registerPipelineStartEPCallback(
 LLVM 12支持-print-changed选项，与之前Pass的结果相比，该选项仅在IR代码发生更改时打印。大大减少的输出，使得跟踪IR转换更加容易。
 \end{tcolorbox}
 
-PassBuilder类有一个嵌套的OptimizationLevel类来表示六个不同的优化级别。而不是使用"default<O?>"流水描述作为parsepaspipeline()方法的参数，我们也可以调用buildPerModuleDefaultPipeline()方法，为优化级别构建相应的优化管道——除了级别O0。优化级别为O0，表示不执行优化。因此，Pass管理器中不会添加任何Pass。如果我们仍然想运行某个Pass，可以手动将它添加到Pass管理器中。这个级别运行的是一个简单的Pass：AlwaysInliner Pass，它将一个标记有always\underline{~}内联属性的函数内联到调用者中。将优化级别的命令行选项值转换为OptimizationLevel类的相应成员，实现如下:
+PassBuilder类有一个嵌套的OptimizationLevel类来表示六个不同的优化级别。而不是使用"default<O?>"流水描述作为parsepaspipeline()方法的参数，我们也可以调用buildPer\allowbreak ModuleDefaultPipeline()方法，为优化级别构建相应的优化管道——除了级别O0。优化级别为O0，表示不执行优化。因此，Pass管理器中不会添加任何Pass。如果我们仍然想运行某个Pass，可以手动将它添加到Pass管理器中。这个级别运行的是一个简单的Pass：AlwaysInliner Pass，它将一个标记有always\underline{~}内联属性的函数内联到调用者中。将优化级别的命令行选项值转换为OptimizationLevel类的相应成员，实现如下:
 \begin{lstlisting}[caption={}]
 	PassBuilder::OptimizationLevel Olevel = …;
 	if (OLevel == PassBuilder::OptimizationLevel::O0)

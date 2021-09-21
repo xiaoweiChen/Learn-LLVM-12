@@ -8,10 +8,10 @@
 \begin{tcolorbox}[colback=white,colframe=black]
 TYPE Shape = RECORD \\
 \hspace*{3cm}color: INTEGER; \\
-\hspace*{3cm}PROCEDURE (VAR s: Shape) GetColor(): \
+\hspace*{3cm}PROCEDURE (VAR s: Shape)  GetColor(): \\
 \hspace*{3.5cm}INTEGER; \\
 \hspace*{3cm}PROCEDURE (VAR s: Shape) Area(): REAL;\\
-\hspace*{2.5cm}cmEND;
+\hspace*{2.5cm}END;
 \end{tcolorbox}
 
 GetColor方法只返回颜色编号:\par

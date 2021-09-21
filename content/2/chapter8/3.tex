@@ -86,7 +86,7 @@ FunctionAnalysisManager &AM) {
 目前为止，已经实现了新Pass的功能。稍后将对out-of-tree Pass重用此实现。对于LLVM树中的解决方案，必须更改LLVM中的几个文件来声明新的Pass:\par
 
 \begin{enumerate}
-\item 首先，需要将CMakeLists.txt添加到源文件夹。这个文件包含一个新的LLVM库名称LLVMCountIR的构建说明。新库需要链接到LLVM Support组件，因为我们使用了调试和统计基础设施，还需要链接到LLVM Core组件，其中包含LLVM IR的定义:
+\item 首先，需要将CMakeLists.txt添加到源文件夹。这个文件包含一个新的LLVM库名称LLVM\allowbreak CountIR的构建说明。新库需要链接到LLVM Support组件，因为我们使用了调试和统计基础设施，还需要链接到LLVM Core组件，其中包含LLVM IR的定义:
 \begin{tcolorbox}[colback=white,colframe=black]
 add\underline{~}llvm\underline{~}component\underline{~}library(LLVMCountIR \\
 \hspace*{0.5cm}CountIR.cpp \\
@@ -215,7 +215,7 @@ llvmGetPassPluginInfo() {
 		RegisterCB};
 }
 \end{lstlisting}
-为每个回调函数实现一个单独的函数有助于理解发生了什么。如果插件提供了几个Pass，那么可以扩展RegisterCB回调函数来注册所有Pass。通常，可以找到一种紧凑的方法。下面的llvmGetPassPluginInfo()函数将前面的PipelineParsingCB()、RegisterCB()和llvmGetPassPluginInfo()组合成一个函数，并通过Lambda函数来实现:
+为每个回调函数实现一个单独的函数有助于理解发生了什么。如果插件提供了几个Pass，那么可以扩展RegisterCB回调函数来注册所有Pass。通常，可以找到一种紧凑的方法。下面的llvmGetPassPluginInfo()函数将前面的PipelineParsingCB()、RegisterCB()和llvmGetPass\allowbreak PluginInfo()组合成一个函数，并通过Lambda函数来实现:
 \begin{lstlisting}[caption={}]
 extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_
 WEAK

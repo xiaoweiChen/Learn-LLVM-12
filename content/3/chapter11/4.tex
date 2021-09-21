@@ -19,7 +19,7 @@ int main(int argc, char *argv[]) {
 }
 \end{lstlisting}
 
-要在编译期间启用XRay检测，需要指定-fxray-instrument选项，不测试小于200条指令的函数。这是一个由开发人员定义的任意阈值，在例子中，函数不会被检测。该阈值可以通过-fxrayinstruction-threshold= 指定，或者可以添加一个function属性来控制函数是否应该检测，例如：添加以下修饰会让函数始终执行检测:\par
+要在编译期间启用XRay检测，需要指定-fxray-instrument选项，不测试小于200条指令的函数。这是一个由开发人员定义的任意阈值，在例子中，函数不会被检测。该阈值可以通过-fxrayin\allowbreak struction-threshold= 指定，或者可以添加一个function属性来控制函数是否应该检测，例如：添加以下修饰会让函数始终执行检测:\par
 
 \begin{lstlisting}[caption={}]
 void func1() __attribute__((xray_always_instrument));

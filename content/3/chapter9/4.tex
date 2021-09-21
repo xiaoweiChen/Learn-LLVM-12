@@ -50,7 +50,7 @@ TableGen语言是静态类型的，您必须指定每个值的类型。一些受
 
 LLVM中的TableGen库可以解析用TableGen语言编写的文件，并创建记录的内存表示。您可以使用这个库创建自己的生成器。\par
 
-LLVM自带了自己的生成工具LLVM-tblgen和一些.td文件。后端目标描述包括llvm/target/target.td文件。该文件定义诸如Register、Target或Processor等类。llvm-tblgen工具了解这些类，并从定义的记录中生成C++代码。\par
+LLVM自带了自己的生成工具LLVM-tblgen和一些.td文件。后端目标描述包括llvm/target/\allowbreak target.td文件。该文件定义诸如Register、Target或Processor等类。llvm-tblgen工具了解这些类，并从定义的记录中生成C++代码。\par
 
 以MIPS后端为例来看看。目标描述在Mips.td中，文件位于llvm/lib/Target/Mips文件夹，该文件包含Target.td文件。它还定义了目标特性，例如:\par
 

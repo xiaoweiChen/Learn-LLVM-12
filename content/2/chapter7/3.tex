@@ -219,7 +219,7 @@ llvm::MDNode *CGTBAA::getAccessTagInfo(TypeDenoter *TyDe)
 \end{lstlisting}
 \end{enumerate}
 
-要启用TBAA元数据的生成，只需要将元数据附加到生成的加载和存储指令。例如，在CGProcedure::writeVariable()中，对全局变量进行存储，使用存储指令:\par
+要启用TBAA元数据的生成，只需要将元数据附加到生成的加载和存储指令。例如，在CGProced\allowbreak ure::writeVariable()中，对全局变量进行存储，使用存储指令:\par
 
 \begin{lstlisting}[caption={}]
 Builder.CreateStore(Val, CGM.getGlobal(D));

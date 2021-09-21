@@ -337,7 +337,7 @@ void addLandingPad() {
 						{Ptr});
 \end{lstlisting}
 
-\item 通过调用puts()函数来处理异常，将消息打印到控制台。为此，首先通过调用CreateGlobalStringPtr()函数生成一个指向该字符串的指针，然后在生成的调用puts()函数中将该指针作为参数传入:
+\item 通过调用puts()函数来处理异常，将消息打印到控制台。为此，首先通过调用CreateGlobalString\allowbreak Ptr()函数生成一个指向该字符串的指针，然后在生成的调用puts()函数中将该指针作为参数传入:
 \begin{lstlisting}[caption={}]
 	Builder.CreateCall(EndCatchFty, EndCatchFn);
 	Builder.CreateRet(Int32Zero);

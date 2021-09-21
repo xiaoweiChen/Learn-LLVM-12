@@ -15,7 +15,7 @@ sqsumu \$1, \$2, \$3
 
 我们首先添加的CPU特性称为sqsum。这将允许使用\verb|--|mattr=+sqsum选项调用llc，以启用对新指令进行识别。\par
 
-我们将添加的大部分代码都在描述MIPS后端的TableGen文件中。所有文件都位于llvm/lib/Target/Mips文件夹中。顶层文件为Mips.td，查看该文件并找到定义各种特性的部分。这里添加了我们新特性的定义:\par
+我们将添加的大部分代码都在描述MIPS后端的TableGen文件中。所有文件都位于llvm/lib/\allowbreak Target/Mips文件夹中。顶层文件为Mips.td，查看该文件并找到定义各种特性的部分。这里添加了我们新特性的定义:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 def FeatureSQSum \\

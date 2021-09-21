@@ -11,9 +11,9 @@
 \begin{itemize}
 \item lvm::DIFile: 使用文件名和包含该文件的目录的绝对路径来描述一个文件，可以使用createFile()方法来创建。一个文件可以包含主编译单元，也可以包含导入的声明。
 
-\item llvm::DICompileUnit: 这用于描述当前的编译单元，还需要指定源语言、特定于编译器的生成器字符串、是否启用了优化，当然还有编译单元所在的DIFile。您可以通过调用createCompileUnit()来创建。
+\item llvm::DICompileUnit: 这用于描述当前的编译单元，还需要指定源语言、特定于编译器的生成器字符串、是否启用了优化，当然还有编译单元所在的DIFile。您可以通过调用createCompile\allowbreak Unit()来创建。
 
-\item llvm::DISubprogram: 描述一个函数。其中重要的信息有：作用域(通常是嵌套函数的DICompileUnit或DISubprogram)、函数名、修饰过的函数名和函数类型。可以通过调用createFunction()来创建。
+\item llvm::DISubprogram: 描述一个函数。其中重要的信息有：作用域(通常是嵌套函数的DIComp\allowbreak ileUnit或DISubprogram)、函数名、修饰过的函数名和函数类型。可以通过调用createFunction()来创建。
 
 \item llvm::DILexicalBlock: 描述了如何在语言中对块作用域进行建模的词汇块。可以通过调用createLexicalBlock()来创建。
 
@@ -24,7 +24,7 @@ LLVM对编译器翻译的语言没有任何假设。因此，没有关于该语�
 \begin{itemize}
 \item createBasicType()函数返回一个指向llvm::DIBasicType类的指针，创建元数据来描述基本类型，如tinylang中的INTEGER或C++中的int。除了类型的名称之外，所需参数是以位为单位大小和编码的。例如，有符号类型还是无符号类型。
 
-\item 有几种方法可以构造复合数据类型的元数据，用llvm::DIComposite类表示。可以使用createArrayType()、createStructType()、createUnionType()和createVectorType()函数实例化数组、结构、联合和向量数据类型的元数据。这些函数需要相应的参数—例如，数组类型的基类型和下标，或者结构类型的字段成员列表。
+\item 有几种方法可以构造复合数据类型的元数据，用llvm::DIComposite类表示。可以使用create\allowbreak ArrayType()、createStructType()、createUnionType()和createVectorType()函数实例化数组、结构、联合和向量数据类型的元数据。这些函数需要相应的参数—例如，数组类型的基类型和下标，或者结构类型的字段成员列表。
 
 \item 还有一些方法支持枚举、模板、类等。
 \end{itemize}
@@ -202,7 +202,7 @@ llvm::DIExpression *Expr = DBuilder.createExpression(AddrOps);
 
 调试器允许程序员逐行调试应用程序。为此，调试器需要知道哪个机器指令属于源代码中的哪一行，LLVM允许在每个指令中添加一个源位置。上一节中，创建了llvm::DILocation类型的位置信息。调试位置包含的信息不仅仅是行、列和范围。如果需要，可以指定这一行内联到的范围。还可以指出此调试位置属于隐式代码，即前端生成的但不在源代码中的代码。\par
 
-将它附加到指令之前，必须将调试位置包装在llvm::DebugLoc对象中。为此，只需将从llvm::DILocation类获得的位置信息传递给llvm::DebugLoc构造函数。通过这种包装，LLVM可以跟踪位置信息。虽然源代码中的位置显然没有改变，但在优化期间可以删除为源代码级语句或表达式生成的机器码。封装有助于处理这些可能的更改。\par
+将它附加到指令之前，必须将调试位置包装在llvm::DebugLoc对象中。为此，只需将从llvm::DI\allowbreak Location类获得的位置信息传递给llvm::DebugLoc构造函数。通过这种包装，LLVM可以跟踪位置信息。虽然源代码中的位置显然没有改变，但在优化期间可以删除为源代码级语句或表达式生成的机器码。封装有助于处理这些可能的更改。\par
 
 添加行号信息主要可以归结为从AST检索行号信息并将其添加到生成的指令中。指令类有setDebugLoc()方法，将位置信息附加到指令上。\par
 
@@ -211,7 +211,7 @@ llvm::DIExpression *Expr = DBuilder.createExpression(AddrOps);
 \hspace*{\fill} \par %插入空行
 \textbf{为tinylang添加调试支持}
 
-我们将调试元数据的生成封装在新的CGDebugInfo类中。把声明放到tinylang/CodeGen/CGDebugInfo.h头文件中，把定义放到tinylang/CodeGen/CGDebugInfo.cpp文件中。\par
+我们将调试元数据的生成封装在新的CGDebugInfo类中。把声明放到tinylang/CodeGen/CG\allowbreak DebugInfo.h头文件中，把定义放到tinylang/CodeGen/CGDebugInfo.cpp文件中。\par
 
 CGDebugInfo类有五个重要成员。我们需要引用模块CGM的代码生成器，因为我们需要将类型从AST表示转换为LLVM类型。当然，还需要llvm::DIBuilder类的一个实例，称为DBuilder，如上一节所述。还需要一个指向编译单元实例的指针，我们将它存储在名为CU的成员中。\par
 
