@@ -24,13 +24,13 @@ define i16 @sum(i16 \%a, i16 \%b) \{ \\
 \}
 \end{tcolorbox}
 
-将此代码保存为sum.ll，使用llc (LLVM静态编译器)编译MIPS架构。该工具将LLVM IR编译为汇编文本或目标文件。可以在命令行中用-mtriple选项覆盖编译的目标平台。使用-debug-pass=\allowbreak Structure选项调用llc工具:\par
+将此代码保存为sum.ll，使用llc(LLVM静态编译器)编译MIPS架构。该工具将LLVM IR编译为汇编文本或目标文件。可以在命令行中用-mtriple选项覆盖编译的目标平台。使用-debug-pass=Structure选项调用llc工具:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ llc -mtriple=mips-linux-gnu -debug-pass=Structure < sum.ll
 \end{tcolorbox}
 
-除了生成的程序集代码之外，您还将看到一长串要运行的机器通行证列表。其中，MIPS DAG->\allowbreak DAG指令选择模式Pass执行指令选择，MIPS延迟槽填充器是针对特定目标的Pass，清理前的最后一个Pass是MIPS汇编打印器负责打印汇编代码。在所有这些Pass中，指令选择Pass是最有趣的，我们将在下一节详细讨论它。\par
+除了生成的程序集代码之外，您还将看到一长串要运行的机器Pass列表。其中，MIPS DAG->DAG指令选择模式Pass执行指令选择，MIPS延迟槽填充器是针对特定目标的Pass，清理前的最后一个Pass是MIPS汇编打印器负责打印汇编代码。在所有这些Pass中，指令选择Pass是最有趣的，我们将在下一节详细讨论它。\par
 
 
 

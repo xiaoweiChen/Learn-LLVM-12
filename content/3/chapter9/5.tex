@@ -3,7 +3,7 @@
 \hspace*{\fill} \par %插入空行
 \textbf{向汇编程序和代码生成添加新指令}
 
-新的机器指令通常与特定的CPU特性绑定在一起。只有当用户使用\verb|--|mattr=选项选择llc时，新指令才会能识别。\par
+新的机器指令通常与特定的CPU特性绑定在一起。只有当用户使用\verb|--|mattr=选项选择llc时，新指令才能识别。\par
 
 作为一个例子，我们将添加一个新的机器指令到MIPS后端。新的机器指令首先将两个输入寄存器的值平方\$2和\$3，然后将两个平方和的和赋给输出寄存器\$1:\par
 
@@ -13,9 +13,9 @@ sqsumu \$1, \$2, \$3
 
 该指令的名称是sqsumu，由平方和求和运算派生而来。名称中的最后一个u表示该指令适用于无符号整数。\par
 
-我们首先添加的CPU特性称为sqsum。这将允许我们使用\verb|--|mattr=+sqsum选项调用llc，以启用对新指令的识别。\par
+我们首先添加的CPU特性称为sqsum。这将允许使用\verb|--|mattr=+sqsum选项调用llc，以启用对新指令进行识别。\par
 
-我们将添加的大部分代码都在描述MIPS后端的TableGen文件中。所有文件都位于llvm/lib/\allowbreak Target/Mips文件夹中。顶层文件为Mips.td，查看该文件并找到定义各种特性的部分。这里添加了我们新特性的定义:\par
+我们将添加的大部分代码都在描述MIPS后端的TableGen文件中。所有文件都位于llvm/lib/Target/Mips文件夹中。顶层文件为Mips.td，查看该文件并找到定义各种特性的部分。这里添加了我们新特性的定义:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 def FeatureSQSum \\
@@ -23,7 +23,7 @@ def FeatureSQSum \\
 \hspace*{6cm}"Use square-sum instruction">;
 \end{tcolorbox}
 
-SubtargetFeature类接受四个模板参数。第一个是sqsum，它是特性的名称，用于命令行。第二个参数HasSQSum是表示此特性的Subtarget类中的属性名称。下一个参数是默认值和特性的描述，用于在命令行上提供帮助。TableGen为MipsSubtarget类生成基类，在MipsSubtarget.h文件中定义。在这个文件中，类的私有部分添加了新属性，所有其他属性都在这里定义:\par
+SubtargetFeature类接受四个模板参数。第一个是sqsum，它是特性的名称，用于命令行。第二个参数HasSQSum是表示此特性的Subtarget类中的属性名称。下一个参数是默认值和特性的描述，用于在命令行上提供帮助。TableGen为MipsSubtarget类生成基类，其在MipsSubtarget.h文件中定义。这个文件中，类的私有部分添加了新属性，所有其他属性都在这里定义:\par
 
 \begin{lstlisting}[caption={}]
 // Has square-sum instruction.
@@ -38,22 +38,22 @@ bool hasSQSum() const { return HasSQSum; }
 
 通过这些那方法，我们已经能够在命令行上设置sqsum特性，尽管目前还没有效果。\par
 
-要将新指令绑定到sqsum特性，我们需要定义一个谓词来指示是否选择了该特性。我们将其添加到MipsInstrInfo.td文件中，或者在定义所有其他谓词的部分，亦或者简单地放在结尾:\par
+要将新指令绑定到sqsum特性，需要定义一个谓词来指示是否选择了该特性。我们将其添加到MipsInstrInfo.td文件中，或者在定义所有其他谓词的部分，亦或者简单地放在结尾:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 def HasSQSum : Predicate<"Subtarget->hasSQSum()">, \\
 \hspace*{6cm}AssemblerPredicate<(all\underline{~}of FeatureSQSum)>;
 \end{tcolorbox}
 
-谓词使用前面定义的hasSQSum()方法。此外，AssemblerPredicate模板指定为汇编程序生成源代码时所使用的条件。我们只是简单地引用前面定义的特性。\par
+谓词使用前面定义的hasSQSum()方法。此外，AssemblerPredicate模板指定为汇编程序生成源代码时所使用的条件，只是简单地引用前面定义的特性。\par
 
-我们还需要更新调度模型。MIPS目标同时使用行程和机器指令调度程序，对于路线模型，为MipsSchedule中的每条指令定义一个instritclass.td记录文件。在此文件中定义所有路线的部分中添加以下一行:\par
+我们还需要更新调度模型。MIPS目标同时使用行程和机器指令调度程序，对于路线模型，为MipsSchedule中的每条指令定义一个instritclass.td记录文件。在此文件中定义所有路线的部分中添加以下行:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 def II\underline{~}SQSUMU : InstrItinClass;
 \end{tcolorbox}
 
-我们还需要提供说明费用的细节。通常，您可以在CPU的文档中找到这些信息。对于我们的指令，乐观地假设它在ALU中只需要一个循环。该信息能添加到的MipsGenericItineraries定义中:\par
+我们还需要提供说明费用的细节。通常，可以在CPU的文档中找到这些信息。对于我们的指令，乐观地假设它在ALU中只需要一个循环。该信息能添加到的MipsGenericItineraries定义中:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 InstrItinData<II\underline{~}SQSUMU, [InstrStage<1, [ALU]>]>
@@ -65,20 +65,20 @@ InstrItinData<II\underline{~}SQSUMU, [InstrStage<1, [ALU]>]>
 def : InstRW<[GenericWriteMul], (instrs MULT, MULTu, SQSUMu)>;
 \end{tcolorbox}
 
-MIPS目标还在MipsScheduleP5600.td 中定义了P5600 CPU的调度模型。这个目标显然不支持我们的新指令，所以把它添加到不支持的特性列表中:\par
+MIPS目标还在MipsScheduleP5600.td中定义了P5600 CPU的调度模型。这个目标显然不支持我们的新指令，所以把它添加到不支持的特性列表中:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 list<Predicate> UnsupportedFeatures = [HasSQSum, HasMips3, … 
 \end{tcolorbox}
 
-现在，我们准备在Mips64InstrInfo.td文件的末尾添加新指令。TableGen的定义总是简洁的，因此需要对其进行剖析。该定义使用了来自MIPS目标描述的一些预定义类，我们的新指令是一个算术指令。通过设计，它适合于ArithLogicR类。第一个参数“sqsumu”指定指令的汇编助记符，下一个参数GPR64Opnd表示指令使用64位寄存器作为操作数，下面的1个参数表示操作数是可交换的。最后，给出了路线指令。添加\underline{~}FM类用于指定指令的二进制编码。对于真正的指令，必须根据文档选择参数。然后跟随ISA\underline{~}MIPS64谓词，该谓词指示指令对哪个指令集是有效的。最后，我们的SQSUM谓词声明，只有在启用我们的特性时，指令才有效。完整的定义如下:\par
+现在，我们准备在Mips64InstrInfo.td文件的末尾添加新指令。TableGen的定义总是简洁的，因此需要对其进行剖析。该定义使用了来自MIPS目标描述的一些预定义类，我们的新指令是一个算术指令。通过设计，它适合于ArithLogicR类。第一个参数sqsumu指定指令的汇编助记符，下一个参数GPR64Opnd表示指令使用64位寄存器作为操作数，下面的1个参数表示操作数是可交换的。最后，给出了路线指令。添加\underline{~}FM类用于指定指令的二进制编码。对于真正的指令，必须根据文档选择参数。然后跟随ISA\underline{~}MIPS64谓词，该谓词指示指令对哪个指令集是有效的。最后，我们的SQSUM声明，只有在启用我们的特性时，指令才有效。完整的定义如下:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 def SQSUMu : ArithLogicR<"sqsumu", GPR64Opnd, 1, II\underline{~}SQSUMU>, \\
 \hspace*{4cm}ADD\underline{~}FM<0x1c, 0x28>, ISA\underline{~}MIPS64, SQSUM
 \end{tcolorbox}
 
-如果您的目标只是支持新指令，那么这个定义就够了，所以一定要完成的定义。通过添加选择DAG模式，代码生成器可以使用该指令。该指令使用两个操作数寄存器\$rs和\$rt以及目标寄存器\$rd，这三个寄存器都由ADD\underline{~}FM二进制格式类定义。理论上，要匹配的模式很简单:使用乘数运算符将每个寄存器的值平方，然后使用add运算符将两个乘积相加，并将它们赋给目标寄存器\$rd。这个模式变得有点复杂，因为使用MIPS指令集，乘法的结果存储在一个特殊的寄存器对中。为了便于使用，结果必须移到通用寄存器中。在操作的合法化过程中，通用mul操作符被MIPS特定的MipsMult操作所取代，用于乘法运算和MipsMFLO运算，以将结果的下一部分移动到通用寄存器中。在编写模式时，我们必须考虑到这一点，模式如下所示:\par
+如果您的目标只是支持新指令，那么这个定义就够了，所以一定要完成的定义。通过添加选择DAG模式，代码生成器可以使用该指令。该指令使用两个操作数寄存器\$rs和\$rt以及目标寄存器\$rd，这三个寄存器都由ADD\underline{~}FM二进制格式类定义。理论上，要匹配的模式很简单:使用乘数运算符将每个寄存器的值平方，然后使用add运算符将两个乘积相加，并将它们赋给目标寄存器\$rd。这个模式变得有点复杂，因为使用MIPS指令集，乘法的结果存储在特殊的寄存器对中。为了便于使用，结果必须移到通用寄存器中。在操作的合法化过程中，通用mul操作符被MIPS特定的MipsMult操作所取代，用于乘法运算和MipsMFLO运算，以将结果的下一部分移动到通用寄存器中。在编写模式时，必须考虑到这一点，模式如下所示:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \{
@@ -95,7 +95,7 @@ def SQSUMu : ArithLogicR<"sqsumu", GPR64Opnd, 1, II\underline{~}SQSUMU>, \\
 \}
 \end{tcolorbox}
 
-正如在带选择DAG部分的指令选择中所描述的，如果该模式与当前DAG节点匹配，则选择我们的新指令。由于SQSUM谓词，这只在激活SQSUM特性时发生。让我们用一个测试来检查它!\par
+正如在带选择DAG部分的指令选择中所描述的，如果该模式与当前DAG节点匹配，则选择我们的新指令。由于SQSUM谓词，这只在激活SQSUM特性时发生。我们用一个测试来检查它!\par
 
 \hspace*{\fill} \par %插入空行
 \textbf{测试新指令}
@@ -109,7 +109,7 @@ def SQSUMu : ArithLogicR<"sqsumu", GPR64Opnd, 1, II\underline{~}SQSUMU>, \\
 \item 其次，必须确保代码生成按照预期工作。
 \end{itemize}
 
-LLVM项目使用LIT (LLVM Integrated Tester)作为测试工具。基本上，测试用例是一个包含输入、要运行的命令和应该执行的检查的文件。添加新测试就像将一个新文件复制到测试目录中一样简单。为了验证新指令的编码，使用llvm-mc工具。除了其他任务外，该工具还可以显示指令的编码。对于临时检查，可以执行以下命令显示指令编码:\par
+LLVM项目使用LIT(LLVM Integrated Tester)作为测试工具。基本上，测试用例是一个包含输入、要运行的命令和应该执行的检查的文件。添加新测试就像将一个新文件复制到测试目录中一样简单。为了验证新指令的编码，使用llvm-mc工具。除了其他任务外，该工具还可以显示指令的编码。对于临时检查，可以执行以下命令显示编码指令:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ echo "sqsumu $\setminus$\$1,$\setminus$\$2,$\setminus$\$3" | $\setminus$ \\
@@ -117,7 +117,7 @@ LLVM项目使用LIT (LLVM Integrated Tester)作为测试工具。基本上，测
 \hspace*{2.5cm}--show-encoding
 \end{tcolorbox}
 
-这已经显示了要在自动化测试用例中运行的部分输入和命令。要验证结果，可以使用FileCheck工具。llvm-mc的输出通过管道传输到这个工具中。另外，FileCheck读取测试用例文件。测试用例文件包含用CHECK:关keyword标记的行，其后是预期的输出。FileCheck尝试将这些行与传入它的数据进行匹配。如果没有找到匹配，则显示一个错误。将包含测试用例文件sqsumu.s放到llvm/test/MC/Mips目录中:\par
+这已经显示了要在自动化测试用例中运行的部分输入和命令。要验证结果，可以使用FileCheck工具，llvm-mc的输出通过管道传输到这个工具中。另外，FileCheck读取测试用例文件。测试用例文件包含用CHECK:关keyword标记的行，其后是预期的输出。FileCheck尝试将这些行与传入它的数据进行匹配。如果没有找到匹配，则显示一个错误。将包含测试用例文件sqsumu.s放到llvm/test/MC/Mips目录中:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \# RUN: llvm-mc \%s -triple=mips64-linux-gnu -mattr=+sqsum $\setminus$ \\
@@ -127,7 +127,7 @@ LLVM项目使用LIT (LLVM Integrated Tester)作为测试工具。基本上，测
 \hspace*{1cm}sqsumu \$1, \$2, \$3
 \end{tcolorbox}
 
-如果位于llvm/test/Mips/MC文件夹中，那么您可以使用以下命令运行测试，并在最后报告成功:\par
+如果位于llvm/test/Mips/MC文件夹中，那么可以使用以下命令运行测试，并在最后报告成功:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ llvm-lit sqsumu.s \\
@@ -158,9 +158,9 @@ define i64 @hyposquare(i64 \%a, i64 \%b) \{ \\
 \$ llc –mtriple=mips64-linux-gnu –mattr=+sqsum < sqsum.ll
 \end{tcolorbox}
 
-确信在输出中看到了新的sqsum指令。如果删除-mattr =+sqsum选项，还请检查该指令是否未生成。\par
+确信在输出中看到了新的sqsum指令。如果删除-mattr=+sqsum选项，还请检查该指令是否未生成。\par
 
-有了这些知识，就可以构建测试用例了。这一次，使用两个RUN:line:一行检查新指令是否生成，另一行检查是否没有生成。我们可以用一个测试用例文件做到这两点，因为我们可以告诉FileCheck工具寻找与“CHECK:”不同的标签。将测试文件sqsum.ll和以下内容放置到llvm/test/CodeGen/Mips文件夹:\par
+有了这些，就可以构建测试用例了。这一次，使用两个RUN:line:一行检查新指令是否生成，另一行检查是否没有生成。我们可以用一个测试用例文件做到这两点，因为可以告诉FileCheck工具寻找与“CHECK:”不同的标签。将测试文件sqsum.ll和以下内容放置到llvm/test/CodeGen/Mips文件夹:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 ; RUN: llc -mtriple=mips64-linux-gnu -mattr=+sqsum < \%s |$\setminus$ \\
@@ -184,16 +184,16 @@ define i64 @hyposquare(i64 \%a, i64 \%b) \{ \\
 \}
 \end{tcolorbox}
 
-与其他测试一样，您可以使用以下命令在文件夹中单独运行测试:\par
+与其他测试一样，可以使用以下命令在文件夹中单独运行测试:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ llvm-lit squm.ll
 \end{tcolorbox}
 
-或者，也可以使用以下命令从构建目录运行:
+或者，可以使用以下命令从构建目录运行:
 
 \begin{tcolorbox}[colback=white,colframe=black]
-	\$  ninja check-llvm-mips-codegen
+\$  ninja check-llvm-mips-codegen
 \end{tcolorbox}
 
 通过这些步骤，可以使用新指令增强LLVM汇编程序，允许指令选择使用这个新指令，并验证编码是否正确，是否按照预期完成代码生成的工作。\par

@@ -1,8 +1,8 @@
 在上一节中，您看到许多Pass在后端运行。然而，这些Pass中的大多数不是在LLVM IR上运行，而是在MIR上运行。这是依赖于目标的指令表示，因此比LLVM IR更低层。它仍可以包含对虚拟寄存器的引用，因此它还不是纯CPU指令。\par
 
-例如，要查看IR级别的优化，可以告诉llc在每个Pass完成后转储IR。这并不适用于后台的机器Pass，因为它们不在IR上工作。不过，MIR也有类似的功能。。\par
+例如，要查看IR级别的优化，可以告诉llc在每个Pass完成后转储IR。因为它们不在IR上工作，所以并不适用于后台的机器Pass。不过，MIR也有类似的功能。\par
 
-MIR是当前模块中机器指令当前状态的文本表示。它利用了YAML格式，允许序列化和反序列化。基本思想是，可以在某个点停止传递Pass，并以YAML格式检查状态。您还可以修改YAML文件，或者创建您自己的YAML文件，并传递它，并检查结果。这样可以方便地调试和测试。\par
+MIR是当前模块中机器指令当前状态的文本表示。它利用了YAML格式，允许序列化和反序列化。基本思想是，可以在某个点停止传递Pass，并以YAML格式检查状态。您还可以修改YAML文件，或者创建您自己的YAML文件，传递它，并检查结果。这样可以方便地调试和测试。\par
 
 让我们看一下MIR。使用\verb|--|stop-after=finalize-iseloption和我们之前使用的测试输入文件运行llc工具:\par
 
@@ -29,21 +29,21 @@ body: \hspace{3cm}| \\
 
 \end{tcolorbox}
 
-您可以注意几个属性。首先，虚拟寄存器(如\%0)和真实机器寄存器(如\$a0)的混合使用。原因在使用了更底层的ABI。为了跨不同的编译器和语言移植，函数遵循调用约定，这是应用程序二进制接口(ABI)的一部分。该输出用于MIPS机器上的Linux系统，需要使用系统使用的调用规则，第一个参数在寄存器\$a0中传递。MIR输出是在指令选择之后，但在寄存器分配之前生成的，所以仍然可以看到虚拟寄存器的使用。\par
+您可以注意几个属性。首先，虚拟寄存器(如\%0)和真实机器寄存器(如\$a0)的混合使用，原因在使用了更底层的ABI。为了跨不同的编译器和语言移植，函数遵循调用约定，这是应用程序二进制接口(ABI)的一部分。该输出用于MIPS机器上的Linux系统，需要使用系统使用的调用规则，第一个参数在寄存器\$a0中传递。MIR输出是在指令选择之后，但在寄存器分配之前生成的，所以仍然可以看到虚拟寄存器的使用。\par
 
 MIR文件中使用的是机器指令ADDu，而不是LLVM IR中的add指令。您还可以看到虚拟寄存器附加了一个寄存器调用，本例中是gpr32。MIPS体系结构上没有16位寄存器，因此必须使用32位寄存器。\par
 
-bb.0标签为第一个基本块，标签后的缩进内容是基本块的一部分。第一个语句指定在进入基本块时处于活动状态的寄存器。之后，在本例中，只有\$a0和\$a1这两个参数在输入时是活动的。\par
+bb.0标签为第一个基本块，标签后的缩进内容是基本块的一部分。第一个语句指定在进入基本块时处于活动状态的寄存器。在本例中，只有\$a0和\$a1这两个参数在输入时是活动的。\par
 
-MIR文件中还有很多其他细节。你可以在LLVM MIR文档中进行了解 \url{https://llvm.org/docs/MIRLangRef.html}。\par
+MIR文件中还有很多其他细节可以在LLVM MIR文档中进行了解 \url{https://llvm.org/docs/MIRLangRef.html}。\par
 
-您遇到的第一个问题可能是如何找到一个Pass的名称，特别是当只需要检查该Pass之后的输出而不主动处理时。当使用带有llc的-debug-pass=Structure选项时，激活Pass的选项会打印在顶部。如果您想在Mips延迟槽填充器Paa之前停止，那么您需要查看打印的列表，并找到-mipsdelay-slot-filler选项，其也代表相应Pass的名称。\par
+遇到的第一个问题可能是如何找到一个Pass的名称，特别是当只需要检查该Pass之后的输出而不主动处理时。当使用带有llc的-debug-pass=Structure选项时，激活Pass的选项会打印在顶部。如果想在Mips延迟槽填充器Pass之前停止，那么您需要查看打印的列表，并找到-mipsdelay-slot-filler选项，其也代表相应Pass的名称。\par
 
-MIR文件格式的主要应用是在后端辅助测试机通过。使用llc和\verb|--|stop-after选项，在指定Pass后得到MIR。通常，您将使用它作为预期测试用例的基础。您要注意的第一件事是，MIR输出非常冗长。例如，许多字段是空的。为了减少这种混乱，可以在llc命令行中添加-simplify-mir选项。\par
+MIR文件格式的主要应用是在后端辅助测试机通过。使用llc和\verb|--|stop-after选项，在指定Pass后得到MIR。通常，使用它作为预期测试用例的基础。您要注意的第一件事是，MIR输出非常冗长。例如，许多字段是空的。为了减少这种混乱，可以在llc命令行中添加-simplify-mir选项。\par
 
 您可以根据测试用例的需要保存和更改MIR。llc工具可以运行一个Pass，这是与MIR文件测试的完美匹配。我们假设您想要测试MIPS延迟槽填充器Pass。延迟槽是RISC体系结构(如MIPS或SPARC)的一个特殊属性:跳转后的下一条指令总是是执行。因此，编译器必须确保在每次跳转后都有合适的指令，而这个Pass就是执行这个任务的。\par
 
-我们在运行Pass之前生成MIR:\par
+在运行Pass之前生成MIR:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 \$ llc -mtriple=mips-linux-gnu $\setminus$ \\
@@ -51,7 +51,7 @@ MIR文件格式的主要应用是在后端辅助测试机通过。使用llc和\v
 \hspace*{2cm}< sum.ll >delay.mir
 \end{tcolorbox}
 
-输出要小很多，因为我们使用了-simplify-mir选项。函数体如下所示:\par
+输出要小很多，因为使用了-simplify-mir选项。函数体如下所示:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
 body: \hspace{3cm} | \\
@@ -63,7 +63,7 @@ body: \hspace{3cm} | \\
 \hspace*{1cm}PseudoReturn undef \$ra, implicit \$v0
 \end{tcolorbox}
 
-最值得注意的是，您将看到ADDu指令后面是用于返回的apseudo指令。\par
+最值得注意的是，将看到ADDu指令后面是用于返回的apseudo指令。\par
 
 delay.ll文件作为输入，现在运行延迟槽填充器Pass:\par
 
