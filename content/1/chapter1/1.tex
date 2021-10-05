@@ -85,17 +85,17 @@ Fedora 33和RedHat Enterprise Linux 8.3的包管理器称为DNF。和Ubuntu一�
 LLVM项目使用Git进行版本控制。如果没有使用过Git，那么应该先做一些Git的基本配置;也就是说，设置用户名和电子邮件地址。如果提交更改，将使用这两条信息。以下命令中，将Jane替换为您的姓名，将jane@email.org替换为您的电子邮件:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
-	\$ git config --global user.email "jane@email.org"
+	\$ git config \verb|--|global user.email "jane@email.org"
 \end{tcolorbox}
 
 \begin{tcolorbox}[colback=white,colframe=black]
-	\$ git config --global user.name "Jane"
+	\$ git config \verb|--|global user.name "Jane"
 \end{tcolorbox}
 
 通常情况下，Git使用vi编辑器提交消息。如果您更喜欢使用另一种编辑器，可以以类似的方式更改配置，例如：要使用nano编辑器:\par
 
 \begin{tcolorbox}[colback=white,colframe=black]
-	\$ git config --global core.editor nano
+	\$ git config \verb|--|global core.editor nano
 \end{tcolorbox}
 
 关于git的更多信息，请参阅由Packt出版的另一本书，《Git Version Control Cookbook - Second Edition》(\url{https://www.packtpub.com/product/git-version-control-cookbook/9781782168454})。\par

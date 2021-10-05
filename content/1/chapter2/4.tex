@@ -1,4 +1,4 @@
-根据上一节中的信息，您现在可以使用LLVM库创建自己的项目。下面几节介绍一种名为Tiny的小型语言，这个项目将称为tinylang。这里定义了这样一个项目的结构。尽管本节中的工具只是一个“Hello, world”，但它的结构与实际编译器所需的所有部分一样。\par
+根据上一节中的信息，您现在可以使用LLVM库创建自己的项目。下面几节介绍一种名为Tiny的小型语言，这个项目将称为tinylang。尽管本节中的工具只是一个“Hello, world”，但它的结构与实际编译器所需的所有部分一样。\par
 
 \hspace*{\fill} \par %插入空行
 \textbf{创建目录结构}
@@ -7,11 +7,11 @@
 
 首先，假设tinylang应该与LLVM一起构建。在哪里放置项目有不同的选择。第一种解决方案是在llvm-projects目录中为项目创建一个子目录。此目录中的所有项目都将作为构建LLVM的一部分使用并构建。在并行项目布局创建之前，这是标准的构建方式，例如：clang。\par
 
-第二种选择是将tinylang项目放在顶层目录中。因为它不是一个正式的LLVM项目，所以无需让CMake脚本知道。当运行cmake时，需要指定-DLLVM\underline{~}ENABLE\underline{~}PROJECTS=tinylang，以便在构建中包含项目。\par
+第二种选择是将tinylang项目放在顶层目录中。因为它不是一个正式的LLVM项目，所以无需让CMake知道。当运行cmake时，需要指定-DLLVM\underline{~}ENABLE\underline{~}PROJECTS=tinylang，以便在构建中包含项目。\par
 
-第三种选择是将项目目录放在其他地方，即llvm-project目录之外。当然，需要告诉CMake关于这个位置的信息。例如，若位置是/src/tinylang，那么需要指定-DLLVM\underline{~}ENABLE\underline{~}PROJECTS=tinylang -DLLVM\underline{~}EXTERNAL\underline{~}TINYLANG\underline{~}SOURCE\underline{~}DIR=/src/tinylang。\par
+第三种选择是将项目目录放在其他地方，即llvm-project目录之外。当然，需要告诉CMake关于这个位置的信息。若位置是/src/tinylang，那么需要指定-DLLVM\underline{~}ENABLE\underline{~}PROJECTS=tinylang -DLLVM\underline{~}EXTERNAL\underline{~}TINYLANG\underline{~}SOURCE\underline{~}DIR=/src/tinylang。\par
 
-如果将项目作为独立项目构建，那么需要找到LLVM库。这是在CMakeLists.txt中完成的，本节稍后将讨论这个文件。\par
+如果将项目作为独立项目构建，则需要找到LLVM库。这是在CMakeLists.txt中完成的，本节稍后将讨论这个。\par
 
 了解了可能的选择后，哪一个最好呢?使您的项目成为LLVM源代码树的一部分有点不灵活。要是您不打算将项目添加到顶层项目列表中，建议使用一个单独的目录。可以在GitHub或类似的服务上维护，而不用担心如何与LLVM项目同步。正如前面所示，您仍然可以与其他LLVM项目一起构建它。\par
 
@@ -36,7 +36,7 @@
 cmake\underline{~}minimum\underline{~}required(VERSION 3.13.4)
 \end{tcolorbox}
 
-\item 下一个语句是if()。如果条件为真，那么项目将独立构建，并且需要额外的设置。该条件使用两个变量，CMAKE\underline{~}SOURCE\underline{~}DIR和CMAKE\underline{~}CURRENT\underline{~}SOURCE\underline{~}DIR。CMAKE\underline{~}SOURCE\underline{~}DIR变量是在CMAKE命令行中给出的顶层源目录。正如在关于目录布局的讨论中所看到的，每个带有源文件的目录都有一个CMakeLists.txt。CMakeLists.txt所位于的当前文件夹记录在CMake\underline{~}CURRENT\underline{~}SOURCE\underline{~}DIR变量中。如果两个变量具有相同的字符串值，那么项目将独立构建。否则，CMAKE\underline{~}SOURCE\underline{~}DIR将是llvm目录:
+\item 下一个语句是if()。如果条件为真，那么项目将独立构建，并且需要额外的设置。该条件使用两个变量，CMAKE\underline{~}SOURCE\underline{~}DIR和CMAKE\underline{~}CURRENT\underline{~}SOURCE\underline{~}DIR。CMAKE\underline{~}SOURCE\underline{~}DIR变量是在CMAKE命令行中给出的顶层源目录。正如在关于目录布局的讨论中所看到的，每个带有源文件的目录都有一个CMakeLists.txt。CMakeLists.txt所位于的当前文件夹记录在CMAKE\underline{~}CURRENT\underline{~}SOURCE\underline{~}DIR变量中。如果两个变量具有相同的字符串值，那么项目将独立构建。否则，CMAKE\underline{~}SOURCE\underline{~}DIR将是llvm目录:
 \begin{tcolorbox}[colback=white,colframe=black]
 if(CMAKE\underline{~}SOURCE\underline{~}DIR STREQUAL CMAKE\underline{~}CURRENT\underline{~}SOURCE\underline{~}DIR)
 \end{tcolorbox}
@@ -98,7 +98,7 @@ set(TINYLANG\underline{~}VERSION\underline{~}STRING "0.1") \\
 \${CMAKE\underline{~}CURRENT\underline{~}BINARY\underline{~}DIR}/include/tinylang/Basic/Version.inc)
 \end{tcolorbox}
 
-\item 接下来，将包含另一个CMake模块。AddTinylang模块有一些辅助功能:
+\item 接下来，将包含另一个CMake模块。AddTinylang模块中，有一些辅助功能:
 \begin{tcolorbox}[colback=white,colframe=black]
 	include(AddTinylang)
 \end{tcolorbox}
@@ -264,7 +264,7 @@ int main(int argc_, const char **argv_) {
 }
 \end{lstlisting}
 
-尽管只是一个友好的工具，但源码使用了LLVM功能。调用llvm::InitLLVM()执行一些基本的初始化。Windows上，参数会被转换为Unicode，以便对命令行解析进行统一处理。在应用程序崩溃的情况下(希望不太可能)，将安装打印堆栈跟踪处理程序。它输出调用层次结构，从发生崩溃的函数开始。要查看真正的函数名，而不是十六进制地址，需要提供调试符号。\par
+尽管只是一个友好的工具，但在源码使用了LLVM功能。调用llvm::InitLLVM()执行一些基本的初始化。Windows上，参数会转换为Unicode，以便对命令行解析进行统一处理。在应用程序崩溃的情况下(希望不太可能)，将安装打印堆栈跟踪处理程序。它输出调用层次结构，从发生崩溃的函数开始。要查看真正的函数名，而不是十六进制地址，需要提供调试符号。\par
 
 LLVM不使用C++标准库的iostream类，它有自己的实现。llvm::outs()是输出流，用来向用户发送消息。\par
 
@@ -308,9 +308,9 @@ LLVM不使用C++标准库的iostream类，它有自己的实现。llvm::outs()�
 \$ ../llvm-12/bin/tinylang
 \end{tcolorbox}
 
-\item 您应该看到一些友好的消息。请同时检查Basic库是否安装:
+\item 您会看到一些友好的消息。同时，请检查Basic库是否安装:
 \begin{tcolorbox}[colback=white,colframe=black]
-	\$ ls ../llvm-12/lib/libtinylang*
+\$ ls ../llvm-12/lib/libtinylang*
 \end{tcolorbox}
 这将显示有一个名为libtinylangBasic.a的文件。
 
